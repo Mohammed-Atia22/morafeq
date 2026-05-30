@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: morafeq_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: morafeq_dev
+      MYSQL_USER: morafeq_user
+      MYSQL_PASSWORD: morafeq_password
+    ports:
+      - '3307:3306'
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    container_name: airbnb_redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+
+  adminer:
+    image: adminer
+    container_name: morafeq_adminer
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+
+volumes:
+  mysql_data:
+  redis_data:
