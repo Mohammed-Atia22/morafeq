@@ -1,6 +1,32 @@
 version: '3.8'
 
 services:
+
+  # ─── API ──────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: morafeq_api
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      DATABASE_URL: mysql://morafeq_user:morafeq_password@mysql:3306/morafeq_dev
+      NODE_ENV: production
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: 7d
+      FRONTEND_URL: ${FRONTEND_URL}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── MySQL ────────────────────────────────────
   mysql:
     image: mysql:8.0
     container_name: morafeq_mysql
@@ -14,22 +40,36 @@ services:
       - '3307:3306'
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ─── Redis ────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: airbnb_redis
+    container_name: morafeq_redis
     restart: unless-stopped
     ports:
       - '6379:6379'
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ─── Adminer ──────────────────────────────────
   adminer:
     image: adminer
     container_name: morafeq_adminer
     restart: unless-stopped
     ports:
       - '8080:8080'
+    depends_on:
+      - mysql
 
 volumes:
   mysql_data:
