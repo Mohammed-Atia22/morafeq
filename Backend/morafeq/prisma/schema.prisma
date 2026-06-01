@@ -1,0 +1,270 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url = env("DATABASE_URL")
+}
+
+model User {
+  id           Int       @id @default(autoincrement()) @db.UnsignedInt
+  email        String    @unique @db.VarChar(255)
+  passwordHash String?   @db.VarChar(255)
+  firstName    String    @db.VarChar(100)
+  lastName     String    @db.VarChar(100)
+  avatarUrl    String?   @db.VarChar(500)
+  phone        String?   @db.VarChar(20)
+  role         UserRole  @default(GUEST)
+  isVerified   Boolean   @default(false)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  bookings     Booking[]
+  listings     Listing[]
+  sentMessages Message[]
+  reviews      Review[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Category {
+  id       Int       @id @default(autoincrement()) @db.UnsignedInt
+  name     String    @db.VarChar(100)
+  iconUrl  String?   @db.VarChar(500)
+  slug     String    @unique @db.VarChar(100)
+  listings Listing[]
+
+  @@index([slug])
+  @@map("categories")
+}
+
+model Listing {
+  id                 Int                 @id @default(autoincrement()) @db.UnsignedInt
+  hostId             Int                 @db.UnsignedInt
+  categoryId         Int?                @db.UnsignedInt
+  title              String              @db.VarChar(255)
+  description        String              @db.Text
+  propertyType       PropertyType
+  roomType           RoomType
+  address            String              @db.VarChar(500)
+  city               String              @db.VarChar(100)
+  state              String?             @db.VarChar(100)
+  country            String              @db.VarChar(100)
+  zipCode            String?             @db.VarChar(20)
+  lat                Decimal             @db.Decimal(10, 8)
+  lng                Decimal             @db.Decimal(11, 8)
+  pricePerNight      Int                 @db.UnsignedInt
+  cleaningFee        Int                 @default(0) @db.UnsignedInt
+  maxGuests          Int                 @db.UnsignedInt
+  bedrooms           Int                 @db.UnsignedInt
+  beds               Int                 @db.UnsignedInt
+  bathrooms          Decimal             @db.Decimal(3, 1)
+  status             ListingStatus       @default(DRAFT)
+  isDeleted          Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  availabilityBlocks AvailabilityBlock[]
+  bookings           Booking[]
+  amenities          ListingAmenity[]
+  photos             ListingPhoto[]
+  category           Category?           @relation(fields: [categoryId], references: [id])
+  host               User                @relation(fields: [hostId], references: [id])
+  reviews            Review[]
+
+  @@index([hostId])
+  @@index([city])
+  @@index([country])
+  @@index([status])
+  @@index([pricePerNight])
+  @@index([lat, lng])
+  @@index([categoryId], map: "listings_categoryId_fkey")
+  @@map("listings")
+}
+
+model ListingPhoto {
+  id           Int      @id @default(autoincrement()) @db.UnsignedInt
+  listingId    Int      @db.UnsignedInt
+  url          String   @db.VarChar(500)
+  thumbnailUrl String?  @db.VarChar(500)
+  sortOrder    Int      @default(0) @db.UnsignedInt
+  isCover      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  listing      Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@map("listing_photos")
+}
+
+model ListingAmenity {
+  id         Int     @id @default(autoincrement()) @db.UnsignedInt
+  listingId  Int     @db.UnsignedInt
+  amenityKey String  @db.VarChar(50)
+  listing    Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, amenityKey])
+  @@index([listingId])
+  @@map("listing_amenities")
+}
+
+model AvailabilityBlock {
+  id          Int         @id @default(autoincrement()) @db.UnsignedInt
+  listingId   Int         @db.UnsignedInt
+  blockedDate DateTime    @db.Date
+  reason      BlockReason @default(HOST_BLOCKED)
+  listing     Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, blockedDate])
+  @@index([listingId, blockedDate])
+  @@map("availability_blocks")
+}
+
+model Booking {
+  id            Int           @id @default(autoincrement()) @db.UnsignedInt
+  guestId       Int           @db.UnsignedInt
+  listingId     Int           @db.UnsignedInt
+  checkIn       DateTime      @db.Date
+  checkOut      DateTime      @db.Date
+  guestsCount   Int           @db.UnsignedInt
+  nights        Int           @db.UnsignedInt
+  pricePerNight Int           @db.UnsignedInt
+  cleaningFee   Int           @default(0) @db.UnsignedInt
+  serviceFee    Int           @db.UnsignedInt
+  totalPrice    Int           @db.UnsignedInt
+  status        BookingStatus @default(PENDING)
+  cancelledAt   DateTime?
+  cancelReason  String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  guest         User          @relation(fields: [guestId], references: [id])
+  listing       Listing       @relation(fields: [listingId], references: [id])
+  messages      Message[]
+  payment       Payment?
+  reviews       Review[]
+
+  @@index([guestId])
+  @@index([listingId])
+  @@index([status])
+  @@index([checkIn, checkOut])
+  @@map("bookings")
+}
+
+model Payment {
+  id                    Int           @id @default(autoincrement()) @db.UnsignedInt
+  bookingId             Int           @unique @db.UnsignedInt
+  stripePaymentIntentId String?       @unique @db.VarChar(255)
+  stripeChargeId        String?       @db.VarChar(255)
+  stripeRefundId        String?       @db.VarChar(255)
+  amount                Int           @db.UnsignedInt
+  hostPayoutAmount      Int?          @db.UnsignedInt
+  platformFee           Int?          @db.UnsignedInt
+  currency              String        @default("usd") @db.VarChar(3)
+  status                PaymentStatus @default(PENDING)
+  refundReason          String?       @db.Text
+  paidAt                DateTime?
+  refundedAt            DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  booking               Booking       @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@index([stripePaymentIntentId])
+  @@map("payments")
+}
+
+model Review {
+  id            Int        @id @default(autoincrement()) @db.UnsignedInt
+  bookingId     Int        @db.UnsignedInt
+  reviewerId    Int        @db.UnsignedInt
+  listingId     Int        @db.UnsignedInt
+  rating        Int        @db.UnsignedInt
+  cleanliness   Int?       @db.UnsignedInt
+  communication Int?       @db.UnsignedInt
+  location      Int?       @db.UnsignedInt
+  value         Int?       @db.UnsignedInt
+  comment       String?    @db.Text
+  type          ReviewType
+  isVisible     Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  booking       Booking    @relation(fields: [bookingId], references: [id])
+  listing       Listing    @relation(fields: [listingId], references: [id])
+  reviewer      User       @relation(fields: [reviewerId], references: [id])
+
+  @@unique([bookingId, reviewerId, type])
+  @@index([listingId])
+  @@index([reviewerId])
+  @@map("reviews")
+}
+
+model Message {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  bookingId Int      @db.UnsignedInt
+  senderId  Int      @db.UnsignedInt
+  content   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+  sender    User     @relation(fields: [senderId], references: [id])
+
+  @@index([bookingId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+enum UserRole {
+  GUEST
+  HOST
+  ADMIN
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  VILLA
+  CABIN
+  STUDIO
+  OTHER
+}
+
+enum RoomType {
+  ENTIRE_PLACE
+  PRIVATE_ROOM
+  SHARED_ROOM
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED_GUEST
+  CANCELLED_HOST
+  COMPLETED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  CAPTURED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  FAILED
+}
+
+enum BlockReason {
+  BOOKED
+  HOST_BLOCKED
+  MAINTENANCE
+}
+
+enum ReviewType {
+  GUEST_TO_HOST
+  HOST_TO_GUEST
+}
