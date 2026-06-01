@@ -1,22 +1,20 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import Navbar from '../components/Navbar'
-import Landing from '../pages/Landing'
-import Login from '../pages/Login'
-import Register from '../pages/Register'
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Navbar from "../components/Navbar";
+import Landing from "../pages/Landing";
+import Login from "../pages/Login";
+import Register from "../pages/Register";
 
-function AppRouter() {
+const AppRouter = () => {
   return (
-    <Router>
+    <BrowserRouter>
       <Navbar />
-      <main>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-        </Routes>
-      </main>
-    </Router>
-  )
-}
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
 
-export default AppRouter
+export default AppRouter;

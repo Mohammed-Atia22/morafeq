@@ -1,4 +1,4 @@
-function Input({ label, type = 'text', name, value, onChange, placeholder }) {
+function Input({ label, type = "text", name, value, onChange, placeholder }) {
   return (
     <label className="input__group">
       <span>{label}</span>
@@ -11,7 +11,7 @@ function Input({ label, type = 'text', name, value, onChange, placeholder }) {
         className="input__field"
       />
     </label>
-  )
+  );
 }
 
-export default Input
+export default Input;
