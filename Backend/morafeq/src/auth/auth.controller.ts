@@ -10,10 +10,13 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  UsePipes,
+  ValidationPipe,
+  Patch,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
+import { confirmrDto, forgetDto, RegisterDto, ResendOtpDto, resetDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
@@ -27,21 +30,31 @@ export class AuthController {
   // ─── Register ────────────────────────────
 
   @Post('register')
+  @UsePipes(new ValidationPipe())
   async register(
-    @Body() dto: RegisterDto,
-    @Res({ passthrough: true }) res: Response,
+    @Body() body:RegisterDto,
   ) {
-    const result = await this.authService.register(dto);
 
-    // put refresh token in cookie — JS cannot read this
-    this.setRefreshCookie(res, result.refreshToken);
-
-    // only send access token in response body
-    return {
-      user:        result.user,
-      accessToken: result.accessToken,
-    };
+    return this.authService.register(body)
   }
+
+
+  // ─── confirm otp ────────────────────────────
+
+  @Patch('confirm')
+  @UsePipes(new ValidationPipe())
+  async confirm(
+    @Body() body:confirmrDto,
+  ) {
+
+    return this.authService.confirm(body)
+  }
+
+
+
+
+
+
 
   // ─── Login ───────────────────────────────
 
@@ -54,11 +67,40 @@ export class AuthController {
     const result = await this.authService.login(dto);
     this.setRefreshCookie(res, result.refreshToken);
 
-    return {
-      user:        result.user,
+    return {  
+      user: result.user,
       accessToken: result.accessToken,
     };
   }
+
+
+
+  @Patch('forgetPassword')
+  @HttpCode(HttpStatus.OK) 
+  @UsePipes(new ValidationPipe())
+  async forgetPassword(
+    @Body() body: forgetDto,
+  ) {
+    return this.authService.forgetPassword(body)
+  }
+
+
+  @Patch('resetPassword')
+  @HttpCode(HttpStatus.OK) 
+  @UsePipes(new ValidationPipe())
+  async resetPassword(
+    @Body() body: resetDto,
+  ) {
+    return this.authService.resetPassword(body)
+  }
+
+
+
+@Post('resend-otp')
+@UsePipes(new ValidationPipe())
+resendOtp(@Body() body: ResendOtpDto) {
+  return this.authService.resendOtp(body);
+}
 
   // ─── Get current user ────────────────────
 
@@ -103,10 +145,7 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  async googleCallback(
-    @Req() req: Request,
-    @Res() res: Response,
-  ) {
+  async googleCallback(@Req() req: Request, @Res() res: Response) {
     const result = await this.authService.googleLogin(req.user as any);
     this.setRefreshCookie(res, result.refreshToken);
 
@@ -120,11 +159,12 @@ export class AuthController {
 
   private setRefreshCookie(res: Response, token: string) {
     res.cookie('refresh_token', token, {
-      httpOnly: true,   // JS cannot access this cookie
-      secure:   process.env.NODE_ENV === 'production',
+      httpOnly: true, // JS cannot access this cookie
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge:   7 * 24 * 60 * 60 * 1000, // 7 days in ms
-      path:     '/api/v1/auth/refresh',   // only sent to refresh endpoint
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+      path: '/api/v1/auth/refresh', // only sent to refresh endpoint
     });
   }
 }
+

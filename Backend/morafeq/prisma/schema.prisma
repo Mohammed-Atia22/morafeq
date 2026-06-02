@@ -4,28 +4,35 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id           Int       @id @default(autoincrement()) @db.UnsignedInt
-  email        String    @unique @db.VarChar(255)
-  passwordHash String?   @db.VarChar(255)
-  firstName    String    @db.VarChar(100)
-  lastName     String    @db.VarChar(100)
-  avatarUrl    String?   @db.VarChar(500)
-  phone        String?   @db.VarChar(20)
-  role         UserRole  @default(GUEST)
-  isVerified   Boolean   @default(false)
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  bookings     Booking[]
-  listings     Listing[]
-  sentMessages Message[]
-  reviews      Review[]
+  id               Int         @id @default(autoincrement()) @db.UnsignedInt
+  email            String      @unique @db.VarChar(255)
+  passwordHash     String?     @db.VarChar(255)
+  firstName        String      @db.VarChar(100)
+  lastName         String      @db.VarChar(100)
+  avatarUrl        String?     @db.VarChar(500)
+  phone            String?     @db.Text
+  phoneCountry     String?     @db.VarChar(2)
+  phoneCountryCode String?     @db.VarChar(5)
+  phoneHash        String?     @unique @db.VarChar(64)
+  role             UserRole    @default(GUEST)
+  gender           genderTypes @default(male)
+  isVerified       Boolean     @default(false)
+  isActive         Boolean     @default(true)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  bookings         Booking[]
+  listings         Listing[]
+  sentMessages     Message[]
+  reviews          Review[]
+  otps             OTP[]
 
   @@index([email])
+  @@index([phoneCountry])
+  @@index([phoneCountryCode])
   @@map("users")
 }
 
@@ -38,6 +45,18 @@ model Category {
 
   @@index([slug])
   @@map("categories")
+}
+
+model OTP {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  otp       String   @db.VarChar(100)
+  userId    Int      @db.UnsignedInt
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otpTypes  OTPTypes
+
+  @@index([userId])
+  @@map("otps")
 }
 
 model Listing {
@@ -267,4 +286,14 @@ enum BlockReason {
 enum ReviewType {
   GUEST_TO_HOST
   HOST_TO_GUEST
+}
+
+enum OTPTypes {
+  EMAIL_CONFIRMATION
+  RESET_PASSWORD
+}
+
+enum genderTypes {
+  male
+  female
 }

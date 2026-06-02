@@ -29,6 +29,8 @@ async function bootstrap() {
   // All routes start with /api/v1
   app.setGlobalPrefix('api/v1');
 
+  
+
   // Swagger API docs
   const config = new DocumentBuilder()
     .setTitle('Morafeq API')
