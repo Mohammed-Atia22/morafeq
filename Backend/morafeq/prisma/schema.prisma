@@ -268,3 +268,9 @@ enum ReviewType {
   GUEST_TO_HOST
   HOST_TO_GUEST
 }
+
+// npx prisma migrate dev --name add-otp-fields
+// docker-compose up -d
+
+// docker build -t my-app .
+// docker run -p 3001:3001 my-app
