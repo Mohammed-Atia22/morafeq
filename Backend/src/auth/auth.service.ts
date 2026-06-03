@@ -125,6 +125,7 @@ if (existingPhone) {
 
     return { user };
     } catch (error) {
+      console.log(error);
       throw new InternalServerErrorException(error)
     }
   }

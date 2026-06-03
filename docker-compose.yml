@@ -1,8 +1,5 @@
-version: '3.8'
-
 services:
 
-  # ─── API ──────────────────────────────────────
   api:
     build:
       context: .
@@ -11,22 +8,17 @@ services:
     restart: unless-stopped
     ports:
       - '3001:3001'
+    env_file:
+      - ./Backend/.env
     environment:
       DATABASE_URL: mysql://morafeq_user:morafeq_password@mysql:3306/morafeq_dev
       NODE_ENV: production
-      PORT: 3001
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRES_IN: 15m
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      JWT_REFRESH_EXPIRES_IN: 7d
-      FRONTEND_URL: ${FRONTEND_URL}
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  # ─── MySQL ────────────────────────────────────
   mysql:
     image: mysql:8.0
     container_name: morafeq_mysql
@@ -46,7 +38,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── Redis ────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: morafeq_redis
@@ -61,7 +52,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── Adminer ──────────────────────────────────
   adminer:
     image: adminer
     container_name: morafeq_adminer
