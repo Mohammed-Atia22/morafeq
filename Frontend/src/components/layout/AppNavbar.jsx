@@ -1,14 +1,14 @@
-import { Link, NavLink } from 'react-router-dom'
-import { useAuth } from '../../hooks/useAuth'
+import { Link, NavLink } from "react-router-dom";
+import { useAuth } from "../../features/auth/hooks/useAuth";
 
 const navLinkClass = ({ isActive }) =>
   [
-    'text-sm font-semibold transition hover:text-white',
-    isActive ? 'text-white' : 'text-slate-300',
-  ].join(' ')
+    "text-sm font-semibold transition hover:text-white",
+    isActive ? "text-white" : "text-slate-300",
+  ].join(" ");
 
 export function AppNavbar() {
-  const { isAuthenticated, user, logout } = useAuth()
+  const { isAuthenticated, user, logout } = useAuth();
 
   return (
     <header className="fixed inset-x-0 top-0 z-30 border-b border-white/10 bg-[#102b4a]/95 backdrop-blur">
@@ -27,7 +27,10 @@ export function AppNavbar() {
           <a href="#listings" className="text-sm font-semibold text-slate-300">
             استعراض العقارات
           </a>
-          <a href="#how-it-works" className="text-sm font-semibold text-slate-300">
+          <a
+            href="#how-it-works"
+            className="text-sm font-semibold text-slate-300"
+          >
             كيف يعمل
           </a>
           <a href="#contact" className="text-sm font-semibold text-slate-300">
@@ -39,7 +42,7 @@ export function AppNavbar() {
           {isAuthenticated ? (
             <>
               <span className="hidden text-sm font-semibold text-slate-200 sm:block">
-                {user?.firstName ? `مرحبا، ${user.firstName}` : 'مرحبا بك'}
+                {user?.firstName ? `مرحبا، ${user.firstName}` : "مرحبا بك"}
               </span>
               <button
                 type="button"
@@ -68,5 +71,5 @@ export function AppNavbar() {
         </div>
       </nav>
     </header>
-  )
+  );
 }

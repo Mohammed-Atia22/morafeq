@@ -1,55 +1,53 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router-dom'
-import { AuthCard } from '../../components/auth/AuthCard'
-import { AuthLayout } from '../../components/auth/AuthLayout'
-import { AuthMessage } from '../../components/auth/AuthMessage'
-import { FormField, inputClass } from '../../components/auth/FormField'
-import { GoogleButton } from '../../components/auth/GoogleButton'
-import { useAuth } from '../../hooks/useAuth'
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { Link, useNavigate } from "react-router-dom";
+import { AuthCard } from "../../components/auth/AuthCard";
+import { AuthLayout } from "../../components/auth/AuthLayout";
+import { AuthMessage } from "../../components/auth/AuthMessage";
+import { FormField, inputClass } from "../../components/auth/FormField";
+import { GoogleButton } from "../../components/auth/GoogleButton";
+import { useAuth } from "../../features/auth/hooks/useAuth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
 
-
-
 const schema = zod.object({
   email: zod
-        .string()
-        .trim()
-        .toLowerCase()
-        .nonempty("البريد الإلكتروني مطلوب")
-        .email("أدخل بريد إلكتروني صحيح"),
+    .string()
+    .trim()
+    .toLowerCase()
+    .nonempty("البريد الإلكتروني مطلوب")
+    .email("أدخل بريد إلكتروني صحيح"),
 
-        password: zod
-              .string()
-              .nonempty("كلمة المرور مطلوبة")
-              .min(8, "كلمة المرور يجب ألا تقل عن 8 أحرف")
-              .regex(
-                /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/,
-                "استخدم حرف كبير وصغير ورقم ورمز",
-              )
-})
+  password: zod
+    .string()
+    .nonempty("كلمة المرور مطلوبة")
+    .min(8, "كلمة المرور يجب ألا تقل عن 8 أحرف")
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/,
+      "استخدم حرف كبير وصغير ورقم ورمز",
+    ),
+});
 export function LoginPage() {
-  const navigate = useNavigate()
-  const { login } = useAuth()
-  const [serverError, setServerError] = useState('')
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  const [serverError, setServerError] = useState("");
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm({
-    resolver: zodResolver(schema)
-  })
+    resolver: zodResolver(schema),
+  });
 
   const onSubmit = async (values) => {
-    setServerError('')
+    setServerError("");
     try {
-      await login(values)
-      navigate('/')
+      await login(values);
+      navigate("/");
     } catch (error) {
-      setServerError(error.message)
+      setServerError(error.message);
     }
-  }
+  };
 
   return (
     <AuthLayout>
@@ -59,7 +57,7 @@ export function LoginPage() {
         activeTab="login"
         footer={
           <>
-            ليس لديك حساب؟{' '}
+            ليس لديك حساب؟{" "}
             <Link className="font-black text-[#075ed8]" to="/register">
               إنشاء حساب جديد
             </Link>
@@ -74,7 +72,7 @@ export function LoginPage() {
               className={inputClass}
               type="email"
               placeholder="example@email.com"
-              {...register('email')}
+              {...register("email")}
             />
           </FormField>
 
@@ -83,7 +81,7 @@ export function LoginPage() {
               className={inputClass}
               type="password"
               placeholder="أدخل كلمة المرور"
-              {...register('password')}
+              {...register("password")}
             />
           </FormField>
 
@@ -105,7 +103,7 @@ export function LoginPage() {
             disabled={isSubmitting}
             className="h-[52px] w-full rounded-xl bg-[#075ed8] text-base font-black text-white shadow-lg shadow-blue-700/25 transition hover:bg-[#0451bd] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isSubmitting ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
+            {isSubmitting ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
           </button>
 
           <div className="flex items-center gap-3 text-xs font-semibold text-slate-400">
@@ -118,5 +116,5 @@ export function LoginPage() {
         </form>
       </AuthCard>
     </AuthLayout>
-  )
+  );
 }

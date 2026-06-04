@@ -1,4 +1,4 @@
-import { googleAuthUrl } from '../../services/api'
+import { googleAuthUrl } from "../../features/auth/services/authApi";
 
 export function GoogleButton() {
   return (
@@ -9,5 +9,5 @@ export function GoogleButton() {
       <span className="text-xl font-black text-[#4285f4]">G</span>
       المتابعة عبر Google
     </a>
-  )
+  );
 }

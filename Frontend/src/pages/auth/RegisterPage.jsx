@@ -6,7 +6,7 @@ import { AuthLayout } from "../../components/auth/AuthLayout";
 import { AuthMessage } from "../../components/auth/AuthMessage";
 import { FormField, inputClass } from "../../components/auth/FormField";
 import { GoogleButton } from "../../components/auth/GoogleButton";
-import { authApi } from "../../services/api";
+import { authApi } from "../../features/auth/services/authApi";
 import axios from "axios";
 import { getCountries, getCountryCallingCode } from "libphonenumber-js";
 import toast from "react-hot-toast";
