@@ -47,10 +47,10 @@ export function ConfirmOtpPage() {
     setSuccess("");
     try {
       const res = await confirmOtp(values);
-      
+
       if (res && res.user) {
         toast.success("تم التحقق بنجاح");
-        
+
         // Check if user has completed onboarding
         if (!res.user.onboardingCompleted) {
           navigate("/onboarding");

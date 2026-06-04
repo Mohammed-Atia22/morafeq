@@ -7,5 +7,5 @@ export function OwnerPage() {
         <p className="mt-2 text-slate-600">يمكنك الآن بدء إدارة عقاراتك</p>
       </div>
     </div>
-  )
+  );
 }

@@ -7,5 +7,5 @@ export function ExpatriatePage() {
         <p className="mt-2 text-slate-600">يمكنك الآن البحث عن السكن المناسب</p>
       </div>
     </div>
-  )
+  );
 }
