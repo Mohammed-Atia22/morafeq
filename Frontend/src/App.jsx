@@ -7,35 +7,22 @@ import { ConfirmOtpPage } from './pages/auth/ConfirmOtpPage'
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { AuthCallbackPage } from './pages/auth/AuthCallbackPage'
-import { GuestRoute } from './routes/GuestRoute'
+import { Toaster } from 'react-hot-toast'
 
 function App() {
   return (
     <AuthProvider>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route
-          path="/login"
-          element={
-            <GuestRoute>
-              <LoginPage />
-            </GuestRoute>
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            <GuestRoute>
-              <RegisterPage />
-            </GuestRoute>
-          }
-        />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route path="/confirm-otp" element={<ConfirmOtpPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Toaster/>
     </AuthProvider>
   )
 }

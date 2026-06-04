@@ -7,7 +7,28 @@ import { AuthMessage } from '../../components/auth/AuthMessage'
 import { FormField, inputClass } from '../../components/auth/FormField'
 import { GoogleButton } from '../../components/auth/GoogleButton'
 import { useAuth } from '../../hooks/useAuth'
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as zod from "zod";
 
+
+
+const schema = zod.object({
+  email: zod
+        .string()
+        .trim()
+        .toLowerCase()
+        .nonempty("البريد الإلكتروني مطلوب")
+        .email("أدخل بريد إلكتروني صحيح"),
+
+        password: zod
+              .string()
+              .nonempty("كلمة المرور مطلوبة")
+              .min(8, "كلمة المرور يجب ألا تقل عن 8 أحرف")
+              .regex(
+                /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/,
+                "استخدم حرف كبير وصغير ورقم ورمز",
+              )
+})
 export function LoginPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
@@ -16,7 +37,9 @@ export function LoginPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm()
+  } = useForm({
+    resolver: zodResolver(schema)
+  })
 
   const onSubmit = async (values) => {
     setServerError('')
@@ -51,13 +74,7 @@ export function LoginPage() {
               className={inputClass}
               type="email"
               placeholder="example@email.com"
-              {...register('email', {
-                required: 'البريد الإلكتروني مطلوب',
-                pattern: {
-                  value: /^\S+@\S+\.\S+$/,
-                  message: 'أدخل بريد إلكتروني صحيح',
-                },
-              })}
+              {...register('email')}
             />
           </FormField>
 
@@ -66,7 +83,7 @@ export function LoginPage() {
               className={inputClass}
               type="password"
               placeholder="أدخل كلمة المرور"
-              {...register('password', { required: 'كلمة المرور مطلوبة' })}
+              {...register('password')}
             />
           </FormField>
 

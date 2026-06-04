@@ -7,6 +7,31 @@ import { AuthMessage } from '../../components/auth/AuthMessage'
 import { FormField, inputClass } from '../../components/auth/FormField'
 import { useAuth } from '../../hooks/useAuth'
 import { authApi } from '../../services/api'
+import axios from 'axios'
+import toast from 'react-hot-toast'
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as zod from "zod";
+
+
+
+const schema = zod.object({
+  email: zod
+        .string()
+        .trim()
+        .toLowerCase()
+        .nonempty("البريد الإلكتروني مطلوب")
+        .email("أدخل بريد إلكتروني صحيح"),
+
+        otp: zod
+              .string()
+              .nonempty("رمز التحقق مطلوب")
+              .min(6, 'رمز التحقق يجب الا يقل عن 6 أرقام')
+              .max(6,'رمز التحقق يجب الا يزيد عن  6 أرقام')
+              .regex(
+                /^\d{6}$/,
+                'رمز التحقق يجب أن يكون 6 أرقام',
+              )
+})
 
 export function ConfirmOtpPage() {
   const navigate = useNavigate()
@@ -27,8 +52,22 @@ export function ConfirmOtpPage() {
     setServerError('')
     setSuccess('')
     try {
-      await confirmOtp(values)
+      // await confirmOtp(values)
+      const res = await axios.patch(
+      "http://localhost:3001/api/v1/auth/confirm",
+      values
+    );
+
+    console.log(res);
+
+    if(res.status== 200){
+      toast.success("otp صحيح")
       navigate('/')
+    }else{
+      console.log(res.data.data);
+      
+    }
+    
     } catch (error) {
       setServerError(error.message)
     }
@@ -66,10 +105,7 @@ export function ConfirmOtpPage() {
               inputMode="numeric"
               maxLength={6}
               placeholder="000000"
-              {...register('otp', {
-                required: 'رمز التحقق مطلوب',
-                pattern: { value: /^\d{6}$/, message: 'رمز التحقق يجب أن يكون 6 أرقام' },
-              })}
+              {...register('otp')}
             />
           </FormField>
 

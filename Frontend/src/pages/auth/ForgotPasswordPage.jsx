@@ -6,6 +6,19 @@ import { AuthLayout } from '../../components/auth/AuthLayout'
 import { AuthMessage } from '../../components/auth/AuthMessage'
 import { FormField, inputClass } from '../../components/auth/FormField'
 import { authApi } from '../../services/api'
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as zod from "zod";
+
+
+
+const schema = zod.object({
+  email: zod
+        .string()
+        .trim()
+        .toLowerCase()
+        .nonempty("البريد الإلكتروني مطلوب")
+        .email("أدخل بريد إلكتروني صحيح")
+})
 
 export function ForgotPasswordPage() {
   const navigate = useNavigate()
@@ -14,7 +27,9 @@ export function ForgotPasswordPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm()
+  } = useForm({
+    resolver: zodResolver(schema)
+  })
 
   const onSubmit = async (values) => {
     setServerError('')

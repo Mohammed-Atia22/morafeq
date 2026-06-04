@@ -8,27 +8,28 @@ datasource db {
 }
 
 model User {
-  id               Int         @id @default(autoincrement()) @db.UnsignedInt
-  email            String      @unique @db.VarChar(255)
-  passwordHash     String?     @db.VarChar(255)
-  firstName        String      @db.VarChar(100)
-  lastName         String      @db.VarChar(100)
-  avatarUrl        String?     @db.VarChar(500)
-  phone            String?     @db.Text
-  phoneCountry     String?     @db.VarChar(2)
-  phoneCountryCode String?     @db.VarChar(5)
-  phoneHash        String?     @unique @db.VarChar(64)
-  role             UserRole    @default(GUEST)
-  gender           genderTypes @default(male)
-  isVerified       Boolean     @default(false)
-  isActive         Boolean     @default(true)
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  bookings         Booking[]
-  listings         Listing[]
-  sentMessages     Message[]
-  reviews          Review[]
-  otps             OTP[]
+  id                  Int         @id @default(autoincrement()) @db.UnsignedInt
+  email               String      @unique @db.VarChar(255)
+  passwordHash        String?     @db.VarChar(255)
+  firstName           String      @db.VarChar(100)
+  lastName            String      @db.VarChar(100)
+  avatarUrl           String?     @db.VarChar(500)
+  phone               String?     @db.Text
+  phoneCountry        String?     @db.VarChar(2)
+  phoneCountryCode    String?     @db.VarChar(5)
+  phoneHash           String?     @unique @db.VarChar(64)
+  role                UserRole    @default(GUEST)
+  onboardingCompleted Boolean     @default(false)
+  gender              genderTypes @default(male)
+  isVerified          Boolean     @default(false)
+  isActive            Boolean     @default(true)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  bookings            Booking[]
+  listings            Listing[]
+  sentMessages        Message[]
+  reviews             Review[]
+  otps                OTP[]
 
   @@index([email])
   @@index([phoneCountry])

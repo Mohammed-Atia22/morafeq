@@ -22,6 +22,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { CompleteOnboardingDto } from './dto/onboarding.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -166,5 +167,17 @@ resendOtp(@Body() body: ResendOtpDto) {
       path: '/api/v1/auth/refresh', // only sent to refresh endpoint
     });
   }
+
+
+  @Patch('onboarding')
+@UseGuards(JwtAuthGuard)
+completeOnboarding(
+  @Req() req: Request & { user: { id: number } },
+  @Body() body: CompleteOnboardingDto,
+) {
+  return this.authService.completeOnboarding(req.user.id , body.role);
 }
+}
+
+
 

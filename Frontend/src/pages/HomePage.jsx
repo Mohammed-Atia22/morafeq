@@ -19,7 +19,10 @@ export function HomePage() {
           <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-black leading-tight sm:text-6xl">
             أهلا بك في سكن
           </h1>
-  
+          <p className="mx-auto mt-5 max-w-2xl text-base font-medium leading-8 text-slate-200 sm:text-lg">
+            هذه الصفحة جاهزة كبداية للمشروع، ويمكنك بناء باقي المنصة هنا بعد
+            الانتهاء من جزء تسجيل الدخول وإنشاء الحساب.
+          </p>
         </div>
       </section>
     </main>

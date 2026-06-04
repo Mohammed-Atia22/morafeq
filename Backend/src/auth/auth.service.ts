@@ -18,7 +18,7 @@ import * as bcrypt from 'bcryptjs';
 import * as CryptoJS from 'crypto-js';
 import { sendEmail } from 'src/common/emails/sendEmail';
 import { OtpRepository } from 'src/repository/otp.repository';
-import { OTPTypes } from '@prisma/client';
+import { OTPTypes , UserRole} from '@prisma/client';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 @Injectable()
@@ -116,14 +116,10 @@ if (existingPhone) {
     })
     await sendEmail({to:email , subject:"confirm OTP" , html:`<h1>code : ${code}</h1>`})
     
-    // 4. generate tokens and return
-    // const tokens = await this.generateTokens(
-    //   user.id,
-    //   user.email,
-    //   user.role,
-    // );
 
-    return { user };
+    return { 
+      message:"the account is created",
+      user };
     } catch (error) {
       throw new InternalServerErrorException(error)
     }
@@ -131,7 +127,8 @@ if (existingPhone) {
   // ─── confirmation ──────────────────────────────
 
  async confirm(body: confirmrDto) {
-  const { email, otp } = body;
+  try {
+    const { email, otp } = body;
 
   const user = await this.prisma.user.findFirst({
     where: {
@@ -205,6 +202,9 @@ if (existingPhone) {
     message: 'Email verified successfully',
     ...tokens,
   };
+  } catch (error) {
+    return {error}
+  }
 }
 
 
@@ -274,6 +274,7 @@ if (existingPhone) {
     firstName: string;
     lastName: string;
     avatarUrl?: string;
+    phone?: string;
   }) {
     // upsert = update if exists, create if not
     const user = await this.prisma.user.upsert({
@@ -282,12 +283,14 @@ if (existingPhone) {
         firstName: googleUser.firstName,
         lastName:  googleUser.lastName,
         avatarUrl: googleUser.avatarUrl,
+        phone:googleUser.phone
       },
       create: {
         email:      googleUser.email.toLowerCase(),
         firstName:  googleUser.firstName,
         lastName:   googleUser.lastName,
         avatarUrl:  googleUser.avatarUrl,
+        phone:  googleUser.phone,
         isVerified: true, // Google already verified the email
       },
     });
@@ -538,6 +541,38 @@ const passwordHash = await bcrypt.hash(newPassword, Number(process.env.SaltRound
 
   return {
     message: 'OTP resent successfully',
+  };
+}
+
+
+
+
+async completeOnboarding(userId: number, role: UserRole) {
+  const updatedUser = await this.prisma.user.update({
+    where: { id: userId },
+    data: {
+      role,
+      onboardingCompleted: true,
+    },
+  });
+
+  const tokens = await this.generateTokens(
+    updatedUser.id,
+    updatedUser.email,
+    updatedUser.role,
+  );
+
+  return {
+    message: 'Onboarding completed successfully',
+    user: {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      role: updatedUser.role,
+      onboardingCompleted: updatedUser.onboardingCompleted,
+    },
+    ...tokens,
   };
 }
 
