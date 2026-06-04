@@ -1,0 +1,21 @@
+/* eslint-disable prettier/prettier */
+import { Module } from '@nestjs/common';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { ListingsModule } from './listings/listings.module';
+import { BookingsModule } from './bookings/bookings.module';
+import { PaymentsModule } from './payments/payments.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { MessagesModule } from './messages/messages.module';
+import { UploadsModule } from './uploads/uploads.module';
+import { SearchModule } from './search/search.module';
+
+@Module({
+  imports: [PrismaModule, AuthModule, UsersModule, ListingsModule, BookingsModule, PaymentsModule, ReviewsModule, MessagesModule, UploadsModule, SearchModule],
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule {}
