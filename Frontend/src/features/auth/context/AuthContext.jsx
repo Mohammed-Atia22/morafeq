@@ -78,6 +78,11 @@
 //   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 // }
 
+
+
+
+
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authApi } from "../services/authApi";
 import { AuthContext } from "../utils/authState";
@@ -125,21 +130,45 @@ export function AuthProvider({ children }) {
     [saveSession],
   );
 
+  // const confirmOtp = useCallback(
+  //   async (payload) => {
+  //     const data = await authApi.confirm(payload);
+
+  //     if (data.accessToken) {
+  //       saveSession(data.accessToken);
+
+  //       const currentUser = await authApi.me();
+  //       setUser(currentUser);
+  //     }
+
+  //     return data;
+  //   },
+  //   [saveSession],
+  // );
+
+
   const confirmOtp = useCallback(
-    async (payload) => {
-      const data = await authApi.confirm(payload);
+  async (payload) => {
+    const data = await authApi.confirm(payload);
 
-      if (data.accessToken) {
-        saveSession(data.accessToken);
+    if (data.accessToken) {
+      saveSession(data.accessToken);
 
-        const currentUser = await authApi.me();
-        setUser(currentUser);
-      }
+      const currentUser = await authApi.me();
+      setUser(currentUser);
 
-      return data;
-    },
-    [saveSession],
-  );
+      return {
+        ...data,
+        user: currentUser,
+      };
+    }
+
+    return data;
+  },
+  [saveSession],
+);
+
+
 
   const completeGoogleLogin = useCallback(
     async (accessToken) => {

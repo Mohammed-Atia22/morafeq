@@ -40,6 +40,7 @@ export function ConfirmOtpPage() {
     formState: { errors, isSubmitting },
   } = useForm({
     defaultValues: { email: searchParams.get("email") || "", otp: "" },
+    resolver: zodResolver(schema)
   });
 
   const onSubmit = async (values) => {

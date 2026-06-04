@@ -42,8 +42,15 @@ export function LoginPage() {
   const onSubmit = async (values) => {
     setServerError("");
     try {
-      await login(values);
-      navigate("/");
+      const data = await login(values);
+      console.log(data);
+      if(data.user.role == "HOST"){
+
+        navigate("/owner");
+      }else{
+        navigate("/");
+        
+      }
     } catch (error) {
       setServerError(error.message);
     }

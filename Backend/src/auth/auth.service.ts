@@ -200,6 +200,7 @@ if (existingPhone) {
 
   return {
     message: 'Email verified successfully',
+    user,
     ...tokens,
   };
   } catch (error) {
