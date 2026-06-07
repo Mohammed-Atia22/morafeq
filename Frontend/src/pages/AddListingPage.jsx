@@ -100,7 +100,7 @@ export default function AddListingPage() {
             streetName: addressData.streetName,
             country: addressData.country || "Egypt",
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -192,6 +192,44 @@ export default function AddListingPage() {
       return;
     }
 
+    // client-side per-step validation to avoid backend 400 for missing required fields
+    const step1Valid = await trigger([
+      "governorate",
+      "city",
+      "areaName",
+      "streetName",
+    ]);
+    if (!step1Valid) {
+      setCurrentStep(1);
+      return;
+    }
+
+    const step2Valid = await trigger([
+      "buildingNumber",
+      "floorNumber",
+      "apartmentNumber",
+      "nearbyLandmark",
+    ]);
+    if (!step2Valid) {
+      setCurrentStep(2);
+      return;
+    }
+
+    const step3Valid = await trigger([
+      "title",
+      "description",
+      "monthlyRent",
+      "maxTenants",
+      "bedrooms",
+      "beds",
+      "bathrooms",
+      "availableFrom",
+    ]);
+    if (!step3Valid) {
+      setCurrentStep(3);
+      return;
+    }
+
     try {
       setIsSubmittingListing(true);
       clearErrors("root");
@@ -228,11 +266,68 @@ export default function AddListingPage() {
       });
 
       const result = await response.json();
+      console.log("Create listing response:", result);
+      console.log("Create listing response messages:", result?.message);
 
       if (!response.ok) {
-        setError("root", {
-          message: result.message || "Failed to create listing",
-        });
+        const msg = result?.message;
+
+        // If backend returned validation messages array (Nest validation), map them to form fields
+        if (Array.isArray(msg)) {
+          const fieldSteps = {
+            1: ["governorate", "city", "areaName", "streetName"],
+            2: [
+              "buildingNumber",
+              "floorNumber",
+              "apartmentNumber",
+              "nearbyLandmark",
+            ],
+            3: [
+              "title",
+              "description",
+              "propertyType",
+              "roomType",
+              "monthlyRent",
+              "depositAmount",
+              "maxTenants",
+              "bedrooms",
+              "beds",
+              "bathrooms",
+              "availableFrom",
+            ],
+          };
+
+          const errorFields = [];
+
+          msg.forEach((m) => {
+            // try to extract field name at start of message (e.g. "title should not be empty")
+            const match = String(m).match(/^([a-zA-Z0-9_]+)/);
+            if (match) {
+              const field = match[1];
+              errorFields.push(field);
+              try {
+                setError(field, { message: m });
+              } catch (e) {
+                // ignore if field not registered
+              }
+            } else {
+              // fallback to root
+              setError("root", { message: m });
+            }
+          });
+
+          // jump to the earliest step that contains an error field
+          const stepsWithErrors = [1, 2, 3].filter((s) =>
+            fieldSteps[s].some((f) => errorFields.includes(f)),
+          );
+          if (stepsWithErrors.length)
+            setCurrentStep(Math.min(...stepsWithErrors));
+        } else if (typeof msg === "string") {
+          setError("root", { message: msg });
+        } else {
+          setError("root", { message: "Failed to create listing" });
+        }
+
         return;
       }
 
@@ -249,85 +344,261 @@ export default function AddListingPage() {
     }
   };
 
+  const stepTitles = [
+    { number: 1, label: "الصور والتوثيق" },
+    { number: 2, label: "تفاصيل الشقة" },
+    { number: 3, label: "القواعد والموقع" },
+  ];
+
+  const stepHeaderStyles = {
+    padding: "18px 24px",
+    borderRadius: "16px",
+    background: "#fff",
+    boxShadow: "0 18px 50px rgba(0,0,0,0.08)",
+  };
+
+  const fieldStyles = {
+    width: "100%",
+    minHeight: "44px",
+    padding: "12px 14px",
+    borderRadius: "12px",
+    border: "1px solid #d8dde8",
+    background: "#f8fafd",
+    outline: "none",
+    fontSize: "14px",
+  };
+
+  const sectionTitleStyles = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "18px",
+    gap: "8px",
+  };
+
   return (
-    <div style={{ maxWidth: "850px", margin: "40px auto" }}>
-      <div
-        style={{
-          padding: "24px",
-          border: "1px solid #ddd",
-          borderRadius: "16px",
-          background: "#fff",
-        }}
-      >
-        <h1>Add Property</h1>
+    <div
+      style={{
+        padding: "32px 16px",
+        minHeight: "100vh",
+        background: "#eef4fc",
+      }}
+      dir="rtl"
+    >
+      <div style={{ maxWidth: "980px", margin: "0 auto" }}>
+        <div
+          style={{
+            marginBottom: "20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "28px",
+              fontWeight: 700,
+              color: "#12213f",
+            }}
+          >
+            إضافة شقة
+          </h1>
+        </div>
 
-        <p>
-          Step {currentStep} of 3
-        </p>
+        <div
+          style={{
+            ...stepHeaderStyles,
+            marginBottom: "22px",
+            padding: "18px 20px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            {stepTitles.map((step) => {
+              const active = step.number === currentStep;
+              const completed = step.number < currentStep;
+              return (
+                <div
+                  key={step.number}
+                  style={{
+                    flex: 1,
+                    minWidth: "130px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "36px",
+                      height: "36px",
+                      borderRadius: "50%",
+                      display: "grid",
+                      placeItems: "center",
+                      fontWeight: 700,
+                      color: active
+                        ? "#fff"
+                        : completed
+                          ? "#0b69ff"
+                          : "#6b7280",
+                      background: active
+                        ? "#0b69ff"
+                        : completed
+                          ? "#dbe7ff"
+                          : "#f3f4f6",
+                    }}
+                  >
+                    {completed ? "✓" : step.number}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "13px", color: "#6b7280" }}>
+                      الخطوة {step.number}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "15px",
+                        fontWeight: 600,
+                        color: active ? "#0b69ff" : "#172033",
+                      }}
+                    >
+                      {step.label}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          {currentStep === 1 && (
-            <div>
-              <h2>Step 1: Map Address</h2>
-
-              <p>
-                اكتب المدينة والمنطقة والشارع عشان نفتح الخريطة على مكان
-                قريب، وبعدها حرّك الـ pin لمكان العقار الحقيقي.
-              </p>
-
-              <div style={{ display: "grid", gap: "12px" }}>
-                <div>
-                  <input
-                    placeholder="Governorate مثل الإسكندرية"
-                    {...register("governorate", {
-                      required: "Governorate is required",
-                    })}
-                  />
-                  {errors.governorate && (
-                    <p style={{ color: "red" }}>
-                      {errors.governorate.message}
+        <div style={{ ...stepHeaderStyles }}>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            {currentStep === 1 && (
+              <div>
+                <div style={sectionTitleStyles}>
+                  <div>
+                    <h2
+                      style={{ margin: 0, fontSize: "20px", color: "#12213f" }}
+                    >
+                      الموقع والتوثيق
+                    </h2>
+                    <p
+                      style={{
+                        margin: "8px 0 0",
+                        color: "#4b5563",
+                        fontSize: "14px",
+                      }}
+                    >
+                      اكتب بيانات المنطقة ثم اضغط بحث عن الخريطة لتحديد موقع
+                      العقار بدقة.
                     </p>
-                  )}
+                  </div>
                 </div>
 
-                <div>
-                  <input
-                    placeholder="City مثل الإسكندرية"
-                    {...register("city", {
-                      required: "City is required",
-                    })}
-                  />
-                  {errors.city && (
-                    <p style={{ color: "red" }}>{errors.city.message}</p>
-                  )}
-                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: "14px",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                      color: "#344050",
+                    }}
+                  >
+                    المحافظة
+                    <input
+                      style={fieldStyles}
+                      placeholder="مثال: الإسكندرية"
+                      {...register("governorate", {
+                        required: "المحافظة مطلوبة",
+                      })}
+                    />
+                    {errors.governorate && (
+                      <span style={{ color: "#dc2626" }}>
+                        {errors.governorate.message}
+                      </span>
+                    )}
+                  </label>
 
-                <div>
-                  <input
-                    placeholder="Area مثل باكوس أو سموحة"
-                    {...register("areaName", {
-                      required: "Area is required",
-                    })}
-                  />
-                  {errors.areaName && (
-                    <p style={{ color: "red" }}>
-                      {errors.areaName.message}
-                    </p>
-                  )}
-                </div>
+                  <label
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                      color: "#344050",
+                    }}
+                  >
+                    المدينة
+                    <input
+                      style={fieldStyles}
+                      placeholder="مثال: الإسكندرية"
+                      {...register("city", {
+                        required: "المدينة مطلوبة",
+                      })}
+                    />
+                    {errors.city && (
+                      <span style={{ color: "#dc2626" }}>
+                        {errors.city.message}
+                      </span>
+                    )}
+                  </label>
 
-                <div>
-                  <input
-                    placeholder="Street Name مثل شارع مصطفى كامل"
-                    {...register("streetName", {
-                      required: "Street name is required",
-                    })}
-                  />
-                  {errors.streetName && (
-                    <p style={{ color: "red" }}>
-                      {errors.streetName.message}
-                    </p>
-                  )}
+                  <label
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                      color: "#344050",
+                    }}
+                  >
+                    المنطقة
+                    <input
+                      style={fieldStyles}
+                      placeholder="مثال: سموحة"
+                      {...register("areaName", {
+                        required: "المنطقة مطلوبة",
+                      })}
+                    />
+                    {errors.areaName && (
+                      <span style={{ color: "#dc2626" }}>
+                        {errors.areaName.message}
+                      </span>
+                    )}
+                  </label>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                      color: "#344050",
+                    }}
+                  >
+                    اسم الشارع
+                    <input
+                      style={fieldStyles}
+                      placeholder="مثال: شارع مصطفى كامل"
+                      {...register("streetName", {
+                        required: "اسم الشارع مطلوب",
+                      })}
+                    />
+                    {errors.streetName && (
+                      <span style={{ color: "#dc2626" }}>
+                        {errors.streetName.message}
+                      </span>
+                    )}
+                  </label>
                 </div>
 
                 <input type="hidden" {...register("country")} />
@@ -336,346 +607,844 @@ export default function AddListingPage() {
                 <input type="hidden" {...register("googleFormattedAddress")} />
                 <input type="hidden" {...register("googlePlaceId")} />
 
-                <button
-                  type="button"
-                  onClick={findOnMap}
-                  disabled={isFindingLocation}
-                >
-                  {isFindingLocation ? "Finding location..." : "Find on Map"}
-                </button>
-              </div>
-
-              {mapResult && (
                 <div
                   style={{
-                    marginTop: "20px",
-                    padding: "12px",
-                    border: "1px solid #ddd",
-                    borderRadius: "8px",
+                    marginTop: "18px",
+                    display: "flex",
+                    gap: "12px",
+                    flexWrap: "wrap",
                   }}
                 >
-                  <p>
-                    <strong>Match Level:</strong> {mapResult.matchLevel}
-                  </p>
-
-                  <p>
-                    <strong>Found Address:</strong>{" "}
-                    {mapResult.formattedAddress}
-                  </p>
-
-                  {mapResult.matchLevel !== "STREET" && (
-                    <p style={{ color: "orange" }}>
-                      الموقع تقريبي. من فضلك حرّك العلامة على الخريطة لمكان
-                      العقار بدقة.
-                    </p>
-                  )}
+                  <button
+                    type="button"
+                    onClick={findOnMap}
+                    disabled={isFindingLocation}
+                    style={{
+                      flex: "1 1 220px",
+                      minHeight: "46px",
+                      border: "none",
+                      borderRadius: "12px",
+                      background: "#0b69ff",
+                      color: "#fff",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {isFindingLocation ? "جاري البحث..." : "بحث على الخريطة"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goToStep2}
+                    style={{
+                      flex: "1 1 220px",
+                      minHeight: "46px",
+                      border: "1px solid #d2dce8",
+                      borderRadius: "12px",
+                      background: "#fff",
+                      color: "#1e293b",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    التالي
+                  </button>
                 </div>
-              )}
 
-              <div style={{ marginTop: "24px" }}>
-                {selectedLocation ? (
-                  <>
-                    <LocationPickerMap
-                      position={selectedLocation}
-                      onChange={handleMapChange}
-                    />
-
-                    <p>
-                      <strong>Selected Location:</strong>{" "}
-                      {selectedLocation.lat}, {selectedLocation.lng}
-                    </p>
-
-                    {confirmedLocation && (
-                      <p style={{ color: "green" }}>
-                        <strong>Confirmed Location:</strong>{" "}
-                        {confirmedLocation.lat}, {confirmedLocation.lng}
-                      </p>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={confirmLocation}
-                      style={{ marginTop: "12px" }}
+                {mapResult && (
+                  <div
+                    style={{
+                      marginTop: "18px",
+                      padding: "18px",
+                      borderRadius: "16px",
+                      background: "#f8fbff",
+                      border: "1px solid #d8e3f4",
+                    }}
+                  >
+                    <div
+                      style={{
+                        marginBottom: "10px",
+                        fontWeight: 600,
+                        color: "#0f172a",
+                      }}
                     >
-                      Confirm Location
-                    </button>
-
-                    {confirmedLocation && (
-                      <p style={{ color: "green" }}>
-                        Location confirmed successfully.
+                      العنوان المقترح
+                    </div>
+                    <p style={{ margin: 0, color: "#334155" }}>
+                      {mapResult.formattedAddress}
+                    </p>
+                    {mapResult.matchLevel !== "STREET" && (
+                      <p style={{ margin: "10px 0 0", color: "#b45309" }}>
+                        الموقع تقريبي. حرّك العلامة على الخريطة لمكان العقار
+                        بدقة.
                       </p>
                     )}
-                  </>
-                ) : (
-                  <p>اضغط Find on Map عشان نعرض الخريطة.</p>
+                  </div>
                 )}
+
+                <div style={{ marginTop: "20px" }}>
+                  {selectedLocation ? (
+                    <>
+                      <div
+                        style={{
+                          borderRadius: "16px",
+                          overflow: "hidden",
+                          border: "1px solid #d1d5db",
+                        }}
+                      >
+                        <LocationPickerMap
+                          position={selectedLocation}
+                          onChange={handleMapChange}
+                        />
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "14px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                          color: "#334155",
+                        }}
+                      >
+                        <p style={{ margin: 0 }}>
+                          <strong>الإحداثيات:</strong> {selectedLocation.lat},{" "}
+                          {selectedLocation.lng}
+                        </p>
+                        {confirmedLocation && (
+                          <p style={{ margin: 0, color: "#16a34a" }}>
+                            <strong>تم تأكيد الموقع.</strong>
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={confirmLocation}
+                        style={{
+                          marginTop: "12px",
+                          minHeight: "44px",
+                          border: "none",
+                          borderRadius: "12px",
+                          background: "#10b981",
+                          color: "#fff",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        تأكيد الموقع
+                      </button>
+                    </>
+                  ) : (
+                    <p style={{ margin: 0, color: "#475569" }}>
+                      اضغط على بحث على الخريطة لعرض الموقع.
+                    </p>
+                  )}
+                </div>
               </div>
+            )}
 
-              <button
-                type="button"
-                onClick={goToStep2}
-                style={{ marginTop: "24px" }}
-              >
-                Continue
-              </button>
-            </div>
-          )}
+            {currentStep === 2 && (
+              <div>
+                <div style={sectionTitleStyles}>
+                  <div>
+                    <h2
+                      style={{ margin: 0, fontSize: "20px", color: "#12213f" }}
+                    >
+                      تفاصيل الشقة
+                    </h2>
+                    <p
+                      style={{
+                        margin: "8px 0 0",
+                        color: "#4b5563",
+                        fontSize: "14px",
+                      }}
+                    >
+                      اكمل بيانات الشقة والتجهيزات المطلوبة مثل الإيجار
+                      والمساحة.
+                    </p>
+                  </div>
+                </div>
 
-          {currentStep === 2 && (
-            <div>
-              <h2>Step 2: Detailed Apartment Address</h2>
+                <div style={{ display: "grid", gap: "14px" }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      gap: "14px",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      سعر الإيجار الشهري (ج.م)
+                      <input
+                        style={fieldStyles}
+                        placeholder="مثال: 3500"
+                        type="number"
+                        {...register("monthlyRent", {
+                          required: "السعر مطلوب",
+                        })}
+                      />
+                      {errors.monthlyRent && (
+                        <span style={{ color: "#dc2626" }}>
+                          {errors.monthlyRent.message}
+                        </span>
+                      )}
+                    </label>
 
-              <p>
-                هنا اكتب التفاصيل اللي تساعد في الوصول للشقة نفسها.
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      مبلغ التأمين
+                      <input
+                        style={fieldStyles}
+                        placeholder="مثال: 5000"
+                        type="number"
+                        {...register("depositAmount")}
+                      />
+                    </label>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                      gap: "14px",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      عدد الغرف
+                      <input
+                        style={fieldStyles}
+                        placeholder="مثال: 3"
+                        type="number"
+                        {...register("bedrooms", {
+                          required: "عدد الغرف مطلوب",
+                        })}
+                      />
+                      {errors.bedrooms && (
+                        <span style={{ color: "#dc2626" }}>
+                          {errors.bedrooms.message}
+                        </span>
+                      )}
+                    </label>
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      عدد الحمامات
+                      <input
+                        style={fieldStyles}
+                        placeholder="مثال: 2"
+                        type="number"
+                        {...register("bathrooms", {
+                          required: "عدد الحمامات مطلوب",
+                        })}
+                      />
+                      {errors.bathrooms && (
+                        <span style={{ color: "#dc2626" }}>
+                          {errors.bathrooms.message}
+                        </span>
+                      )}
+                    </label>
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      عدد السكان الأقصى
+                      <input
+                        style={fieldStyles}
+                        placeholder="مثال: 4"
+                        type="number"
+                        {...register("maxTenants", {
+                          required: "الحد الأقصى مطلوب",
+                        })}
+                      />
+                      {errors.maxTenants && (
+                        <span style={{ color: "#dc2626" }}>
+                          {errors.maxTenants.message}
+                        </span>
+                      )}
+                    </label>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      gap: "14px",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      عدد الأسرة
+                      <input
+                        style={fieldStyles}
+                        placeholder="مثال: 3"
+                        type="number"
+                        {...register("beds", { required: "عدد الأسرة مطلوب" })}
+                      />
+                      {errors.beds && (
+                        <span style={{ color: "#dc2626" }}>
+                          {errors.beds.message}
+                        </span>
+                      )}
+                    </label>
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      متاح من
+                      <input
+                        style={fieldStyles}
+                        type="date"
+                        {...register("availableFrom", {
+                          required: "التاريخ مطلوب",
+                        })}
+                      />
+                      {errors.availableFrom && (
+                        <span style={{ color: "#dc2626" }}>
+                          {errors.availableFrom.message}
+                        </span>
+                      )}
+                    </label>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      gap: "14px",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      نوع العقار
+                      <select style={fieldStyles} {...register("propertyType")}>
+                        <option value="APARTMENT">شقة</option>
+                        <option value="HOUSE">منزل</option>
+                        <option value="VILLA">فيلا</option>
+                        <option value="STUDIO">ستوديو</option>
+                        <option value="OTHER">آخر</option>
+                      </select>
+                    </label>
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      نوع الوحدة
+                      <select style={fieldStyles} {...register("roomType")}>
+                        <option value="ENTIRE_PLACE">الوحدة كاملة</option>
+                        <option value="PRIVATE_ROOM">غرفة خاصة</option>
+                        <option value="SHARED_ROOM">غرفة مشتركة</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      gap: "14px",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      تفضيل الجنس
+                      <select
+                        style={fieldStyles}
+                        {...register("genderPreference")}
+                      >
+                        <option value="ANY">أي</option>
+                        <option value="MALE">للرجال فقط</option>
+                        <option value="FEMALE">للنساء فقط</option>
+                      </select>
+                    </label>
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      التدخين
+                      <select
+                        style={fieldStyles}
+                        {...register("smokingPolicy")}
+                      >
+                        <option value="NOT_ALLOWED">ممنوع</option>
+                        <option value="ALLOWED">مسموح</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                      color: "#344050",
+                    }}
+                  >
+                    وصف الشقة
+                    <textarea
+                      style={{
+                        ...fieldStyles,
+                        minHeight: "120px",
+                        resize: "vertical",
+                      }}
+                      placeholder="اكتب وصفًا مختصرًا للشقة"
+                      {...register("description", { required: "الوصف مطلوب" })}
+                    />
+                    {errors.description && (
+                      <span style={{ color: "#dc2626" }}>
+                        {errors.description.message}
+                      </span>
+                    )}
+                  </label>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "18px",
+                    display: "flex",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "999px",
+                      background: "#eff6ff",
+                      color: "#1d4ed8",
+                      fontSize: "13px",
+                    }}
+                  >
+                    ممنوع التدخين
+                  </span>
+                  <span
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "999px",
+                      background: "#eff6ff",
+                      color: "#1d4ed8",
+                      fontSize: "13px",
+                    }}
+                  >
+                    الإنترنت مش شامل
+                  </span>
+                  <span
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "999px",
+                      background: "#eff6ff",
+                      color: "#1d4ed8",
+                      fontSize: "13px",
+                    }}
+                  >
+                    مفروش
+                  </span>
+                  <span
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "999px",
+                      background: "#eff6ff",
+                      color: "#1d4ed8",
+                      fontSize: "13px",
+                    }}
+                  >
+                    تكييف
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "24px",
+                    display: "flex",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(1)}
+                    style={{
+                      flex: "1 1 220px",
+                      minHeight: "46px",
+                      border: "1px solid #d2dce8",
+                      borderRadius: "12px",
+                      background: "#fff",
+                      color: "#1e293b",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    رجوع
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goToStep3}
+                    style={{
+                      flex: "1 1 220px",
+                      minHeight: "46px",
+                      border: "none",
+                      borderRadius: "12px",
+                      background: "#0b69ff",
+                      color: "#fff",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    التالي
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 3 && (
+              <div>
+                <div style={sectionTitleStyles}>
+                  <div>
+                    <h2
+                      style={{ margin: 0, fontSize: "20px", color: "#12213f" }}
+                    >
+                      قواعد السكن والموقع
+                    </h2>
+                    <p
+                      style={{
+                        margin: "8px 0 0",
+                        color: "#4b5563",
+                        fontSize: "14px",
+                      }}
+                    >
+                      اضبط شروط السكن ثم تأكد العنوان النهائي قبل النشر.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  style={{ display: "grid", gap: "14px", marginBottom: "12px" }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                      color: "#344050",
+                    }}
+                  >
+                    عنوان الشقة
+                    <input
+                      style={fieldStyles}
+                      placeholder="مثال: شقة في التحرير"
+                      {...register("title", { required: "العنوان مطلوب" })}
+                    />
+                    {errors.title && (
+                      <span style={{ color: "#dc2626" }}>
+                        {errors.title.message}
+                      </span>
+                    )}
+                  </label>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                    marginBottom: "20px",
+                  }}
+                >
+                  <span
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "999px",
+                      background: "#eef2ff",
+                      color: "#4338ca",
+                      fontSize: "13px",
+                    }}
+                  >
+                    ممنوع التدخين
+                  </span>
+                  <span
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "999px",
+                      background: "#eef2ff",
+                      color: "#4338ca",
+                      fontSize: "13px",
+                    }}
+                  >
+                    {getValues("genderPreference") === "MALE"
+                      ? "دخول الرجال فقط"
+                      : getValues("genderPreference") === "FEMALE"
+                        ? "دخول النساء فقط"
+                        : "أي جنس"}
+                  </span>
+                  <span
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "999px",
+                      background: "#eef2ff",
+                      color: "#4338ca",
+                      fontSize: "13px",
+                    }}
+                  >
+                    أطفال مسموح
+                  </span>
+                </div>
+
+                <div
+                  style={{ display: "grid", gap: "14px", marginBottom: "22px" }}
+                >
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      gap: "14px",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      رقم العمارة
+                      <input
+                        style={fieldStyles}
+                        placeholder="مثال: 15"
+                        {...register("buildingNumber", {
+                          required: "رقم العمارة مطلوب",
+                        })}
+                      />
+                      {errors.buildingNumber && (
+                        <span style={{ color: "#dc2626" }}>
+                          {errors.buildingNumber.message}
+                        </span>
+                      )}
+                    </label>
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      رقم الطابق
+                      <input
+                        style={fieldStyles}
+                        placeholder="مثال: 3"
+                        {...register("floorNumber", {
+                          required: "رقم الطابق مطلوب",
+                        })}
+                      />
+                      {errors.floorNumber && (
+                        <span style={{ color: "#dc2626" }}>
+                          {errors.floorNumber.message}
+                        </span>
+                      )}
+                    </label>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      gap: "14px",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      رقم الشقة
+                      <input
+                        style={fieldStyles}
+                        placeholder="مثال: 5"
+                        {...register("apartmentNumber", {
+                          required: "رقم الشقة مطلوب",
+                        })}
+                      />
+                      {errors.apartmentNumber && (
+                        <span style={{ color: "#dc2626" }}>
+                          {errors.apartmentNumber.message}
+                        </span>
+                      )}
+                    </label>
+                    <label
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        color: "#344050",
+                      }}
+                    >
+                      معلم قريب
+                      <input
+                        style={fieldStyles}
+                        placeholder="مثال: أمام مول"
+                        {...register("nearbyLandmark", {
+                          required: "المعلم مطلوب",
+                        })}
+                      />
+                      {errors.nearbyLandmark && (
+                        <span style={{ color: "#dc2626" }}>
+                          {errors.nearbyLandmark.message}
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    borderRadius: "18px",
+                    border: "1px dashed #cbd5e1",
+                    minHeight: "220px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "#f8fafc",
+                  }}
+                >
+                  {selectedLocation ? (
+                    <div style={{ textAlign: "center", color: "#475569" }}>
+                      <p
+                        style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}
+                      >
+                        تم تحديد موقع الشقة
+                      </p>
+                      <p style={{ margin: "10px 0 0" }}>
+                        احداثيات: {selectedLocation.lat.toFixed(6)},{" "}
+                        {selectedLocation.lng.toFixed(6)}
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: "center", color: "#64748b" }}>
+                      <p
+                        style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}
+                      >
+                        اضغط لتحديد موقع الشقة
+                      </p>
+                      <p style={{ margin: "8px 0 0" }}>
+                        تأكد من تأكيد الموقع في الخطوة الأولى
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "24px",
+                    display: "flex",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(2)}
+                    style={{
+                      flex: "1 1 220px",
+                      minHeight: "46px",
+                      border: "1px solid #d2dce8",
+                      borderRadius: "12px",
+                      background: "#fff",
+                      color: "#1e293b",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    رجوع
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingListing}
+                    style={{
+                      flex: "1 1 220px",
+                      minHeight: "46px",
+                      border: "none",
+                      borderRadius: "12px",
+                      background: "#10b981",
+                      color: "#fff",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {isSubmittingListing ? "جاري النشر..." : "نشر الشقة الآن"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {errors.root && (
+              <p style={{ color: "#dc2626", marginTop: "16px" }}>
+                {errors.root.message}
               </p>
-
-              <div style={{ display: "grid", gap: "12px" }}>
-                <div>
-                  <input
-                    placeholder="Building Number"
-                    {...register("buildingNumber", {
-                      required: "Building number is required",
-                    })}
-                  />
-                  {errors.buildingNumber && (
-                    <p style={{ color: "red" }}>
-                      {errors.buildingNumber.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <input
-                    placeholder="Floor Number"
-                    {...register("floorNumber", {
-                      required: "Floor number is required",
-                    })}
-                  />
-                  {errors.floorNumber && (
-                    <p style={{ color: "red" }}>
-                      {errors.floorNumber.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <input
-                    placeholder="Apartment Number"
-                    {...register("apartmentNumber", {
-                      required: "Apartment number is required",
-                    })}
-                  />
-                  {errors.apartmentNumber && (
-                    <p style={{ color: "red" }}>
-                      {errors.apartmentNumber.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <input
-                    placeholder="Nearby Landmark"
-                    {...register("nearbyLandmark", {
-                      required: "Nearby landmark is required",
-                    })}
-                  />
-                  {errors.nearbyLandmark && (
-                    <p style={{ color: "red" }}>
-                      {errors.nearbyLandmark.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ marginTop: "24px", display: "flex", gap: "12px" }}>
-                <button type="button" onClick={() => setCurrentStep(1)}>
-                  Back
-                </button>
-
-                <button type="button" onClick={goToStep3}>
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 3 && (
-            <div>
-              <h2>Step 3: Property Details</h2>
-
-              <div style={{ display: "grid", gap: "12px" }}>
-                <div>
-                  <input
-                    placeholder="Title"
-                    {...register("title", {
-                      required: "Title is required",
-                    })}
-                  />
-                  {errors.title && (
-                    <p style={{ color: "red" }}>{errors.title.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <textarea
-                    placeholder="Description"
-                    {...register("description", {
-                      required: "Description is required",
-                    })}
-                  />
-                  {errors.description && (
-                    <p style={{ color: "red" }}>
-                      {errors.description.message}
-                    </p>
-                  )}
-                </div>
-
-                <select
-                  {...register("propertyType", {
-                    required: "Property type is required",
-                  })}
-                >
-                  <option value="APARTMENT">Apartment</option>
-                  <option value="HOUSE">House</option>
-                  <option value="VILLA">Villa</option>
-                  <option value="STUDIO">Studio</option>
-                  <option value="OTHER">Other</option>
-                </select>
-
-                <select
-                  {...register("roomType", {
-                    required: "Room type is required",
-                  })}
-                >
-                  <option value="ENTIRE_PLACE">Entire Place</option>
-                  <option value="PRIVATE_ROOM">Private Room</option>
-                  <option value="SHARED_ROOM">Shared Room</option>
-                </select>
-
-                <div>
-                  <input
-                    type="number"
-                    placeholder="Monthly Rent"
-                    {...register("monthlyRent", {
-                      required: "Monthly rent is required",
-                    })}
-                  />
-                  {errors.monthlyRent && (
-                    <p style={{ color: "red" }}>
-                      {errors.monthlyRent.message}
-                    </p>
-                  )}
-                </div>
-
-                <input
-                  type="number"
-                  placeholder="Deposit Amount"
-                  {...register("depositAmount")}
-                />
-
-                <div>
-                  <input
-                    type="number"
-                    placeholder="Max Tenants"
-                    {...register("maxTenants", {
-                      required: "Max tenants is required",
-                    })}
-                  />
-                  {errors.maxTenants && (
-                    <p style={{ color: "red" }}>
-                      {errors.maxTenants.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <input
-                    type="number"
-                    placeholder="Bedrooms"
-                    {...register("bedrooms", {
-                      required: "Bedrooms is required",
-                    })}
-                  />
-                  {errors.bedrooms && (
-                    <p style={{ color: "red" }}>
-                      {errors.bedrooms.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <input
-                    type="number"
-                    placeholder="Beds"
-                    {...register("beds", {
-                      required: "Beds is required",
-                    })}
-                  />
-                  {errors.beds && (
-                    <p style={{ color: "red" }}>{errors.beds.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <input
-                    type="number"
-                    placeholder="Bathrooms"
-                    {...register("bathrooms", {
-                      required: "Bathrooms is required",
-                    })}
-                  />
-                  {errors.bathrooms && (
-                    <p style={{ color: "red" }}>
-                      {errors.bathrooms.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label>Available From</label>
-                  <input
-                    type="date"
-                    {...register("availableFrom", {
-                      required: "Available from date is required",
-                    })}
-                  />
-                  {errors.availableFrom && (
-                    <p style={{ color: "red" }}>
-                      {errors.availableFrom.message}
-                    </p>
-                  )}
-                </div>
-
-                <select {...register("genderPreference")}>
-                  <option value="ANY">Any</option>
-                  <option value="MALE">Male</option>
-                  <option value="FEMALE">Female</option>
-                </select>
-
-                <select {...register("smokingPolicy")}>
-                  <option value="NOT_ALLOWED">Smoking Not Allowed</option>
-                  <option value="ALLOWED">Smoking Allowed</option>
-                </select>
-              </div>
-
-              <div style={{ marginTop: "24px", display: "flex", gap: "12px" }}>
-                <button type="button" onClick={() => setCurrentStep(2)}>
-                  Back
-                </button>
-
-                <button type="submit" disabled={isSubmittingListing}>
-                  {isSubmittingListing ? "Saving..." : "Save Listing"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {errors.root && (
-            <p style={{ color: "red", marginTop: "16px" }}>
-              {errors.root.message}
-            </p>
-          )}
-        </form>
+            )}
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -87,7 +87,7 @@ export class LocationsService {
       }
     }
 
-    cconst structuredSearches = [
+    const structuredSearches = [
   {
     city: dto.areaName ?? dto.city,
     state: dto.governorate,
