@@ -21,6 +21,7 @@ model User {
   role                UserRole    @default(GUEST)
   onboardingCompleted Boolean     @default(false)
   gender              genderTypes @default(male)
+  bio                 String?     @db.Text
   isVerified          Boolean     @default(false)
   isActive            Boolean     @default(true)
   createdAt           DateTime    @default(now())
@@ -61,58 +62,52 @@ model OTP {
 }
 
 model Listing {
-  // Identification
   id     Int  @id @default(autoincrement()) @db.UnsignedInt
   hostId Int  @db.UnsignedInt
   areaId Int? @db.UnsignedInt
 
-  // Basic information
   title       String @db.VarChar(255)
   description String @db.Text
 
   propertyType PropertyType
   roomType     RoomType
 
-  // Manual address entered by Host
   streetName      String  @db.VarChar(255)
   buildingNumber  String? @db.VarChar(50)
   floorNumber     String? @db.VarChar(50)
   apartmentNumber String? @db.VarChar(50)
   nearbyLandmark  String? @db.VarChar(255)
 
-  // General location
   city        String @db.VarChar(100)
   governorate String @db.VarChar(100)
   country     String @default("Egypt") @db.VarChar(100)
 
-  // Google Maps location
-  lat Decimal @db.Decimal(10, 8)
-  lng Decimal @db.Decimal(11, 8)
-
+  lat                    Decimal @db.Decimal(10, 8)
+  lng                    Decimal @db.Decimal(11, 8)
   googleFormattedAddress String? @db.VarChar(500)
   googlePlaceId          String? @db.VarChar(255)
+  locationPrivacy        LocationPrivacy @default(APPROXIMATE)
 
-  locationPrivacy LocationPrivacy @default(APPROXIMATE)
-
-  // Pricing
   monthlyRent   Int      @db.UnsignedInt
   depositAmount Int      @default(0) @db.UnsignedInt
   currency      Currency @default(EGP)
 
-  // Property details
   maxTenants Int @db.UnsignedInt
   bedrooms   Int @db.UnsignedInt
   beds       Int @db.UnsignedInt
   bathrooms  Int @db.UnsignedInt
 
-  // Availability
+  furnished         Boolean @default(true)
+  utilitiesIncluded Boolean @default(false)
+  internetIncluded  Boolean @default(false)
+  minimumStayMonths Int     @default(1) @db.UnsignedInt
+  maximumStayMonths Int?    @db.UnsignedInt
+
   availableFrom DateTime @db.Date
 
-  // Tenant preferences
   genderPreference GenderPreference @default(ANY)
   smokingPolicy    SmokingPolicy    @default(NOT_ALLOWED)
 
-  // Listing workflow
   status          ListingStatus @default(DRAFT)
   rejectionReason String?       @db.Text
 
@@ -120,34 +115,46 @@ model Listing {
   approvedAt  DateTime?
   rejectedAt  DateTime?
 
-  // Soft delete
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
+  viewsCount Int       @default(0) @db.UnsignedInt
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  host User  @relation(fields: [hostId], references: [id])
-  area Area? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  host     User     @relation(fields: [hostId], references: [id])
+  area     Area?    @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  category Category? @relation(fields: [categoryId], references: [id])
+  categoryId Int?    @db.UnsignedInt
 
-  photos    ListingPhoto[]
-  amenities ListingAmenity[]
+  photos             ListingPhoto[]
+  amenities          ListingAmenity[]
+  availabilityBlocks AvailabilityBlock[]
+  bookings           Booking[]
+  reviews            Review[]
 
-  bookings   Booking[]
-  reviews    Review[]
-  Category   Category? @relation(fields: [categoryId], references: [id])
-  categoryId Int?      @db.UnsignedInt
-
-  // Indexes
   @@index([hostId])
   @@index([areaId])
+  @@index([categoryId])
   @@index([city])
   @@index([governorate])
   @@index([status])
   @@index([monthlyRent])
   @@index([lat, lng])
   @@map("listings")
+}
+
+model AvailabilityBlock {
+  id          Int         @id @default(autoincrement()) @db.UnsignedInt
+  listingId   Int         @db.UnsignedInt
+  blockedDate DateTime    @db.Date
+  reason      BlockReason @default(HOST_BLOCKED)
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, blockedDate])
+  @@index([listingId, blockedDate])
+  @@map("availability_blocks")
 }
 
 model Area {
@@ -330,6 +337,7 @@ enum Currency {
 }
 
 enum ListingStatus {
+  ACTIVE
   DRAFT
   PENDING_APPROVAL
   APPROVED

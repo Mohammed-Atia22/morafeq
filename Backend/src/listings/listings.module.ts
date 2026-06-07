@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
-import { AreasModule } from '../areas/areas.module';
 import { ListingsService } from './listings.service';
 import { ListingsController } from './listings.controller';
+import { UploadsModule } from '../uploads/uploads.module';
+import { AreasModule } from 'src/areas/areas.module';
 
 @Module({
-  imports: [PrismaModule, AreasModule],
-  controllers: [ListingsController],
+  imports: [UploadsModule,AreasModule],
   providers: [ListingsService],
+  controllers: [ListingsController],
+  exports: [ListingsService],
 })
 export class ListingsModule {}

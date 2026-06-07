@@ -1,4 +1,6 @@
 import {
+  IsBoolean,
+  IsDateString,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -6,6 +8,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -21,82 +24,93 @@ import {
 export class CreateListingDto {
   @IsString()
   @IsNotEmpty()
-  title: string;
+  @MaxLength(255)
+  title!: string;
 
   @IsString()
   @IsNotEmpty()
-  description: string;
+  description!: string;
 
   @IsEnum(PropertyType)
-  propertyType: PropertyType;
+  propertyType!: PropertyType;
 
   @IsEnum(RoomType)
-  roomType: RoomType;
+  roomType!: RoomType;
 
   @IsString()
   @IsNotEmpty()
-  streetName: string;
+  @MaxLength(255)
+  streetName!: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
+  @MaxLength(50)
   buildingNumber?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
+  @MaxLength(50)
   floorNumber?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
+  @MaxLength(50)
   apartmentNumber?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
+  @MaxLength(255)
   nearbyLandmark?: string;
 
   @IsString()
   @IsNotEmpty()
-  city: string;
+  @MaxLength(100)
+  city!: string;
 
   @IsString()
   @IsNotEmpty()
-  governorate: string;
+  @MaxLength(100)
+  governorate!: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
+  @MaxLength(100)
   country?: string;
 
   @Type(() => Number)
   @IsNumber()
   @Min(-90)
   @Max(90)
-  lat: number;
+  lat!: number;
 
   @Type(() => Number)
   @IsNumber()
   @Min(-180)
   @Max(180)
-  lng: number;
+  lng!: number;
 
   @IsString()
   @IsNotEmpty()
-  areaName: string;
+  areaName!: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
+  @MaxLength(500)
   googleFormattedAddress?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
+  @MaxLength(255)
   googlePlaceId?: string;
 
-  @IsEnum(LocationPrivacy)
   @IsOptional()
+  @IsEnum(LocationPrivacy)
   locationPrivacy?: LocationPrivacy;
 
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  monthlyRent: number;
+  monthlyRent!: number;
 
   @Type(() => Number)
   @IsInt()
@@ -104,39 +118,65 @@ export class CreateListingDto {
   @IsOptional()
   depositAmount?: number;
 
-  @IsEnum(Currency)
   @IsOptional()
+  @IsEnum(Currency)
   currency?: Currency;
 
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  maxTenants: number;
+  maxTenants!: number;
 
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  bedrooms: number;
+  bedrooms!: number;
 
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  beds: number;
+  beds!: number;
 
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  bathrooms: number;
+  bathrooms!: number;
 
-  @IsString()
-  @IsNotEmpty()
-  availableFrom: string;
-
-  @IsEnum(GenderPreference)
   @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  furnished?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  utilitiesIncluded?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  internetIncluded?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  minimumStayMonths?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  maximumStayMonths?: number;
+
+  @IsDateString()
+  availableFrom!: string;
+
+  @IsOptional()
+  @IsEnum(GenderPreference)
   genderPreference?: GenderPreference;
 
-  @IsEnum(SmokingPolicy)
   @IsOptional()
+  @IsEnum(SmokingPolicy)
   smokingPolicy?: SmokingPolicy;
 }
