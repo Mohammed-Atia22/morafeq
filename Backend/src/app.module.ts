@@ -12,9 +12,12 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { MessagesModule } from './messages/messages.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { SearchModule } from './search/search.module';
+import { LocationsModule } from './locations/locations.module';
+import { AreasModule } from './areas/areas.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UsersModule, ListingsModule, BookingsModule, PaymentsModule, ReviewsModule, MessagesModule, UploadsModule, SearchModule],
+  imports: [PrismaModule, AuthModule, UsersModule, ListingsModule, BookingsModule, PaymentsModule, 
+    ReviewsModule, MessagesModule, UploadsModule, SearchModule, LocationsModule, AreasModule],
   controllers: [AppController],
   providers: [AppService],
 })

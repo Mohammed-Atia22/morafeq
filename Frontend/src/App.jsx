@@ -12,6 +12,7 @@ import { OwnerPage } from "./pages/OwnerPage";
 import { ExpatriatePage } from "./pages/ExpatriatePage";
 import Layout from "./pages/Layout/Layout";
 import { Toaster } from "react-hot-toast";
+import AddListingPage from "./pages/AddListingPage";
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
           <Route path="onboarding" element={<OnboardingPage />} />
           <Route path="owner" element={<OwnerPage />} />
           <Route path="expatriate" element={<ExpatriatePage />} />
+          <Route path="AddListing" element={<AddListingPage />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
