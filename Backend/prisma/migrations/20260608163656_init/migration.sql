@@ -13,6 +13,7 @@ CREATE TABLE `users` (
     `role` ENUM('GUEST', 'HOST', 'ADMIN') NOT NULL DEFAULT 'GUEST',
     `onboardingCompleted` BOOLEAN NOT NULL DEFAULT false,
     `gender` ENUM('male', 'female') NOT NULL DEFAULT 'male',
+    `bio` TEXT NULL,
     `isVerified` BOOLEAN NOT NULL DEFAULT false,
     `isActive` BOOLEAN NOT NULL DEFAULT true,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -79,27 +80,46 @@ CREATE TABLE `listings` (
     `bedrooms` INTEGER UNSIGNED NOT NULL,
     `beds` INTEGER UNSIGNED NOT NULL,
     `bathrooms` INTEGER UNSIGNED NOT NULL,
+    `furnished` BOOLEAN NOT NULL DEFAULT true,
+    `utilitiesIncluded` BOOLEAN NOT NULL DEFAULT false,
+    `internetIncluded` BOOLEAN NOT NULL DEFAULT false,
+    `minimumStayMonths` INTEGER UNSIGNED NOT NULL DEFAULT 1,
+    `maximumStayMonths` INTEGER UNSIGNED NULL,
     `availableFrom` DATE NOT NULL,
     `genderPreference` ENUM('MALE', 'FEMALE', 'ANY') NOT NULL DEFAULT 'ANY',
     `smokingPolicy` ENUM('ALLOWED', 'NOT_ALLOWED') NOT NULL DEFAULT 'NOT_ALLOWED',
-    `status` ENUM('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'INACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'DRAFT',
+    `status` ENUM('ACTIVE', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'INACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'DRAFT',
     `rejectionReason` TEXT NULL,
     `submittedAt` DATETIME(3) NULL,
     `approvedAt` DATETIME(3) NULL,
     `rejectedAt` DATETIME(3) NULL,
     `isDeleted` BOOLEAN NOT NULL DEFAULT false,
     `deletedAt` DATETIME(3) NULL,
+    `viewsCount` INTEGER UNSIGNED NOT NULL DEFAULT 0,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
     `categoryId` INTEGER UNSIGNED NULL,
 
     INDEX `listings_hostId_idx`(`hostId`),
     INDEX `listings_areaId_idx`(`areaId`),
+    INDEX `listings_categoryId_idx`(`categoryId`),
     INDEX `listings_city_idx`(`city`),
     INDEX `listings_governorate_idx`(`governorate`),
     INDEX `listings_status_idx`(`status`),
     INDEX `listings_monthlyRent_idx`(`monthlyRent`),
     INDEX `listings_lat_lng_idx`(`lat`, `lng`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `availability_blocks` (
+    `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
+    `listingId` INTEGER UNSIGNED NOT NULL,
+    `blockedDate` DATE NOT NULL,
+    `reason` ENUM('BOOKED', 'HOST_BLOCKED', 'MAINTENANCE') NOT NULL DEFAULT 'HOST_BLOCKED',
+
+    INDEX `availability_blocks_listingId_blockedDate_idx`(`listingId`, `blockedDate`),
+    UNIQUE INDEX `availability_blocks_listingId_blockedDate_key`(`listingId`, `blockedDate`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -244,6 +264,9 @@ ALTER TABLE `listings` ADD CONSTRAINT `listings_areaId_fkey` FOREIGN KEY (`areaI
 
 -- AddForeignKey
 ALTER TABLE `listings` ADD CONSTRAINT `listings_categoryId_fkey` FOREIGN KEY (`categoryId`) REFERENCES `categories`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `availability_blocks` ADD CONSTRAINT `availability_blocks_listingId_fkey` FOREIGN KEY (`listingId`) REFERENCES `listings`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `listing_photos` ADD CONSTRAINT `listing_photos_listingId_fkey` FOREIGN KEY (`listingId`) REFERENCES `listings`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
