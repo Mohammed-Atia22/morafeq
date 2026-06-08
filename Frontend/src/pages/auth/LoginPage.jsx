@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthCard } from "../../components/auth/AuthCard";
 import { AuthLayout } from "../../components/auth/AuthLayout";
 import { AuthMessage } from "../../components/auth/AuthMessage";
@@ -29,8 +29,10 @@ const schema = zod.object({
 });
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [serverError, setServerError] = useState("");
+  const redirectPath = location.state?.from?.pathname || null;
   const {
     register,
     handleSubmit,
@@ -44,8 +46,9 @@ export function LoginPage() {
     try {
       const data = await login(values);
       console.log(data);
-      if(data.user.role == "HOST"){
-
+      if (redirectPath) {
+        navigate(redirectPath, { replace: true });
+      } else if(data.user.role == "HOST"){
         navigate("/owner");
       }else{
         navigate("/");
@@ -65,7 +68,7 @@ export function LoginPage() {
         footer={
           <>
             ليس لديك حساب؟{" "}
-            <Link className="font-black text-[#075ed8]" to="/register">
+            <Link className="font-black text-[#075ed8]" to="/register" state={location.state}>
               إنشاء حساب جديد
             </Link>
           </>

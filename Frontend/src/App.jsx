@@ -14,6 +14,7 @@ import { ExpatriatePage } from "./pages/ExpatriatePage";
 import Layout from "./pages/Layout/Layout";
 import { Toaster } from "react-hot-toast";
 import AddListingPage from "./pages/AddListingPage";
+import { ProtectedRoute } from "./routes/ProtectedRoute";
 
 function App() {
   return (
@@ -31,7 +32,14 @@ function App() {
           <Route path="auth/callback" element={<AuthCallbackPage />} />
 
           <Route path="onboarding" element={<OnboardingPage />} />
-          <Route path="owner" element={<OwnerPage />} />
+          <Route
+            path="owner"
+            element={
+              <ProtectedRoute>
+                <OwnerPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="expatriate" element={<ExpatriatePage />} />
           <Route path="AddListing" element={<AddListingPage />} />
 
