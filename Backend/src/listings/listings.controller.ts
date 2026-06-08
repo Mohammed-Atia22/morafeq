@@ -39,12 +39,17 @@ export class ListingsController {
   ) {
     return this.listingsService.create(user.id, dto);
   }
-
+  
   // ─── Search listings (public) ─────────────
-
+  
   @Get()
   search(@Query() query: SearchListingDto) {
-    return this.listingsService.search(query);
+    return this.listingsService.search(query); 
+  }
+  @Get("All")
+  @UseGuards(JwtAuthGuard)
+  findAll() {
+    return this.listingsService.findAll();
   }
 
   // ─── Get my listings (HOST only) ──────────
