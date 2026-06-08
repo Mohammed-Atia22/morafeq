@@ -14,10 +14,11 @@ import { UploadsModule } from './uploads/uploads.module';
 import { SearchModule } from './search/search.module';
 import { LocationsModule } from './locations/locations.module';
 import { AreasModule } from './areas/areas.module';
+import { LocationInsightsModule } from './location-insights/location-insights.module';
 
 @Module({
   imports: [PrismaModule, AuthModule, UsersModule, ListingsModule, BookingsModule, PaymentsModule, 
-    ReviewsModule, MessagesModule, UploadsModule, SearchModule, LocationsModule, AreasModule],
+    ReviewsModule, MessagesModule, UploadsModule, SearchModule, LocationsModule, AreasModule, LocationInsightsModule],
   controllers: [AppController],
   providers: [AppService],
 })
