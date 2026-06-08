@@ -225,8 +225,12 @@ export class ListingsService {
     };
   }
 
-  findAll() {
-    return `This action returns all listings`;
+  async findAll() {
+    const listing = await this.prisma.listing.findMany()
+    const number = listing.length
+
+
+    return {message :"done","number of listing is" : number ,listing};
   }
 
   // ─── Get single listing ────────────────────
