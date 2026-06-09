@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   BadRequestException,
+  NotFoundException ,
   Injectable,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -8,7 +9,9 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { GeocodeAddressDto } from './dto/geocode-address.dto';
+import { SearchPlaceDto } from './dto/search-place.dto';
 import { isAxiosError } from 'axios';
+
 
 interface NominatimSearchResult {
   place_id: number;
@@ -205,4 +208,87 @@ export class LocationsService {
       },
     };
   }
+
+
+  async searchPlace(dto: SearchPlaceDto) {
+  const country = dto.country ?? 'Egypt';
+
+  const rawQueries = [
+    [dto.q, dto.city, dto.governorate, country],
+    [dto.q, dto.city, country],
+    [dto.q, country],
+    [dto.q],
+  ];
+
+  // aliases بسيطة للأماكن المشهورة
+  // دي مفيدة لأن Nominatim ساعات بيلاقي الإنجليزي ومش بيلاقي العربي
+  const normalizedQ = dto.q.trim();
+
+  if (
+    normalizedQ.includes('كلية تجارة') ||
+    normalizedQ.includes('كلية التجارة')
+  ) {
+    rawQueries.push(
+      ['Faculty of Commerce Alexandria University', dto.city, country],
+      ['Faculty of Commerce, Alexandria University', country],
+      ['Alexandria University Faculty of Commerce', country],
+    );
+  }
+
+  if (
+    normalizedQ.includes('جامعة الإسكندرية') ||
+    normalizedQ.includes('جامعة الاسكندرية')
+  ) {
+    rawQueries.push(
+      ['Alexandria University', dto.city, country],
+      ['Alexandria University', country],
+    );
+  }
+
+  const queries = rawQueries
+    .map((parts) => parts.filter(Boolean).join(', '))
+    .filter((query, index, arr) => query && arr.indexOf(query) === index);
+
+  for (const query of queries) {
+    const response = await firstValueFrom(
+      this.httpService.get('https://nominatim.openstreetmap.org/search', {
+        params: {
+          q: query,
+          format: 'json',
+          addressdetails: 1,
+          limit: 5,
+          countrycodes: 'eg',
+        },
+        headers: {
+          'User-Agent': 'Moraafeq/1.0 (contact@moraafeq.local)',
+        },
+      }),
+    );
+
+    const results = response.data ?? [];
+
+    if (results.length > 0) {
+      const places = results.map((place: any) => ({
+        name: place.name || place.display_name?.split(',')[0],
+        formattedAddress: place.display_name,
+        lat: Number(place.lat),
+        lng: Number(place.lon),
+        placeId: String(place.place_id),
+        type: place.type,
+        class: place.class,
+        importance: place.importance,
+        searchedQuery: query,
+      }));
+
+      return {
+        message: 'Places fetched successfully',
+        originalQuery: dto.q,
+        usedQuery: query,
+        places,
+      };
+    }
+  }
+
+  throw new NotFoundException('No places found for this search');
+}
 }

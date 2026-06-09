@@ -140,78 +140,261 @@ export class ListingsService {
 
   //* ─── Search listings ───────────────────────
 
+  private calculateDistanceKm(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ) {
+    const earthRadiusKm = 6371;
+
+    const toRad = (value: number) => (value * Math.PI) / 180;
+
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return earthRadiusKm * c;
+  }
+
   async search(dto: SearchListingDto) {
     const page = dto.page ?? 1;
     const limit = dto.limit ?? 12;
     const skip = (page - 1) * limit;
 
-    // Build where clause
     const where: any = {
       status: ListingStatus.ACTIVE,
       isDeleted: false,
     };
 
-    if (dto.city) where.city = { contains: dto.city, mode: 'insensitive' };
-    if (dto.country)
-      where.country = { contains: dto.country, mode: 'insensitive' };
-    if (dto.guests) where.maxGuests = { gte: dto.guests };
-    if (dto.categoryId) where.categoryId = dto.categoryId;
-
-    if (dto.minPrice || dto.maxPrice) {
-      where.pricePerNight = {};
-      if (dto.minPrice) where.pricePerNight.gte = dto.minPrice;
-      if (dto.maxPrice) where.pricePerNight.lte = dto.maxPrice;
-    }
-
-    // Filter by amenities
-    if (dto.amenities && dto.amenities.length > 0) {
-      where.amenities = {
-        some: {
-          amenityKey: { in: dto.amenities },
-        },
+    // Location filters
+    if (dto.city) {
+      where.city = {
+        contains: dto.city,
+        mode: 'insensitive',
       };
     }
 
-    // Filter by available dates
-    if (dto.checkIn && dto.checkOut) {
-      const checkIn = new Date(dto.checkIn);
-      const checkOut = new Date(dto.checkOut);
+    if (dto.governorate) {
+      where.governorate = {
+        contains: dto.governorate,
+        mode: 'insensitive',
+      };
+    }
 
-      where.NOT = {
-        availabilityBlocks: {
-          some: {
-            blockedDate: {
-              gte: checkIn,
-              lt: checkOut,
-            },
+    if (dto.country) {
+      where.country = {
+        contains: dto.country,
+        mode: 'insensitive',
+      };
+    }
+
+    if (dto.areaId) {
+      where.areaId = dto.areaId;
+    }
+
+    // Guests
+    if (dto.guests) {
+      where.maxTenants = {
+        gte: dto.guests,
+      };
+    }
+
+    // Property filters
+    if (dto.propertyType) {
+      where.propertyType = dto.propertyType;
+    }
+
+    if (dto.roomType) {
+      where.roomType = dto.roomType;
+    }
+
+    if (dto.genderPreference) {
+      where.genderPreference = dto.genderPreference;
+    }
+
+    if (dto.categoryId) {
+      where.categoryId = dto.categoryId;
+    }
+
+    // Monthly rent filter
+    if (dto.minPrice || dto.maxPrice) {
+      where.monthlyRent = {};
+
+      if (dto.minPrice) {
+        where.monthlyRent.gte = dto.minPrice;
+      }
+
+      if (dto.maxPrice) {
+        where.monthlyRent.lte = dto.maxPrice;
+      }
+    }
+
+    // Available from
+    if (dto.availableFrom) {
+      const availableFromDate = new Date(dto.availableFrom);
+
+      if (!Number.isNaN(availableFromDate.getTime())) {
+        where.availableFrom = {
+          lte: availableFromDate,
+        };
+      }
+    }
+
+    // Amenities filter
+    if (dto.amenities && dto.amenities.length > 0) {
+      where.amenities = {
+        some: {
+          amenityKey: {
+            in: dto.amenities,
           },
         },
       };
     }
 
-    // Run query and count in parallel
+    const include = {
+      host: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+      },
+      area: true,
+      category: {
+        select: {
+          id: true,
+          name: true,
+          iconUrl: true,
+        },
+      },
+      photos: {
+        where: {
+          isCover: true,
+        },
+        take: 1,
+      },
+      amenities: true,
+      locationInsight: true,
+      _count: {
+        select: {
+          reviews: true,
+        },
+      },
+    };
+
+    const hasNearSearch =
+      dto.nearLat !== undefined || dto.nearLng !== undefined;
+
+    if (hasNearSearch) {
+      if (dto.nearLat === undefined || dto.nearLng === undefined) {
+        throw new BadRequestException(
+          'nearLat and nearLng must be provided together',
+        );
+      }
+
+      const radiusKm = dto.radiusKm ?? 3;
+
+      const allListings = await this.prisma.listing.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include,
+      });
+
+      const listingsWithDistance = allListings
+        .map((listing) => {
+          const listingLat = Number(listing.lat);
+          const listingLng = Number(listing.lng);
+
+          if (
+            Number.isNaN(listingLat) ||
+            Number.isNaN(listingLng) ||
+            listing.lat === null ||
+            listing.lng === null
+          ) {
+            return null;
+          }
+
+          const distanceKm = this.calculateDistanceKm(
+            dto.nearLat!,
+            dto.nearLng!,
+            listingLat,
+            listingLng,
+          );
+
+          return {
+            ...listing,
+            distanceKm: Number(distanceKm.toFixed(2)),
+          };
+        })
+        .filter((listing) => {
+          return listing !== null && listing.distanceKm <= radiusKm;
+        });
+
+      if (dto.sortBy === 'price_low') {
+        listingsWithDistance.sort(
+          (a, b) => Number(a!.monthlyRent) - Number(b!.monthlyRent),
+        );
+      } else if (dto.sortBy === 'price_high') {
+        listingsWithDistance.sort(
+          (a, b) => Number(b!.monthlyRent) - Number(a!.monthlyRent),
+        );
+      } else {
+        listingsWithDistance.sort((a, b) => a!.distanceKm - b!.distanceKm);
+      }
+
+      const total = listingsWithDistance.length;
+      const paginatedListings = listingsWithDistance.slice(skip, skip + limit);
+
+      return {
+        data: paginatedListings,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    }
+
+    let orderBy: any = {
+      createdAt: 'desc',
+    };
+
+    if (dto.sortBy === 'price_low') {
+      orderBy = {
+        monthlyRent: 'asc',
+      };
+    }
+
+    if (dto.sortBy === 'price_high') {
+      orderBy = {
+        monthlyRent: 'desc',
+      };
+    }
+
     const [listings, total] = await Promise.all([
       this.prisma.listing.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          host: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              avatarUrl: true,
-            },
-          },
-          category: { select: { id: true, name: true, iconUrl: true } },
-          photos: { where: { isCover: true }, take: 1 },
-          amenities: true,
-          _count: { select: { reviews: true } },
-        },
+        orderBy,
+        include,
       }),
-      this.prisma.listing.count({ where }),
+      this.prisma.listing.count({
+        where,
+      }),
     ]);
 
     return {
@@ -226,11 +409,10 @@ export class ListingsService {
   }
 
   async findAll() {
-    const listing = await this.prisma.listing.findMany()
-    const number = listing.length
+    const listing = await this.prisma.listing.findMany();
+    const number = listing.length;
 
-
-    return {message :"done","number of listing is" : number ,listing};
+    return { message: 'done', 'number of listing is': number, listing };
   }
 
   //* ─── Get single listing ────────────────────
