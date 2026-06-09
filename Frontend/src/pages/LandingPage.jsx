@@ -121,7 +121,7 @@ export function LandingPage() {
 
           <div className="mt-6 flex w-full max-w-[520px] flex-col gap-3 sm:flex-row">
             <Link
-              to="/home"
+              to="#listings"
               className="inline-flex h-14 flex-1 items-center justify-center gap-3 rounded-xl border-2 border-white bg-[#075fd6] px-6 text-base font-black text-white shadow-lg shadow-blue-950/25 transition hover:bg-[#0754bd]"
             >
               ابدأ البحث الآن
@@ -262,7 +262,7 @@ export function LandingPage() {
             <Step icon={BookingIcon} title="احجز أو اطلب معاينة" text="تواصل مع المالك مباشرة واحجز معاينة في الوقت المناسب" />
           </div>
           <Link
-            to="/home"
+            to="#listings"
             className="mt-8 inline-flex h-12 min-w-[280px] items-center justify-center gap-3 rounded-lg bg-[#075fd6] px-8 text-base font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#0754bd]"
           >
             ابدأ البحث عن سكنك

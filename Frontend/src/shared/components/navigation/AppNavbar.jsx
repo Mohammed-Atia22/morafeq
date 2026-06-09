@@ -7,6 +7,17 @@ const navLinkClass = ({ isActive }) =>
     isActive ? "text-white" : "text-slate-300",
   ].join(" ");
 
+const publicNavbarPaths = new Set([
+  "/",
+  "/home",
+  "/login",
+  "/register",
+  "/confirm-otp",
+  "/forgot-password",
+  "/reset-password",
+  "/auth/callback",
+]);
+
 export function AppNavbar() {
   const { isAuthenticated, user, logout } = useAuth();
   const { pathname } = useLocation();
@@ -15,7 +26,7 @@ export function AppNavbar() {
     return null;
   }
 
-  if (pathname === "/") {
+  if (publicNavbarPaths.has(pathname)) {
     return (
       <header className="fixed inset-x-0 top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <nav className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-4 sm:px-8">
