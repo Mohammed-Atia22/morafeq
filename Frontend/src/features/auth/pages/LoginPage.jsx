@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { AuthCard } from "../../components/auth/AuthCard";
-import { AuthLayout } from "../../components/auth/AuthLayout";
-import { AuthMessage } from "../../components/auth/AuthMessage";
-import { FormField, inputClass } from "../../components/auth/FormField";
-import { GoogleButton } from "../../components/auth/GoogleButton";
-import { useAuth } from "../../features/auth/hooks/useAuth";
+import { AuthCard } from "../components/AuthCard";
+import { AuthLayout } from "../components/AuthLayout";
+import { AuthMessage } from "../components/AuthMessage";
+import { FormField, inputClass } from "../components/FormField";
+import { GoogleButton } from "../components/GoogleButton";
+import { useAuth } from "../hooks/useAuth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
 

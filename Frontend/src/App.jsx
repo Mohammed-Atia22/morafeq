@@ -2,19 +2,19 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./features/auth/context/AuthContext";
 import { LandingPage } from "./pages/LandingPage";
 import { HomePage } from "./pages/HomePage";
-import { LoginPage } from "./pages/auth/LoginPage";
-import { RegisterPage } from "./pages/auth/RegisterPage";
-import { ConfirmOtpPage } from "./pages/auth/ConfirmOtpPage";
-import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
-import { ResetPasswordPage } from "./pages/auth/ResetPasswordPage";
-import { AuthCallbackPage } from "./pages/auth/AuthCallbackPage";
+import { LoginPage } from "./features/auth/pages/LoginPage";
+import { RegisterPage } from "./features/auth/pages/RegisterPage";
+import { ConfirmOtpPage } from "./features/auth/pages/ConfirmOtpPage";
+import { ForgotPasswordPage } from "./features/auth/pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage";
+import { AuthCallbackPage } from "./features/auth/pages/AuthCallbackPage";
 import { OnboardingPage } from "./features/onboarding/pages/OnboardingPage";
-import { OwnerPage } from "./pages/OwnerPage";
-import { ExpatriatePage } from "./pages/ExpatriatePage";
-import Layout from "./pages/Layout/Layout";
+import { OwnerPage } from "./features/owner/pages/OwnerDashboardPage";
+import { ExpatriatePage } from "./features/expatriate/pages/ExpatriatePage";
+import Layout from "./app/layouts/MainLayout";
 import { Toaster } from "react-hot-toast";
-import AddListingPage from "./pages/AddListingPage";
-import { ProtectedRoute } from "./routes/ProtectedRoute";
+import AddListingPage from "./features/listings/pages/AddListingPage";
+import { ProtectedRoute } from "./app/routes/ProtectedRoute";
 
 function App() {
   return (
@@ -82,17 +82,17 @@ export default App;
 // import { createBrowserRouter, Navigate, Route, RouterProvider, Routes } from "react-router-dom";
 // import { AuthProvider } from "./features/auth/context/AuthContext";
 // import { HomePage } from "./pages/HomePage";
-// import { LoginPage } from "./pages/auth/LoginPage";
-// import { RegisterPage } from "./pages/auth/RegisterPage";
-// import { ConfirmOtpPage } from "./pages/auth/ConfirmOtpPage";
-// import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
-// import { ResetPasswordPage } from "./pages/auth/ResetPasswordPage";
-// import { AuthCallbackPage } from "./pages/auth/AuthCallbackPage";
+// import { LoginPage } from "./features/auth/pages/LoginPage";
+// import { RegisterPage } from "./features/auth/pages/RegisterPage";
+// import { ConfirmOtpPage } from "./features/auth/pages/ConfirmOtpPage";
+// import { ForgotPasswordPage } from "./features/auth/pages/ForgotPasswordPage";
+// import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage";
+// import { AuthCallbackPage } from "./features/auth/pages/AuthCallbackPage";
 // import { OnboardingPage } from "./features/onboarding/pages/OnboardingPage";
-// import { OwnerPage } from "./pages/OwnerPage";
-// import { ExpatriatePage } from "./pages/ExpatriatePage";
+// import { OwnerPage } from "./features/owner/pages/OwnerDashboardPage";
+// import { ExpatriatePage } from "./features/expatriate/pages/ExpatriatePage";
 // import { Toaster } from "react-hot-toast";
-// import Layout from './pages/Layout/Layout';
+// import Layout from './app/layouts/MainLayout';
 
 // function App() {
 //   let Roudes = createBrowserRouter([

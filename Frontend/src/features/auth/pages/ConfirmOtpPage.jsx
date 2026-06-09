@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { AuthCard } from "../../components/auth/AuthCard";
-import { AuthLayout } from "../../components/auth/AuthLayout";
-import { AuthMessage } from "../../components/auth/AuthMessage";
-import { FormField, inputClass } from "../../components/auth/FormField";
-import { useAuth } from "../../features/auth/hooks/useAuth";
-import { authApi } from "../../features/auth/services/authApi";
+import { AuthCard } from "../components/AuthCard";
+import { AuthLayout } from "../components/AuthLayout";
+import { AuthMessage } from "../components/AuthMessage";
+import { FormField, inputClass } from "../components/FormField";
+import { useAuth } from "../hooks/useAuth";
+import { authApi } from "../services/authApi";
 import toast from "react-hot-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";

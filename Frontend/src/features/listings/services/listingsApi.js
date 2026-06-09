@@ -1,4 +1,4 @@
-import { apiRequest } from "../../../services/api";
+import { apiRequest } from "../../../shared/services/api";
 
 export const listingsApi = {
   findMyListings: () => apiRequest("/listings/my"),

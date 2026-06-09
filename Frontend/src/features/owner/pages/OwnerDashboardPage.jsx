@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { useAuth } from "../features/auth/hooks/useAuth";
-import { listingsApi } from "../features/listings/services/listingsApi";
-import { AddListingForm } from "./AddListingPage";
-import roomOne from "../../images/rooms (1).jpg";
-import roomTwo from "../../images/rooms (2).jpg";
-import roomThree from "../../images/rooms (3).jpg";
+import { useAuth } from "../../auth/hooks/useAuth";
+import { listingsApi } from "../../listings/services/listingsApi";
+import { AddListingForm } from "../../listings/components/AddListingForm";
+import roomOne from "../../../../images/rooms (1).jpg";
+import roomTwo from "../../../../images/rooms (2).jpg";
+import roomThree from "../../../../images/rooms (3).jpg";
 
 const statusTabs = [
   { key: "all", label: "الكل" },

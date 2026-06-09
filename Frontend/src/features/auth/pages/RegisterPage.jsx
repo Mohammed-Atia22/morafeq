@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
-import { AuthCard } from "../../components/auth/AuthCard";
-import { AuthLayout } from "../../components/auth/AuthLayout";
-import { AuthMessage } from "../../components/auth/AuthMessage";
-import { FormField, inputClass } from "../../components/auth/FormField";
-import { GoogleButton } from "../../components/auth/GoogleButton";
-import { authApi } from "../../features/auth/services/authApi";
+import { AuthCard } from "../components/AuthCard";
+import { AuthLayout } from "../components/AuthLayout";
+import { AuthMessage } from "../components/AuthMessage";
+import { FormField, inputClass } from "../components/FormField";
+import { GoogleButton } from "../components/GoogleButton";
+import { authApi } from "../services/authApi";
 import axios from "axios";
 import { getCountries, getCountryCallingCode } from "libphonenumber-js";
 import toast from "react-hot-toast";

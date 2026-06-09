@@ -1,4 +1,4 @@
-import { googleAuthUrl } from "../../features/auth/services/authApi";
+import { googleAuthUrl } from "../services/authApi";
 
 export function GoogleButton() {
   return (

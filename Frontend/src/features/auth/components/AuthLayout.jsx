@@ -1,5 +1,5 @@
-import heroImage from '../../assets/hero.png'
-import { AppNavbar } from '../layout/AppNavbar'
+import heroImage from '../../../assets/hero.png'
+import { AppNavbar } from '../../../shared/components/navigation/AppNavbar'
 
 export function AuthLayout({ children }) {
   return (

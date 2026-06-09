@@ -1,5 +1,5 @@
 import heroImage from '../assets/hero.png'
-import { AppNavbar } from '../components/layout/AppNavbar'
+import { AppNavbar } from '../shared/components/navigation/AppNavbar'
 
 export function HomePage() {
   return (

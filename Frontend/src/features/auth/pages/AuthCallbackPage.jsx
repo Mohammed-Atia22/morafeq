@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { AuthCard } from "../../components/auth/AuthCard";
-import { AuthLayout } from "../../components/auth/AuthLayout";
-import { AuthMessage } from "../../components/auth/AuthMessage";
-import { useAuth } from "../../features/auth/hooks/useAuth";
+import { AuthCard } from "../components/AuthCard";
+import { AuthLayout } from "../components/AuthLayout";
+import { AuthMessage } from "../components/AuthMessage";
+import { useAuth } from "../hooks/useAuth";
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();

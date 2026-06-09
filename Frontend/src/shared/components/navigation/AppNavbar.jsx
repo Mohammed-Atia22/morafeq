@@ -1,5 +1,5 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { useAuth } from "../../features/auth/hooks/useAuth";
+import { useAuth } from "../../../features/auth/hooks/useAuth";
 
 const navLinkClass = ({ isActive }) =>
   [

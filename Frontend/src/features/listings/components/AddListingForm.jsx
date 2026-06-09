@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import LocationPickerMap from "../components/location/LocationPickerMap";
-import { apiRequest } from "../services/api";
-import { useAuth } from "../features/auth/hooks/useAuth";
+import LocationPickerMap from "../../../shared/components/maps/LocationPickerMap";
+import { apiRequest } from "../../../shared/services/api";
+import { useAuth } from "../../auth/hooks/useAuth";
 
 const API_BASE_URL = "http://localhost:3001/api/v1";
 const AMENITY_OPTIONS = [
@@ -1710,8 +1710,4 @@ export function AddListingForm({ embedded = false, onCreated }) {
       </div>
     </div>
   );
-}
-
-export default function AddListingPage() {
-  return <AddListingForm />;
 }
