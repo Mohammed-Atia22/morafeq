@@ -11,7 +11,9 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UsersService } from './users.service';
@@ -77,8 +79,25 @@ export class UsersController {
   @Post('me/become-host')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  becomeHost(@CurrentUser() user: any) {
-    return this.usersService.becomeHost(user.id);
+  async becomeHost(
+    @CurrentUser() user: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.usersService.becomeHost(user.id);
+
+    res.cookie('refresh_token', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/api/v1/auth/refresh',
+    });
+
+    return {
+      message: result.message,
+      user: result.user,
+      accessToken: result.accessToken,
+    };
   }
 
   // ─── Get public profile ───────────────────

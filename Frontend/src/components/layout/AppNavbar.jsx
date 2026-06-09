@@ -11,6 +11,10 @@ export function AppNavbar() {
   const { isAuthenticated, user, logout } = useAuth();
   const { pathname } = useLocation();
 
+  if (pathname === "/owner") {
+    return null;
+  }
+
   if (pathname === "/") {
     return (
       <header className="fixed inset-x-0 top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">

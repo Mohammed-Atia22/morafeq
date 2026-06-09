@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import LocationPickerMap from "../components/location/LocationPickerMap";
-
-const API_BASE_URL = "http://localhost:3001/api/v1";
+import { apiRequest } from "../services/api";
+import { useAuth } from "../features/auth/hooks/useAuth";
 
 export default function AddListingPage() {
+  const { user, completeGoogleLogin } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
 
   const [mapResult, setMapResult] = useState(null);
@@ -86,31 +87,16 @@ export default function AddListingPage() {
 
       const addressData = getValues();
 
-      const response = await fetch(
-        `${API_BASE_URL}/locations/geocode-address`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            governorate: addressData.governorate,
-            city: addressData.city,
-            areaName: addressData.areaName,
-            streetName: addressData.streetName,
-            country: addressData.country || "Egypt",
-          }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError("root", {
-          message: data.message || "Could not find this address",
-        });
-        return;
-      }
+      const data = await apiRequest("/locations/geocode-address", {
+        method: "POST",
+        body: JSON.stringify({
+          governorate: addressData.governorate,
+          city: addressData.city,
+          areaName: addressData.areaName,
+          streetName: addressData.streetName,
+          country: addressData.country || "Egypt",
+        }),
+      });
 
       setMapResult(data);
 
@@ -127,7 +113,7 @@ export default function AddListingPage() {
       console.error(error);
 
       setError("root", {
-        message: "Something went wrong while finding location",
+        message: error.message || "Something went wrong while finding location",
       });
     } finally {
       setIsFindingLocation(false);
@@ -234,7 +220,15 @@ export default function AddListingPage() {
       setIsSubmittingListing(true);
       clearErrors("root");
 
-      const token = localStorage.getItem("morafeq_access_token");
+      if (user?.role !== "HOST" && user?.role !== "ADMIN") {
+        const hostSession = await apiRequest("/users/me/become-host", {
+          method: "POST",
+        });
+
+        if (hostSession?.accessToken) {
+          await completeGoogleLogin(hostSession.accessToken);
+        }
+      }
 
       const finalData = {
         ...data,
@@ -256,80 +250,13 @@ export default function AddListingPage() {
 
       console.log("Final data sent to backend:", finalData);
 
-      const response = await fetch(`${API_BASE_URL}/listings`, {
+      const result = await apiRequest("/listings", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(finalData),
       });
 
-      const result = await response.json();
       console.log("Create listing response:", result);
       console.log("Create listing response messages:", result?.message);
-
-      if (!response.ok) {
-        const msg = result?.message;
-
-        // If backend returned validation messages array (Nest validation), map them to form fields
-        if (Array.isArray(msg)) {
-          const fieldSteps = {
-            1: ["governorate", "city", "areaName", "streetName"],
-            2: [
-              "buildingNumber",
-              "floorNumber",
-              "apartmentNumber",
-              "nearbyLandmark",
-            ],
-            3: [
-              "title",
-              "description",
-              "propertyType",
-              "roomType",
-              "monthlyRent",
-              "depositAmount",
-              "maxTenants",
-              "bedrooms",
-              "beds",
-              "bathrooms",
-              "availableFrom",
-            ],
-          };
-
-          const errorFields = [];
-
-          msg.forEach((m) => {
-            // try to extract field name at start of message (e.g. "title should not be empty")
-            const match = String(m).match(/^([a-zA-Z0-9_]+)/);
-            if (match) {
-              const field = match[1];
-              errorFields.push(field);
-              try {
-                setError(field, { message: m });
-              } catch (e) {
-                // ignore if field not registered
-              }
-            } else {
-              // fallback to root
-              setError("root", { message: m });
-            }
-          });
-
-          // jump to the earliest step that contains an error field
-          const stepsWithErrors = [1, 2, 3].filter((s) =>
-            fieldSteps[s].some((f) => errorFields.includes(f)),
-          );
-          if (stepsWithErrors.length)
-            setCurrentStep(Math.min(...stepsWithErrors));
-        } else if (typeof msg === "string") {
-          setError("root", { message: msg });
-        } else {
-          setError("root", { message: "Failed to create listing" });
-        }
-
-        return;
-      }
 
       alert("Listing created successfully");
       console.log("Created listing:", result);
@@ -337,7 +264,7 @@ export default function AddListingPage() {
       console.error(error);
 
       setError("root", {
-        message: "Something went wrong while creating listing",
+        message: error.message || "Something went wrong while creating listing",
       });
     } finally {
       setIsSubmittingListing(false);

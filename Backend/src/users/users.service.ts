@@ -208,6 +208,7 @@ export class UsersService {
       message:     'You are now a host. Welcome!',
       user:        updated,
       accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
   }
 }
