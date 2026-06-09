@@ -1,7 +1,7 @@
 import {
   BadGatewayException,
   BadRequestException,
-  NotFoundException ,
+  NotFoundException,
   Injectable,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
@@ -10,7 +10,6 @@ import { firstValueFrom } from 'rxjs';
 import { GeocodeAddressDto } from './dto/geocode-address.dto';
 import { SearchPlaceDto } from './dto/search-place.dto';
 import { isAxiosError } from 'axios';
-
 
 interface NominatimSearchResult {
   place_id: number;
@@ -49,30 +48,30 @@ export class LocationsService {
     const userAgent = `${appName}/1.0 (${contactEmail})`;
 
     const freeFormQueries = [
-  // 1. نبدأ بالمنطقة لأن ده الأهم لفتح الخريطة قريب
-  [dto.areaName, dto.city, country],
-  [dto.areaName, dto.governorate, country],
+      // 1. نبدأ بالمنطقة لأن ده الأهم لفتح الخريطة قريب
+      [dto.areaName, dto.city, country],
+      [dto.areaName, dto.governorate, country],
 
-  // 2. بعد كده المدينة كـ fallback
-  [dto.city, dto.governorate, country],
-  [dto.city, country],
+      // 2. بعد كده المدينة كـ fallback
+      [dto.city, dto.governorate, country],
+      [dto.city, country],
 
-  // 3. الشارع نخليه بعد المنطقة، مش قبلها
-  [dto.streetName, dto.areaName, dto.city, country],
+      // 3. الشارع نخليه بعد المنطقة، مش قبلها
+      [dto.streetName, dto.areaName, dto.city, country],
 
-  // 4. آخر حاجة العنوان الكامل
-  [
-    dto.buildingNumber,
-    dto.streetName,
-    dto.nearbyLandmark,
-    dto.areaName,
-    dto.city,
-    dto.governorate,
-    country,
-  ],
-]
-  .map((parts) => parts.filter(Boolean).join(', '))
-  .filter((query, index, arr) => query && arr.indexOf(query) === index);
+      // 4. آخر حاجة العنوان الكامل
+      [
+        dto.buildingNumber,
+        dto.streetName,
+        dto.nearbyLandmark,
+        dto.areaName,
+        dto.city,
+        dto.governorate,
+        country,
+      ],
+    ]
+      .map((parts) => parts.filter(Boolean).join(', '))
+      .filter((query, index, arr) => query && arr.indexOf(query) === index);
 
     for (const query of freeFormQueries) {
       const result = await this.searchNominatim(baseUrl, userAgent, {
@@ -90,17 +89,17 @@ export class LocationsService {
     }
 
     const structuredSearches = [
-  {
-    city: dto.areaName ?? dto.city,
-    state: dto.governorate,
-    country,
-  },
-  {
-    city: dto.city,
-    state: dto.governorate,
-    country,
-  },
-];
+      {
+        city: dto.areaName ?? dto.city,
+        state: dto.governorate,
+        country,
+      },
+      {
+        city: dto.city,
+        state: dto.governorate,
+        country,
+      },
+    ];
 
     for (const params of structuredSearches) {
       const cleanParams = Object.fromEntries(
@@ -210,97 +209,108 @@ export class LocationsService {
     };
   }
 
-
   async searchPlace(dto: SearchPlaceDto) {
-  const country = dto.country ?? 'Egypt';
+    const country = dto.country ?? 'Egypt';
 
-  const rawQueries = [
-    [dto.q, dto.city, dto.governorate, country],
-    [dto.q, dto.city, country],
-    [dto.q, country],
-    [dto.q],
-  ];
+    const rawQueries = [
+      [dto.q, dto.city, dto.governorate, country],
+      [dto.q, dto.city, country],
+      [dto.q, country],
+      [dto.q],
+    ];
 
-  // aliases بسيطة للأماكن المشهورة
-  // دي مفيدة لأن Nominatim ساعات بيلاقي الإنجليزي ومش بيلاقي العربي
-  const normalizedQ = dto.q.trim();
+    // aliases بسيطة للأماكن المشهورة
+    // دي مفيدة لأن Nominatim ساعات بيلاقي الإنجليزي ومش بيلاقي العربي
+    const normalizedQ = dto.q.trim();
 
-  if (
-    normalizedQ.includes('كلية تجارة') ||
-    normalizedQ.includes('كلية التجارة')
-  ) {
-    rawQueries.push(
-      ['Faculty of Commerce Alexandria University', dto.city, country],
-      ['Faculty of Commerce, Alexandria University', country],
-      ['Alexandria University Faculty of Commerce', country],
-    );
-  }
-
-  if (
-    normalizedQ.includes('جامعة الإسكندرية') ||
-    normalizedQ.includes('جامعة الاسكندرية')
-  ) {
-    rawQueries.push(
-      ['Alexandria University', dto.city, country],
-      ['Alexandria University', country],
-    );
-  }
-
-  const queries = rawQueries
-    .map((parts) => parts.filter(Boolean).join(', '))
-    .filter((query, index, arr) => query && arr.indexOf(query) === index);
-
-  for (const query of queries) {
-    const response = await firstValueFrom(
-      this.httpService.get('https://nominatim.openstreetmap.org/search', {
-        params: {
-          q: query,
-          format: 'json',
-          addressdetails: 1,
-          limit: 5,
-          countrycodes: 'eg',
-        },
-        headers: {
-          'User-Agent': 'Moraafeq/1.0 (contact@moraafeq.local)',
-        },
-      }),
-    );
-
-    const results = response.data ?? [];
-
-    if (results.length > 0) {
-      const places = results.map((place: any) => ({
-        name: place.name || place.display_name?.split(',')[0],
-        formattedAddress: place.display_name,
-        lat: Number(place.lat),
-        lng: Number(place.lon),
-        placeId: String(place.place_id),
-        type: place.type,
-        class: place.class,
-        importance: place.importance,
-        searchedQuery: query,
-      }));
-
-      return {
-        message: 'Places fetched successfully',
-        originalQuery: dto.q,
-        usedQuery: query,
-        places,
-      };
+    if (
+      normalizedQ.includes('كلية تجارة') ||
+      normalizedQ.includes('كلية التجارة')
+    ) {
+      rawQueries.push(
+        ['Faculty of Commerce Alexandria University', dto.city, country],
+        ['Faculty of Commerce, Alexandria University', country],
+        ['Alexandria University Faculty of Commerce', country],
+      );
     }
+
+    if (
+      normalizedQ.includes('جامعة الإسكندرية') ||
+      normalizedQ.includes('جامعة الاسكندرية')
+    ) {
+      rawQueries.push(
+        ['Alexandria University', dto.city, country],
+        ['Alexandria University', country],
+      );
+    }
+
+    const queries = rawQueries
+      .map((parts) => parts.filter(Boolean).join(', '))
+      .filter((query, index, arr) => query && arr.indexOf(query) === index);
+
+    for (const query of queries) {
+      const response = await firstValueFrom(
+        this.httpService.get('https://nominatim.openstreetmap.org/search', {
+          params: {
+            q: query,
+            format: 'json',
+            addressdetails: 1,
+            limit: 5,
+            countrycodes: 'eg',
+          },
+          headers: {
+            'User-Agent': 'Moraafeq/1.0 (contact@moraafeq.local)',
+          },
+        }),
+      );
+
+      const results = response.data ?? [];
+
+      if (results.length > 0) {
+        const places = results.map((place: any) => ({
+          name: place.name || place.display_name?.split(',')[0],
+          formattedAddress: place.display_name,
+          lat: Number(place.lat),
+          lng: Number(place.lon),
+          placeId: String(place.place_id),
+          type: place.type,
+          class: place.class,
+          importance: place.importance,
+          searchedQuery: query,
+        }));
+
+        return {
+          message: 'Places fetched successfully',
+          originalQuery: dto.q,
+          usedQuery: query,
+          places,
+        };
+      }
+    }
+
+    return {
+      message: 'No places found for this search',
+      originalQuery: dto.q,
+      usedQuery: dto.q,
+      places: [],
+    };
   }
 
-  throw new NotFoundException('No places found for this search');
-}
-
-private getApproximateEgyptLocation(dto: GeocodeAddressDto) {
+  private getApproximateEgyptLocation(dto: GeocodeAddressDto) {
     const cityKey = this.normalizeLocationText(
       `${dto.areaName ?? ''} ${dto.city} ${dto.governorate}`,
     );
 
     const knownLocations = [
       {
-        keys: ['cairo', 'القاهرة', 'new cairo', 'التجمع', 'nasr city', 'مدينة نصر'],
+        keys: [
+          'cairo',
+          'القاهرة',
+          'new cairo',
+          'التجمع',
+          'nasr city',
+          'مدينة نصر',
+        ],
         lat: 30.0444,
         lng: 31.2357,
         name: 'القاهرة، مصر',
@@ -312,7 +322,14 @@ private getApproximateEgyptLocation(dto: GeocodeAddressDto) {
         name: 'الجيزة، مصر',
       },
       {
-        keys: ['alexandria', 'alex', 'الإسكندرية', 'اسكندرية', 'سموحة', 'smouha'],
+        keys: [
+          'alexandria',
+          'alex',
+          'الإسكندرية',
+          'اسكندرية',
+          'سموحة',
+          'smouha',
+        ],
         lat: 31.2001,
         lng: 29.9187,
         name: 'الإسكندرية، مصر',
@@ -385,7 +402,13 @@ private getApproximateEgyptLocation(dto: GeocodeAddressDto) {
 
     return {
       provider: 'local-fallback',
-      query: [dto.streetName, dto.areaName, dto.city, dto.governorate, dto.country ?? 'Egypt']
+      query: [
+        dto.streetName,
+        dto.areaName,
+        dto.city,
+        dto.governorate,
+        dto.country ?? 'Egypt',
+      ]
         .filter(Boolean)
         .join(', '),
       matchLevel: 'CITY',

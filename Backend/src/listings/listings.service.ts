@@ -179,21 +179,18 @@ export class ListingsService {
     if (dto.city) {
       where.city = {
         contains: dto.city,
-        mode: 'insensitive',
       };
     }
 
     if (dto.governorate) {
       where.governorate = {
         contains: dto.governorate,
-        mode: 'insensitive',
       };
     }
 
     if (dto.country) {
       where.country = {
         contains: dto.country,
-        mode: 'insensitive',
       };
     }
 
@@ -507,7 +504,8 @@ export class ListingsService {
           city,
           governorate,
           country,
-          googlePlaceId: dto.googlePlaceId ?? currentListing?.googlePlaceId ?? undefined,
+          googlePlaceId:
+            dto.googlePlaceId ?? currentListing?.googlePlaceId ?? undefined,
         });
         areaId = area.id;
       }

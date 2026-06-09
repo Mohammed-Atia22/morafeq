@@ -55,17 +55,25 @@ const clearSession = () => {
 
 export async function apiRequest(path, options = {}, retry = true) {
   const token = localStorage.getItem("morafeq_access_token");
+  const method = options.method?.toUpperCase() || "GET";
+  const isJsonRequest = method !== "GET" || options.body != null;
+
   const response = await fetch(`${API_URL}${path}`, {
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      ...(isJsonRequest ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
     ...options,
   });
 
-  if (response.status === 401 && retry && path !== "/auth/login" && path !== "/auth/refresh") {
+  if (
+    response.status === 401 &&
+    retry &&
+    path !== "/auth/login" &&
+    path !== "/auth/refresh"
+  ) {
     try {
       await refreshAccessToken();
       return apiRequest(path, options, false);
