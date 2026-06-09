@@ -138,7 +138,7 @@ export class ListingsService {
     };
   }
 
-  // ─── Search listings ───────────────────────
+  //* ─── Search listings ───────────────────────
 
   async search(dto: SearchListingDto) {
     const page = dto.page ?? 1;
@@ -233,7 +233,7 @@ export class ListingsService {
     return {message :"done","number of listing is" : number ,listing};
   }
 
-  // ─── Get single listing ────────────────────
+  //* ─── Get single listing ────────────────────
 
   async findOne(id: number) {
     const listing = await this.prisma.listing.findFirst({

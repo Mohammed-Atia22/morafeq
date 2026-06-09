@@ -3,6 +3,14 @@ import { useForm } from "react-hook-form";
 import LocationPickerMap from "../components/location/LocationPickerMap";
 
 const API_BASE_URL = "http://localhost:3001/api/v1";
+const AMENITY_OPTIONS = [
+  { key: "wifi", label: "Wi-Fi" },
+  { key: "kitchen", label: "Kitchen" },
+  { key: "parking", label: "Parking" },
+  { key: "air_conditioning", label: "Air conditioning" },
+  { key: "washing_machine", label: "Washing machine" },
+  { key: "workspace", label: "Workspace" },
+];
 
 export default function AddListingPage() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -10,6 +18,8 @@ export default function AddListingPage() {
   const [mapResult, setMapResult] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [confirmedLocation, setConfirmedLocation] = useState(null);
+  const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [selectedAmenities, setSelectedAmenities] = useState([]);
 
   const [isFindingLocation, setIsFindingLocation] = useState(false);
   const [isSubmittingListing, setIsSubmittingListing] = useState(false);
@@ -183,6 +193,86 @@ export default function AddListingPage() {
     setCurrentStep(3);
   };
 
+  const handlePhotoChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    const validFiles = files.filter((file) => file.size <= 5 * 1024 * 1024);
+
+    if (files.length !== validFiles.length) {
+      setError("root", {
+        message: "Each photo must be 5MB or less",
+      });
+    } else {
+      clearErrors("root");
+    }
+
+    setSelectedPhotos((currentPhotos) =>
+      [...currentPhotos, ...validFiles].slice(0, 10),
+    );
+
+    event.target.value = "";
+  };
+
+  const removeSelectedPhoto = (photoIndex) => {
+    setSelectedPhotos((currentPhotos) =>
+      currentPhotos.filter((_, index) => index !== photoIndex),
+    );
+  };
+
+  const toggleAmenity = (amenityKey) => {
+    setSelectedAmenities((currentAmenities) =>
+      currentAmenities.includes(amenityKey)
+        ? currentAmenities.filter((key) => key !== amenityKey)
+        : [...currentAmenities, amenityKey],
+    );
+  };
+
+  const uploadSelectedPhotos = async (listingId, token) => {
+    if (selectedPhotos.length === 0) return null;
+
+    const photoData = new FormData();
+    selectedPhotos.forEach((photo) => {
+      photoData.append("photos", photo);
+    });
+
+    const response = await fetch(`${API_BASE_URL}/listings/${listingId}/photos`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: photoData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Listing created, but photo upload failed");
+    }
+
+    return response.json();
+  };
+
+  const saveSelectedAmenities = async (listingId, token) => {
+    if (selectedAmenities.length === 0) return null;
+
+    const response = await fetch(
+      `${API_BASE_URL}/listings/${listingId}/amenities`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amenities: selectedAmenities }),
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Listing created, but amenities were not saved");
+    }
+
+    return response.json();
+  };
+
   const onSubmit = async (data) => {
     if (!confirmedLocation) {
       setError("root", {
@@ -331,13 +421,37 @@ export default function AddListingPage() {
         return;
       }
 
-      alert("Listing created successfully");
+      const listingId = result?.listing?.id;
+      const optionalWarnings = [];
+
+      if (listingId) {
+        try {
+          await saveSelectedAmenities(listingId, token);
+        } catch (optionalError) {
+          optionalWarnings.push(optionalError.message);
+        }
+
+        try {
+          await uploadSelectedPhotos(listingId, token);
+        } catch (optionalError) {
+          optionalWarnings.push(optionalError.message);
+        }
+      }
+
+      if (optionalWarnings.length > 0) {
+        setError("root", {
+          message: optionalWarnings.join(". "),
+        });
+        alert("Listing created, but some optional details were not saved yet");
+      } else {
+        alert("Listing created successfully");
+      }
       console.log("Created listing:", result);
     } catch (error) {
       console.error(error);
 
       setError("root", {
-        message: "Something went wrong while creating listing",
+        message: error.message || "Something went wrong while creating listing",
       });
     } finally {
       setIsSubmittingListing(false);
@@ -1108,6 +1222,155 @@ export default function AddListingPage() {
                   >
                     تكييف
                   </span>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "22px",
+                    padding: "18px",
+                    borderRadius: "16px",
+                    border: "1px solid #d8dde8",
+                    background: "#f8fafc",
+                  }}
+                >
+                  <div style={{ marginBottom: "14px" }}>
+                    <h3
+                      style={{
+                        margin: 0,
+                        color: "#12213f",
+                        fontSize: "17px",
+                      }}
+                    >
+                      Optional photos
+                    </h3>
+                    <p
+                      style={{
+                        margin: "6px 0 0",
+                        color: "#64748b",
+                        fontSize: "13px",
+                      }}
+                    >
+                      You can add up to 10 photos now, or skip this until upload
+                      is active.
+                    </p>
+                  </div>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoChange}
+                    style={fieldStyles}
+                  />
+
+                  {selectedPhotos.length > 0 && (
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: "10px",
+                        marginTop: "14px",
+                      }}
+                    >
+                      {selectedPhotos.map((photo, photoIndex) => (
+                        <div
+                          key={`${photo.name}-${photo.lastModified}`}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "12px",
+                            padding: "10px 12px",
+                            borderRadius: "12px",
+                            background: "#fff",
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <span style={{ color: "#334155", fontSize: "14px" }}>
+                            {photo.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeSelectedPhoto(photoIndex)}
+                            style={{
+                              border: "none",
+                              borderRadius: "10px",
+                              background: "#fee2e2",
+                              color: "#b91c1c",
+                              cursor: "pointer",
+                              fontWeight: 700,
+                              padding: "8px 12px",
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "18px",
+                    padding: "18px",
+                    borderRadius: "16px",
+                    border: "1px solid #d8dde8",
+                    background: "#f8fafc",
+                  }}
+                >
+                  <div style={{ marginBottom: "14px" }}>
+                    <h3
+                      style={{
+                        margin: 0,
+                        color: "#12213f",
+                        fontSize: "17px",
+                      }}
+                    >
+                      Optional amenities
+                    </h3>
+                    <p
+                      style={{
+                        margin: "6px 0 0",
+                        color: "#64748b",
+                        fontSize: "13px",
+                      }}
+                    >
+                      Select only what applies. Leaving this empty is allowed.
+                    </p>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {AMENITY_OPTIONS.map((amenity) => {
+                      const checked = selectedAmenities.includes(amenity.key);
+                      return (
+                        <button
+                          key={amenity.key}
+                          type="button"
+                          onClick={() => toggleAmenity(amenity.key)}
+                          style={{
+                            padding: "10px 14px",
+                            borderRadius: "999px",
+                            border: checked
+                              ? "1px solid #0b69ff"
+                              : "1px solid #d8dde8",
+                            background: checked ? "#eff6ff" : "#fff",
+                            color: checked ? "#1d4ed8" : "#334155",
+                            fontSize: "13px",
+                            cursor: "pointer",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {amenity.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div
