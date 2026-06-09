@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import LocationPickerMap from "../components/location/LocationPickerMap";
+import { apiRequest } from "../services/api";
+import { useAuth } from "../features/auth/hooks/useAuth";
 
 const API_BASE_URL = "http://localhost:3001/api/v1";
 const AMENITY_OPTIONS = [
@@ -12,7 +14,8 @@ const AMENITY_OPTIONS = [
   { key: "workspace", label: "Workspace" },
 ];
 
-export default function AddListingPage() {
+export function AddListingForm({ embedded = false, onCreated }) {
+  const { user, token, completeGoogleLogin } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
 
   const [mapResult, setMapResult] = useState(null);
@@ -96,31 +99,16 @@ export default function AddListingPage() {
 
       const addressData = getValues();
 
-      const response = await fetch(
-        `${API_BASE_URL}/locations/geocode-address`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            governorate: addressData.governorate,
-            city: addressData.city,
-            areaName: addressData.areaName,
-            streetName: addressData.streetName,
-            country: addressData.country || "Egypt",
-          }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError("root", {
-          message: data.message || "Could not find this address",
-        });
-        return;
-      }
+      const data = await apiRequest("/locations/geocode-address", {
+        method: "POST",
+        body: JSON.stringify({
+          governorate: addressData.governorate,
+          city: addressData.city,
+          areaName: addressData.areaName,
+          streetName: addressData.streetName,
+          country: addressData.country || "Egypt",
+        }),
+      });
 
       setMapResult(data);
 
@@ -137,7 +125,7 @@ export default function AddListingPage() {
       console.error(error);
 
       setError("root", {
-        message: "Something went wrong while finding location",
+        message: error.message || "Something went wrong while finding location",
       });
     } finally {
       setIsFindingLocation(false);
@@ -234,17 +222,22 @@ export default function AddListingPage() {
       photoData.append("photos", photo);
     });
 
-    const response = await fetch(`${API_BASE_URL}/listings/${listingId}/photos`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const response = await fetch(
+      `${API_BASE_URL}/listings/${listingId}/photos`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: photoData,
       },
-      body: photoData,
-    });
+    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || "Listing created, but photo upload failed");
+      throw new Error(
+        errorData.message || "Listing created, but photo upload failed",
+      );
     }
 
     return response.json();
@@ -267,7 +260,9 @@ export default function AddListingPage() {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || "Listing created, but amenities were not saved");
+      throw new Error(
+        errorData.message || "Listing created, but amenities were not saved",
+      );
     }
 
     return response.json();
@@ -324,7 +319,15 @@ export default function AddListingPage() {
       setIsSubmittingListing(true);
       clearErrors("root");
 
-      const token = localStorage.getItem("morafeq_access_token");
+      if (user?.role !== "HOST" && user?.role !== "ADMIN") {
+        const hostSession = await apiRequest("/users/me/become-host", {
+          method: "POST",
+        });
+
+        if (hostSession?.accessToken) {
+          await completeGoogleLogin(hostSession.accessToken);
+        }
+      }
 
       const finalData = {
         ...data,
@@ -346,20 +349,15 @@ export default function AddListingPage() {
 
       console.log("Final data sent to backend:", finalData);
 
-      const response = await fetch(`${API_BASE_URL}/listings`, {
+      const result = await apiRequest("/listings", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(finalData),
       });
 
-      const result = await response.json();
       console.log("Create listing response:", result);
       console.log("Create listing response messages:", result?.message);
 
-      if (!response.ok) {
+      if (!result || result.error) {
         const msg = result?.message;
 
         // If backend returned validation messages array (Nest validation), map them to form fields
@@ -447,6 +445,7 @@ export default function AddListingPage() {
         alert("Listing created successfully");
       }
       console.log("Created listing:", result);
+      onCreated?.(result);
     } catch (error) {
       console.error(error);
 
@@ -493,13 +492,13 @@ export default function AddListingPage() {
   return (
     <div
       style={{
-        padding: "32px 16px",
-        minHeight: "100vh",
-        background: "#eef4fc",
+        padding: embedded ? 0 : "32px 16px",
+        minHeight: embedded ? "auto" : "100vh",
+        background: embedded ? "transparent" : "#eef4fc",
       }}
       dir="rtl"
     >
-      <div style={{ maxWidth: "980px", margin: "0 auto" }}>
+      <div style={{ maxWidth: embedded ? "100%" : "980px", margin: "0 auto" }}>
         <div
           style={{
             marginBottom: "20px",
@@ -1711,4 +1710,8 @@ export default function AddListingPage() {
       </div>
     </div>
   );
+}
+
+export default function AddListingPage() {
+  return <AddListingForm />;
 }

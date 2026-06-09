@@ -40,8 +40,22 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="expatriate" element={<ExpatriatePage />} />
-          <Route path="AddListing" element={<AddListingPage />} />
+          <Route
+            path="expatriate"
+            element={
+              <ProtectedRoute>
+                <ExpatriatePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="AddListing"
+            element={
+              <ProtectedRoute>
+                <AddListingPage />
+              </ProtectedRoute>
+            }
+          />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

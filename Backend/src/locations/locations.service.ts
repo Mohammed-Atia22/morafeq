@@ -3,7 +3,6 @@ import {
   BadRequestException,
   NotFoundException ,
   Injectable,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -122,6 +121,12 @@ export class LocationsService {
       }
     }
 
+    const approximateLocation = this.getApproximateEgyptLocation(dto);
+
+    if (approximateLocation) {
+      return approximateLocation;
+    }
+
     throw new BadRequestException(
       'Could not find a location for this address. Try adding a clearer city, area, or landmark.',
     );
@@ -152,14 +157,10 @@ export class LocationsService {
     } catch (error) {
       if (isAxiosError(error)) {
         if (error.code === 'ECONNABORTED') {
-          throw new ServiceUnavailableException(
-            'Map provider timed out. Please try again or choose the location manually on the map.',
-          );
+          return null;
         }
 
-        throw new BadGatewayException(
-          'Map provider is currently unavailable. Please try again later.',
-        );
+        return null;
       }
 
       throw error;
@@ -291,4 +292,121 @@ export class LocationsService {
 
   throw new NotFoundException('No places found for this search');
 }
+
+private getApproximateEgyptLocation(dto: GeocodeAddressDto) {
+    const cityKey = this.normalizeLocationText(
+      `${dto.areaName ?? ''} ${dto.city} ${dto.governorate}`,
+    );
+
+    const knownLocations = [
+      {
+        keys: ['cairo', 'القاهرة', 'new cairo', 'التجمع', 'nasr city', 'مدينة نصر'],
+        lat: 30.0444,
+        lng: 31.2357,
+        name: 'القاهرة، مصر',
+      },
+      {
+        keys: ['giza', 'الجيزة', 'dokki', 'الدقي', 'mohandessin', 'المهندسين'],
+        lat: 30.0131,
+        lng: 31.2089,
+        name: 'الجيزة، مصر',
+      },
+      {
+        keys: ['alexandria', 'alex', 'الإسكندرية', 'اسكندرية', 'سموحة', 'smouha'],
+        lat: 31.2001,
+        lng: 29.9187,
+        name: 'الإسكندرية، مصر',
+      },
+      {
+        keys: ['mansoura', 'المنصورة', 'dakahlia', 'الدقهلية'],
+        lat: 31.0409,
+        lng: 31.3785,
+        name: 'المنصورة، مصر',
+      },
+      {
+        keys: ['tanta', 'طنطا', 'gharbia', 'الغربية'],
+        lat: 30.7865,
+        lng: 31.0004,
+        name: 'طنطا، مصر',
+      },
+      {
+        keys: ['zagazig', 'الزقازيق', 'sharqia', 'الشرقية'],
+        lat: 30.5877,
+        lng: 31.502,
+        name: 'الزقازيق، مصر',
+      },
+      {
+        keys: ['ismailia', 'الإسماعيلية', 'اسماعيلية'],
+        lat: 30.5965,
+        lng: 32.2715,
+        name: 'الإسماعيلية، مصر',
+      },
+      {
+        keys: ['port said', 'بورسعيد'],
+        lat: 31.2653,
+        lng: 32.3019,
+        name: 'بورسعيد، مصر',
+      },
+      {
+        keys: ['suez', 'السويس'],
+        lat: 29.9668,
+        lng: 32.5498,
+        name: 'السويس، مصر',
+      },
+      {
+        keys: ['assiut', 'asyut', 'أسيوط', 'اسيوط'],
+        lat: 27.1809,
+        lng: 31.1837,
+        name: 'أسيوط، مصر',
+      },
+      {
+        keys: ['luxor', 'الأقصر', 'الاقصر'],
+        lat: 25.6872,
+        lng: 32.6396,
+        name: 'الأقصر، مصر',
+      },
+      {
+        keys: ['aswan', 'أسوان', 'اسوان'],
+        lat: 24.0889,
+        lng: 32.8998,
+        name: 'أسوان، مصر',
+      },
+    ];
+
+    const match = knownLocations.find((location) =>
+      location.keys.some((key) =>
+        cityKey.includes(this.normalizeLocationText(key)),
+      ),
+    );
+
+    if (!match) {
+      return null;
+    }
+
+    return {
+      provider: 'local-fallback',
+      query: [dto.streetName, dto.areaName, dto.city, dto.governorate, dto.country ?? 'Egypt']
+        .filter(Boolean)
+        .join(', '),
+      matchLevel: 'CITY',
+      lat: match.lat,
+      lng: match.lng,
+      formattedAddress: `${match.name} - موقع تقريبي، حرّك العلامة لتحديد العقار بدقة`,
+      placeId: `local-${match.lat}-${match.lng}`,
+      raw: {
+        fallback: true,
+      },
+    };
+  }
+
+  private normalizeLocationText(value: string) {
+    return value
+      .toLowerCase()
+      .replace(/[أإآ]/g, 'ا')
+      .replace(/ى/g, 'ي')
+      .replace(/ة/g, 'ه')
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
 }

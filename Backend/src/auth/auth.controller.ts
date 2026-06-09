@@ -43,8 +43,18 @@ export class AuthController {
 
   @Patch('confirm')
   @HttpCode(HttpStatus.OK)
-  async confirm(@Body() body: confirmrDto) {
-    return this.authService.confirm(body);
+  async confirm(
+    @Body() body: confirmrDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.confirm(body);
+    this.setRefreshCookie(res, result.refreshToken);
+
+    return {
+      message: result.message,
+      user: result.user,
+      accessToken: result.accessToken,
+    };
   }
 
   // ─── Login ───────────────────────────────
@@ -143,11 +153,22 @@ export class AuthController {
   @Patch('onboarding')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  completeOnboarding(
+  async completeOnboarding(
     @Req() req: Request & { user: { id: number } },
     @Body() body: CompleteOnboardingDto,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.completeOnboarding(req.user.id, body.role);
+    const result = await this.authService.completeOnboarding(
+      req.user.id,
+      body.role,
+    );
+    this.setRefreshCookie(res, result.refreshToken);
+
+    return {
+      message: result.message,
+      user: result.user,
+      accessToken: result.accessToken,
+    };
   }
 
   // ─── Private helper ───────────────────────

@@ -472,6 +472,7 @@ export class ListingsService {
       where: { hostId, isDeleted: false },
       orderBy: { createdAt: 'desc' },
       include: {
+        area: true,
         photos: { where: { isCover: true }, take: 1 },
         amenities: true,
         _count: { select: { bookings: true, reviews: true } },
@@ -481,6 +482,36 @@ export class ListingsService {
 
   async update(id: number, hostId: number, dto: UpdateListingDto) {
     await this.verifyOwnership(id, hostId);
+
+    const currentListing = await this.prisma.listing.findUnique({
+      where: { id },
+      include: { area: true },
+    });
+
+    let areaId: number | undefined;
+    if (
+      dto.areaName !== undefined ||
+      dto.city !== undefined ||
+      dto.governorate !== undefined ||
+      dto.country !== undefined ||
+      dto.googlePlaceId !== undefined
+    ) {
+      const areaName = dto.areaName ?? currentListing?.area?.name;
+      const city = dto.city ?? currentListing?.city;
+      const governorate = dto.governorate ?? currentListing?.governorate;
+      const country = dto.country ?? currentListing?.country ?? 'Egypt';
+
+      if (areaName && city && governorate) {
+        const area = await this.areasService.findOrCreateArea({
+          name: areaName,
+          city,
+          governorate,
+          country,
+          googlePlaceId: dto.googlePlaceId ?? currentListing?.googlePlaceId ?? undefined,
+        });
+        areaId = area.id;
+      }
+    }
 
     return this.prisma.listing.update({
       where: { id },
@@ -547,6 +578,10 @@ export class ListingsService {
 
         ...(dto.googlePlaceId !== undefined && {
           googlePlaceId: dto.googlePlaceId,
+        }),
+
+        ...(areaId !== undefined && {
+          areaId,
         }),
 
         ...(dto.locationPrivacy !== undefined && {
