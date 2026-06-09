@@ -5,6 +5,8 @@ import { apiRequest } from "../../../shared/services/api";
  * Mirrors GET /api/v1/listings query params from SearchListingDto
  */
 export const expatriateListingsApi = {
+  findOne: (id) => apiRequest(`/listings/${id}`),
+
   search: (filters = {}) => {
     const params = new URLSearchParams();
 
