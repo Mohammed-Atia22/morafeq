@@ -12,6 +12,7 @@ import { OwnerPage } from "./features/owner/pages/OwnerDashboardPage";
 import { ExpatriateHomePage } from "./features/expatriate/pages/ExpatriateHomePage";
 import { ExpatriateSearchPage } from "./features/expatriate/pages/ExpatriateSearchPage";
 import { ExpatriateListingDetailPage } from "./features/expatriate/pages/ExpatriateListingDetailPage";
+import { ExpatriateLocationInsightPage } from "./features/expatriate/pages/ExpatriateLocationInsightPage";
 import Layout from "./app/layouts/MainLayout";
 import ExpatriateLayout from "./app/layouts/ExpatriateLayout";
 import { Toaster } from "react-hot-toast";
@@ -66,10 +67,8 @@ function App() {
         >
           <Route index element={<ExpatriateHomePage />} />
           <Route path="search" element={<ExpatriateSearchPage />} />
-          <Route
-            path="listings/:id"
-            element={<ExpatriateListingDetailPage />}
-          />
+          <Route path="listings/:id" element={<ExpatriateListingDetailPage />} />
+          <Route path="listings/:id/insights" element={<ExpatriateLocationInsightPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

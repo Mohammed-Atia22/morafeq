@@ -6,6 +6,7 @@ import { HostCard } from "../components/sidebar/listing-detail/HostCard";
 import { AmenitiesSection } from "../components/sidebar/listing-detail/AmenitiesSection";
 import { ReviewsSection } from "../components/sidebar/listing-detail/ReviewsSection";
 import { BookingCard } from "../components/sidebar/listing-detail/BookingCard";
+import { LocationInsightButton } from "../components/sidebar/listing-detail/LocationInsightButton";
 
 // ─── Breadcrumb ───────────────────────────────
 function Breadcrumb({ title }) {
@@ -88,6 +89,9 @@ export function ExpatriateListingDetailPage() {
 
             {/* Amenities */}
             <AmenitiesSection amenities={listing.amenities ?? []} />
+
+            {/* Location Insight */}
+            <LocationInsightButton listingId={listing.id} />
 
             {/* Reviews */}
             <ReviewsSection
