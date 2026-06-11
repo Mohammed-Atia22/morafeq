@@ -3,6 +3,7 @@ import { useListings } from "../hooks/useListings";
 import { useDestinationSearch } from "../hooks/useDestinationSearch";
 import LocationPickerMap from "../../../shared/components/maps/LocationPickerMap";
 import { ListingsGrid } from "../components/sidebar/home/ListingsGrid";
+import { AmenitiesSelector } from "../../listings/components/AmenitiesSelector";
 
 const ROOM_TYPES = [
   { value: "", label: "الكل" },
@@ -31,6 +32,15 @@ const RADIUS_OPTIONS = [
   { value: 3, label: "3 كم" },
   { value: 5, label: "5 كم" },
   { value: 10, label: "10 كم" },
+];
+
+const AMENITY_OPTIONS = [
+  { key: "wifi", label: "واي فاي" },
+  { key: "kitchen", label: "مطبخ" },
+  { key: "parking", label: "موقف سيارات" },
+  { key: "air_conditioning", label: "تكيف" },
+  { key: "washing_machine", label: "غسالة" },
+  { key: "workspace", label: "مكان للعمل" },
 ];
 
 function FilterLabel({ children }) {
@@ -67,17 +77,22 @@ export function ExpatriateSearchPage() {
     confirmError,
     handleDestinationChange,
     confirmDestination,
+    clearDestination,
   } = useDestinationSearch();
 
   const [filters, setFilters] = useState({
     city: "",
     governorate: "",
+    country: "",
+    guests: "",
     minPrice: "",
     maxPrice: "",
     roomType: "",
     propertyType: "",
     genderPreference: "",
     radiusKm: 5,
+    amenities: [],
+    sortBy: "",
   });
 
   const [hasSearched, setHasSearched] = useState(false);
@@ -88,11 +103,15 @@ export function ExpatriateSearchPage() {
 
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [approvedLocation, setApprovedLocation] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showMapModal, setShowMapModal] = useState(false);
 
   useEffect(() => {
     if (!confirmedDestination) {
       setSelectedLocation(null);
       setApprovedLocation(null);
+      setShowMapModal(false);
       return;
     }
 
@@ -101,6 +120,8 @@ export function ExpatriateSearchPage() {
       lng: confirmedDestination.lng,
     });
     setApprovedLocation(null);
+    // open the modal so user can fine-tune on the map
+    setShowMapModal(true);
   }, [confirmedDestination]);
 
   const handleConfirm = () => {
@@ -115,6 +136,15 @@ export function ExpatriateSearchPage() {
     setSelectedLocation(position);
   };
 
+  const toggleAmenity = (key) => {
+    setFilters((prev) => {
+      const list = prev.amenities || [];
+      const exists = list.includes(key);
+      const next = exists ? list.filter((a) => a !== key) : [...list, key];
+      return { ...prev, amenities: next };
+    });
+  };
+
   const handleConfirmOnMap = () => {
     if (!selectedLocation) return;
     setApprovedLocation(selectedLocation);
@@ -123,6 +153,7 @@ export function ExpatriateSearchPage() {
 
   const handleSearch = () => {
     const searchParams = {
+      q: searchQuery?.trim() || undefined,
       city: filters.city || undefined,
       governorate: filters.governorate || undefined,
       minPrice: filters.minPrice || undefined,
@@ -130,6 +161,13 @@ export function ExpatriateSearchPage() {
       roomType: filters.roomType || undefined,
       propertyType: filters.propertyType || undefined,
       genderPreference: filters.genderPreference || undefined,
+      guests: filters.guests || undefined,
+      country: filters.country || undefined,
+      amenities:
+        filters.amenities && filters.amenities.length > 0
+          ? filters.amenities
+          : undefined,
+      sortBy: filters.sortBy || undefined,
       limit: 12,
     };
 
@@ -140,7 +178,8 @@ export function ExpatriateSearchPage() {
       searchParams.nearLat = targetLocation.lat;
       searchParams.nearLng = targetLocation.lng;
       searchParams.radiusKm = filters.radiusKm;
-      searchParams.sortBy = "nearest";
+      // if user selected sort explicitly keep it, otherwise sort by nearest when using location
+      if (!searchParams.sortBy) searchParams.sortBy = "nearest";
     }
 
     setHasSearched(true);
@@ -151,14 +190,25 @@ export function ExpatriateSearchPage() {
     setFilters({
       city: "",
       governorate: "",
+      country: "",
+      guests: "",
       minPrice: "",
       maxPrice: "",
       roomType: "",
       propertyType: "",
       genderPreference: "",
       radiusKm: 5,
+      amenities: [],
+      sortBy: "",
     });
     setHasSearched(false);
+    // clear destination and map selections
+    clearDestination();
+    setApprovedLocation(null);
+    setSelectedLocation(null);
+    setShowMapModal(false);
+    setShowFilters(false);
+    setSearchQuery("");
   };
 
   return (
@@ -171,220 +221,330 @@ export function ExpatriateSearchPage() {
         </p>
       </div>
 
-      {/* Filter panel */}
-      <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Destination search */}
-          <div className="lg:col-span-3">
-            <FilterLabel>ابحث قريب من (جامعة، كلية، منطقة)</FilterLabel>
-            <div className="flex gap-2">
+      {/* Search bar + filter icon */}
+      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 flex items-center gap-3">
+        <div className="flex-1">
+          <input
+            type="text"
+            dir="rtl"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="ابحث عن منطقة، جامعة أو كلمة مفتاحية"
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-[#1752F0] focus:ring-2 focus:ring-[#1752F0]/20"
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          />
+        </div>
+
+        <button
+          type="button"
+          aria-label="فتح الفلاتر"
+          onClick={() => setShowFilters(true)}
+          className="shrink-0 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+        >
+          <img src="/images/filter .png" alt="فلتر" className="h-5 w-5" />
+          الفلاتر
+        </button>
+        <button
+          type="button"
+          onClick={handleSearch}
+          className="shrink-0 rounded-xl bg-[#1752F0] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#1240c4]"
+        >
+          بحث
+        </button>
+      </div>
+
+      {/* Filter drawer (slide-over) */}
+      {showFilters && (
+        <div className="fixed inset-0 z-50 flex">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowFilters(false)}
+          />
+          <aside
+            className="relative ml-auto w-full max-w-md bg-white p-6"
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">فلاتر البحث</h2>
               <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={!destinationName.trim() || confirmLoading}
-                className="shrink-0 rounded-xl bg-[#1752F0] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#1240c4] disabled:opacity-50"
+                onClick={() => setShowFilters(false)}
+                className="text-slate-500"
               >
-                {confirmLoading ? "جاري البحث..." : "تأكيد"}
+                اغلاق
               </button>
-              <input
-                type="text"
-                value={destinationName}
-                onChange={(e) => handleDestinationChange(e.target.value)}
-                placeholder="مثال: كلية تجارة جامعة الإسكندرية"
-                dir="rtl"
-                className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-[#1752F0] focus:ring-2 focus:ring-[#1752F0]/20"
-              />
             </div>
-
-            {/* Confirmation feedback */}
-            {confirmedDestination && (
-              <div className="mt-2 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className="h-4 w-4 shrink-0 text-green-500"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                سيتم البحث قريباً من:{" "}
-                <span className="font-bold">{confirmedDestination.name}</span>
-              </div>
-            )}
-
-            {/* Map confirmation step */}
-            {selectedLocation && (
-              <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-                <div className="mb-3 text-sm font-semibold text-[#0f172a]">
-                  اختر الموقع بدقة على الخريطة ثم اضغط تأكيد الموقع
-                </div>
-                <div className="overflow-hidden rounded-2xl border border-slate-200">
-                  <LocationPickerMap
-                    position={selectedLocation}
-                    onChange={handleMapChange}
-                  />
-                </div>
-                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm text-slate-600">
-                    {approvedLocation ? (
-                      <span className="font-semibold text-emerald-700">
-                        الموقع مؤكد.
-                      </span>
-                    ) : (
-                      <span>
-                        حرّك العلامة أو اضغط على الخريطة لتحديد الموقع بدقة.
-                      </span>
-                    )}
-                  </div>
+            <div className="mt-4 space-y-4">
+              {/* Destination search */}
+              <div>
+                <FilterLabel>ابحث قريب من (جامعة، كلية، منطقة)</FilterLabel>
+                <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={handleConfirmOnMap}
-                    disabled={!selectedLocation}
-                    className="rounded-xl bg-[#10b981] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#059669] disabled:opacity-50"
+                    onClick={handleConfirm}
+                    disabled={!destinationName.trim() || confirmLoading}
+                    className="shrink-0 rounded-xl bg-[#1752F0] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#1240c4] disabled:opacity-50"
                   >
-                    تأكيد الموقع
+                    {confirmLoading ? "جاري البحث..." : "تأكيد"}
                   </button>
+                  <input
+                    type="text"
+                    value={destinationName}
+                    onChange={(e) => handleDestinationChange(e.target.value)}
+                    placeholder="مثال: كلية تجارة جامعة الإسكندرية"
+                    dir="rtl"
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-[#1752F0] focus:ring-2 focus:ring-[#1752F0]/20"
+                  />
+                </div>
+
+                {/* Confirmation feedback */}
+                {confirmedDestination && (
+                  <div className="mt-2 text-sm text-slate-500">
+                    تم العثور على: {confirmedDestination.name}
+                  </div>
+                )}
+              </div>
+
+              {/* Other filters (reuse existing controls) */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <FilterLabel>المدينة</FilterLabel>
+                  <input
+                    value={filters.city}
+                    onChange={(e) => updateFilter("city", e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <FilterLabel>المحافظة</FilterLabel>
+                  <input
+                    value={filters.governorate}
+                    onChange={(e) =>
+                      updateFilter("governorate", e.target.value)
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <FilterLabel>البلد</FilterLabel>
+                  <input
+                    value={filters.country}
+                    onChange={(e) => updateFilter("country", e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <FilterLabel>عدد النزلاء</FilterLabel>
+                  <input
+                    type="number"
+                    min="1"
+                    value={filters.guests}
+                    onChange={(e) => updateFilter("guests", e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <FilterLabel>الحد الأدنى للسعر</FilterLabel>
+                  <input
+                    value={filters.minPrice}
+                    onChange={(e) => updateFilter("minPrice", e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <FilterLabel>الحد الأقصى للسعر</FilterLabel>
+                  <input
+                    value={filters.maxPrice}
+                    onChange={(e) => updateFilter("maxPrice", e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <FilterLabel>نطاق البحث</FilterLabel>
+                  <FilterSelect
+                    value={filters.radiusKm}
+                    onChange={(v) => updateFilter("radiusKm", Number(v))}
+                    options={RADIUS_OPTIONS}
+                  />
+                </div>
+                <div>
+                  <FilterLabel>الفرز</FilterLabel>
+                  <FilterSelect
+                    value={filters.sortBy}
+                    onChange={(v) => updateFilter("sortBy", v)}
+                    options={[
+                      { value: "", label: "الأكثر صلة" },
+                      { value: "nearest", label: "الأقرب" },
+                      { value: "price_asc", label: "الأرخص" },
+                      { value: "price_desc", label: "الأغلى" },
+                    ]}
+                  />
                 </div>
               </div>
-            )}
 
-            {/* Error feedback */}
-            {confirmError && (
-              <div className="mt-2 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className="h-4 w-4 shrink-0"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                {confirmError}
+              {/* Amenities selector */}
+              <div>
+                <FilterLabel>وسائل الراحة (اختياري)</FilterLabel>
+                <AmenitiesSelector
+                  amenityOptions={AMENITY_OPTIONS}
+                  selectedAmenities={filters.amenities}
+                  toggleAmenity={toggleAmenity}
+                />
               </div>
-            )}
-          </div>
 
-          {/* City */}
-          <div>
-            <FilterLabel>المدينة</FilterLabel>
-            <input
-              type="text"
-              value={filters.city}
-              onChange={(e) => updateFilter("city", e.target.value)}
-              placeholder="مثال: الإسكندرية"
-              dir="rtl"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#1752F0] focus:ring-2 focus:ring-[#1752F0]/20"
-            />
-          </div>
-
-          {/* Governorate */}
-          <div>
-            <FilterLabel>المحافظة</FilterLabel>
-            <input
-              type="text"
-              value={filters.governorate}
-              onChange={(e) => updateFilter("governorate", e.target.value)}
-              placeholder="مثال: الجيزة"
-              dir="rtl"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#1752F0] focus:ring-2 focus:ring-[#1752F0]/20"
-            />
-          </div>
-
-          {/* Radius — only shown when destination confirmed */}
-          {confirmedDestination && (
-            <div>
-              <FilterLabel>نطاق البحث</FilterLabel>
-              <FilterSelect
-                value={filters.radiusKm}
-                onChange={(v) => updateFilter("radiusKm", Number(v))}
-                options={RADIUS_OPTIONS}
-              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    handleReset();
+                    setShowFilters(false);
+                  }}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm"
+                >
+                  مسح
+                </button>
+                <button
+                  onClick={() => {
+                    setShowFilters(false);
+                    handleSearch();
+                  }}
+                  className="ml-auto rounded-xl bg-[#1752F0] px-4 py-2 text-sm font-bold text-white"
+                >
+                  تطبيق
+                </button>
+              </div>
             </div>
-          )}
-
-          {/* Min price */}
-          <div>
-            <FilterLabel>الحد الأدنى للإيجار (ج.م)</FilterLabel>
-            <input
-              type="number"
-              value={filters.minPrice}
-              onChange={(e) => updateFilter("minPrice", e.target.value)}
-              placeholder="0"
-              min="0"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#1752F0] focus:ring-2 focus:ring-[#1752F0]/20"
-            />
-          </div>
-
-          {/* Max price */}
-          <div>
-            <FilterLabel>الحد الأقصى للإيجار (ج.م)</FilterLabel>
-            <input
-              type="number"
-              value={filters.maxPrice}
-              onChange={(e) => updateFilter("maxPrice", e.target.value)}
-              placeholder="غير محدد"
-              min="0"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#1752F0] focus:ring-2 focus:ring-[#1752F0]/20"
-            />
-          </div>
-
-          {/* Room type */}
-          <div>
-            <FilterLabel>نوع الوحدة</FilterLabel>
-            <FilterSelect
-              value={filters.roomType}
-              onChange={(v) => updateFilter("roomType", v)}
-              options={ROOM_TYPES}
-            />
-          </div>
-
-          {/* Property type */}
-          <div>
-            <FilterLabel>نوع العقار</FilterLabel>
-            <FilterSelect
-              value={filters.propertyType}
-              onChange={(v) => updateFilter("propertyType", v)}
-              options={PROPERTY_TYPES}
-            />
-          </div>
-
-          {/* Gender preference */}
-          <div>
-            <FilterLabel>تفضيل الجنس</FilterLabel>
-            <FilterSelect
-              value={filters.genderPreference}
-              onChange={(v) => updateFilter("genderPreference", v)}
-              options={GENDER_OPTIONS}
-            />
-          </div>
+          </aside>
         </div>
+      )}
 
-        {/* Action buttons */}
-        <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-5">
-          <button
-            type="button"
-            onClick={handleReset}
-            className="text-sm font-semibold text-slate-400 transition hover:text-slate-600"
+      {/* Confirmation feedback */}
+      {confirmedDestination && (
+        <div className="mt-2 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
+          <svg
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="h-4 w-4 shrink-0 text-green-500"
           >
-            إعادة تعيين
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSearch}
-            disabled={loading}
-            className="rounded-xl bg-[#1752F0] px-8 py-2.5 text-sm font-black text-white shadow transition hover:bg-[#1240c4] disabled:opacity-60"
-          >
-            {loading ? "جاري البحث..." : "بحث"}
-          </button>
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+              clipRule="evenodd"
+            />
+          </svg>
+          سيتم البحث قريباً من:{" "}
+          <span className="font-bold">{confirmedDestination.name}</span>
         </div>
+      )}
+
+      {/* Map preview / modal UX */}
+      <div className="mt-4">
+        {approvedLocation ? (
+          <div className="inline-flex items-center gap-3 rounded-full bg-emerald-50 px-3 py-1 text-sm text-emerald-700">
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-4 w-4 text-emerald-600"
+            >
+              <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" />
+            </svg>
+            الموقع محدد
+            <button
+              onClick={() => setShowMapModal(true)}
+              className="ml-2 rounded-xl bg-white px-2 py-1 text-xs border"
+            >
+              تعديل الموقع
+            </button>
+          </div>
+        ) : confirmedDestination ? (
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              موقع مُقترح:{" "}
+              <span className="font-semibold">{confirmedDestination.name}</span>
+            </div>
+            <button
+              onClick={() => setShowMapModal(true)}
+              className="rounded-xl bg-[#1752F0] px-3 py-2 text-sm font-bold text-white"
+            >
+              تحديد على الخريطة
+            </button>
+          </div>
+        ) : null}
+
+        {/* Map modal */}
+        {showMapModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8 sm:p-0">
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setShowMapModal(false)}
+            />
+            <div className="relative w-full max-w-4xl max-h-[calc(100vh-4rem)] bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+              <div className="flex items-center justify-between border-b px-4 py-3">
+                <h3 className="text-lg font-bold">تحديد الموقع على الخريطة</h3>
+                <button
+                  onClick={() => setShowMapModal(false)}
+                  className="text-slate-500"
+                >
+                  إغلاق
+                </button>
+              </div>
+              <div className="h-[420px] sm:h-[520px] overflow-hidden">
+                <LocationPickerMap
+                  position={
+                    selectedLocation ||
+                    approvedLocation ||
+                    (confirmedDestination && {
+                      lat: confirmedDestination.lat,
+                      lng: confirmedDestination.lng,
+                    })
+                  }
+                  onChange={handleMapChange}
+                  height="100%"
+                />
+              </div>
+              <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:justify-end sm:items-center">
+                <button
+                  onClick={() => setShowMapModal(false)}
+                  className="rounded-xl border px-4 py-2 text-sm"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={() => {
+                    handleConfirmOnMap();
+                    setShowMapModal(false);
+                  }}
+                  className="rounded-xl bg-[#10b981] px-4 py-2 text-sm font-bold text-white"
+                >
+                  تأكيد الموقع
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Error feedback */}
+      {confirmError && (
+        <div className="mt-2 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+          <svg
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="h-4 w-4 shrink-0"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clipRule="evenodd"
+            />
+          </svg>
+          {confirmError}
+        </div>
+      )}
 
       {/* Results */}
       {hasSearched && (

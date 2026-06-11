@@ -1,10 +1,17 @@
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
+import L from "leaflet";
 
 const markerIcon = new L.Icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  iconRetinaUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
 });
@@ -30,53 +37,55 @@ function ClickToMoveMarker({ onChange }) {
   return null;
 }
 
-export default function LocationPickerMap({ position, onChange }) {
+export default function LocationPickerMap({
+  position,
+  onChange,
+  height = "100%",
+}) {
   if (!position) return null;
 
   return (
-    <div>
-      <p>
+    <div className="h-full flex flex-col">
+      <div className="mb-3 text-sm text-slate-600">
         الموقع تقريبي. حرّك العلامة أو اضغط على الخريطة لتحديد مكان العقار بدقة.
-      </p>
+      </div>
 
-      <MapContainer
-        center={[position.lat, position.lng]}
-        zoom={15}
-        style={{
-          height: '400px',
-          width: '100%',
-          borderRadius: '12px',
-        }}
-      >
-        <RecenterMap position={position} />
+      <div className="flex-1 h-full rounded-2xl overflow-hidden border border-slate-200">
+        <MapContainer
+          center={[position.lat, position.lng]}
+          zoom={15}
+          className="h-full w-full"
+        >
+          <RecenterMap position={position} />
 
-        <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+          <TileLayer
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
 
-        <Marker
-          position={[position.lat, position.lng]}
-          icon={markerIcon}
-          draggable={true}
-          eventHandlers={{
-            dragend: (event) => {
-              const marker = event.target;
-              const newPosition = marker.getLatLng();
+          <Marker
+            position={[position.lat, position.lng]}
+            icon={markerIcon}
+            draggable={true}
+            eventHandlers={{
+              dragend: (event) => {
+                const marker = event.target;
+                const newPosition = marker.getLatLng();
 
-              onChange({
-                lat: newPosition.lat,
-                lng: newPosition.lng,
-              });
-            },
-          }}
-        />
+                onChange({
+                  lat: newPosition.lat,
+                  lng: newPosition.lng,
+                });
+              },
+            }}
+          />
 
-        <ClickToMoveMarker onChange={onChange} />
-      </MapContainer>
+          <ClickToMoveMarker onChange={onChange} />
+        </MapContainer>
+      </div>
 
-      <p>
-        Selected Location: {position.lat}, {position.lng}
+      <p className="mt-3 text-sm text-slate-600">
+        الموقع المحدد: {position.lat}, {position.lng}
       </p>
     </div>
   );
