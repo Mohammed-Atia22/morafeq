@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useListings } from "../hooks/useListings";
 import { useDestinationSearch } from "../hooks/useDestinationSearch";
+import LocationPickerMap from "../../../shared/components/maps/LocationPickerMap";
 import { ListingsGrid } from "../components/sidebar/home/ListingsGrid";
 
 const ROOM_TYPES = [
@@ -85,11 +86,39 @@ export function ExpatriateSearchPage() {
     setFilters((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [approvedLocation, setApprovedLocation] = useState(null);
+
+  useEffect(() => {
+    if (!confirmedDestination) {
+      setSelectedLocation(null);
+      setApprovedLocation(null);
+      return;
+    }
+
+    setSelectedLocation({
+      lat: confirmedDestination.lat,
+      lng: confirmedDestination.lng,
+    });
+    setApprovedLocation(null);
+  }, [confirmedDestination]);
+
   const handleConfirm = () => {
+    setApprovedLocation(null);
     confirmDestination({
       city: filters.city || undefined,
       governorate: filters.governorate || undefined,
     });
+  };
+
+  const handleMapChange = (position) => {
+    setSelectedLocation(position);
+  };
+
+  const handleConfirmOnMap = () => {
+    if (!selectedLocation) return;
+    setApprovedLocation(selectedLocation);
+    setSelectedLocation(null);
   };
 
   const handleSearch = () => {
@@ -104,10 +133,12 @@ export function ExpatriateSearchPage() {
       limit: 12,
     };
 
-    // Add near search params if destination was confirmed
-    if (confirmedDestination) {
-      searchParams.nearLat = confirmedDestination.lat;
-      searchParams.nearLng = confirmedDestination.lng;
+    // Add near search params if destination was confirmed and approved on map
+    const targetLocation = approvedLocation || confirmedDestination;
+
+    if (targetLocation) {
+      searchParams.nearLat = targetLocation.lat;
+      searchParams.nearLng = targetLocation.lng;
       searchParams.radiusKm = filters.radiusKm;
       searchParams.sortBy = "nearest";
     }
@@ -181,6 +212,42 @@ export function ExpatriateSearchPage() {
                 </svg>
                 سيتم البحث قريباً من:{" "}
                 <span className="font-bold">{confirmedDestination.name}</span>
+              </div>
+            )}
+
+            {/* Map confirmation step */}
+            {selectedLocation && (
+              <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+                <div className="mb-3 text-sm font-semibold text-[#0f172a]">
+                  اختر الموقع بدقة على الخريطة ثم اضغط تأكيد الموقع
+                </div>
+                <div className="overflow-hidden rounded-2xl border border-slate-200">
+                  <LocationPickerMap
+                    position={selectedLocation}
+                    onChange={handleMapChange}
+                  />
+                </div>
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-slate-600">
+                    {approvedLocation ? (
+                      <span className="font-semibold text-emerald-700">
+                        الموقع مؤكد.
+                      </span>
+                    ) : (
+                      <span>
+                        حرّك العلامة أو اضغط على الخريطة لتحديد الموقع بدقة.
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleConfirmOnMap}
+                    disabled={!selectedLocation}
+                    className="rounded-xl bg-[#10b981] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#059669] disabled:opacity-50"
+                  >
+                    تأكيد الموقع
+                  </button>
+                </div>
               </div>
             )}
 
