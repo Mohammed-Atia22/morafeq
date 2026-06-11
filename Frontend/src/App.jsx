@@ -13,7 +13,9 @@ import { ExpatriateHomePage } from "./features/expatriate/pages/ExpatriateHomePa
 import { ExpatriateSearchPage } from "./features/expatriate/pages/ExpatriateSearchPage";
 import { ExpatriateListingDetailPage } from "./features/expatriate/pages/ExpatriateListingDetailPage";
 import { ExpatriateLocationInsightPage } from "./features/expatriate/pages/ExpatriateLocationInsightPage";
+import { ProfilePage } from "./features/peofile/pages/ProfilePage";
 import Layout from "./app/layouts/MainLayout";
+import OwnerLayout from "./app/layouts/OwnerLayout";
 import ExpatriateLayout from "./app/layouts/ExpatriateLayout";
 import { Toaster } from "react-hot-toast";
 import AddListingPage from "./features/listings/pages/AddListingPage";
@@ -41,19 +43,13 @@ function App() {
             path="owner"
             element={
               <ProtectedRoute>
-                <OwnerPage />
+                <OwnerLayout />
               </ProtectedRoute>
             }
-          />
-
-          <Route
-            path="AddListing"
-            element={
-              <ProtectedRoute>
-                <AddListingPage />
-              </ProtectedRoute>
-            }
-          />
+          >
+            <Route index element={<OwnerPage />} />
+            <Route path="add" element={<AddListingPage />} />
+          </Route>
         </Route>
 
         {/* ─── Expatriate routes (own layout + sidebar) ─ */}
@@ -67,9 +63,26 @@ function App() {
         >
           <Route index element={<ExpatriateHomePage />} />
           <Route path="search" element={<ExpatriateSearchPage />} />
-          <Route path="listings/:id" element={<ExpatriateListingDetailPage />} />
-          <Route path="listings/:id/insights" element={<ExpatriateLocationInsightPage />} />
+          <Route
+            path="listings/:id"
+            element={<ExpatriateListingDetailPage />}
+          />
+          <Route
+            path="listings/:id/insights"
+            element={<ExpatriateLocationInsightPage />}
+          />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
+
+        {/* ─── Shared profile route (both expatriate & owner) ─ */}
+        <Route
+          path="profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

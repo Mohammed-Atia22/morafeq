@@ -25,17 +25,20 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
-        id:         true,
-        email:      true,
-        firstName:  true,
-        lastName:   true,
-        avatarUrl:  true,
-        phone:      true,
-        bio:        true,
-        role:       true,
-        isVerified: true,
-        createdAt:  true,
-        // count how many listings this user has
+        id:                  true,
+        email:               true,
+        firstName:           true,
+        lastName:            true,
+        avatarUrl:           true,
+        phone:               true,
+        phoneCountry:        true,      // ← added
+        phoneCountryCode:    true,      // ← added
+        bio:                 true,
+        gender:              true,      // ← added
+        role:                true,
+        isVerified:          true,
+        onboardingCompleted: true,      // ← added
+        createdAt:           true,
         _count: {
           select: { listings: true }
         },
@@ -59,7 +62,6 @@ export class UsersService {
         avatarUrl: true,
         bio:       true,
         createdAt: true,
-        // show their listings
         _count: {
           select: { listings: true, reviews: true }
         },
@@ -77,20 +79,26 @@ export class UsersService {
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data:  {
-        ...(dto.firstName && { firstName: dto.firstName }),
-        ...(dto.lastName  && { lastName:  dto.lastName  }),
-        ...(dto.phone     && { phone:     dto.phone     }),
-        ...(dto.bio       !== undefined && { bio: dto.bio }),
+        ...(dto.firstName        && { firstName:        dto.firstName        }),
+        ...(dto.lastName         && { lastName:         dto.lastName         }),
+        ...(dto.phone            && { phone:            dto.phone            }),
+        ...(dto.phoneCountry     && { phoneCountry:     dto.phoneCountry     }), // ← added
+        ...(dto.phoneCountryCode && { phoneCountryCode: dto.phoneCountryCode }), // ← added
+        ...(dto.gender           && { gender:           dto.gender           }), // ← added
+        ...(dto.bio !== undefined && { bio: dto.bio }),
       },
       select: {
-        id:        true,
-        email:     true,
-        firstName: true,
-        lastName:  true,
-        avatarUrl: true,
-        phone:     true,
-        bio:       true,
-        role:      true,
+        id:               true,
+        email:            true,
+        firstName:        true,
+        lastName:         true,
+        avatarUrl:        true,
+        phone:            true,
+        phoneCountry:     true,
+        phoneCountryCode: true,
+        gender:           true,
+        bio:              true,
+        role:             true,
       },
     });
 
@@ -103,21 +111,17 @@ export class UsersService {
     userId: number,
     file: Express.Multer.File,
   ) {
-    // get current user to check old avatar
     const user = await this.prisma.user.findUnique({
       where:  { id: userId },
       select: { avatarUrl: true },
     });
 
-    // upload new avatar to S3
     const avatarUrl = await this.uploads.uploadImage(file, 'avatars');
 
-    // delete old avatar from S3 if it exists
     if (user?.avatarUrl) {
       await this.uploads.deleteImage(user.avatarUrl);
     }
 
-    // save new URL to database
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data:  { avatarUrl },
@@ -137,14 +141,12 @@ export class UsersService {
       where: { id: userId },
     });
 
-    // check if OAuth user trying to set password
     if (!user!.passwordHash) {
       throw new BadRequestException(
         'This account uses Google login and has no password to change'
       );
     }
 
-    // verify current password is correct
     const isCurrentValid = bcrypt.compare(
       dto.currentPassword!,
       user!.passwordHash,
@@ -154,7 +156,6 @@ export class UsersService {
       throw new BadRequestException('Current password is incorrect');
     }
 
-    // make sure new password is different
     const isSamePassword = await bcrypt.compare(
       dto.newPassword!,
       user!.passwordHash,
@@ -166,7 +167,6 @@ export class UsersService {
       );
     }
 
-    // hash and save new password
     const newHash = await bcrypt.hash(dto.newPassword!, 12);
 
     await this.prisma.user.update({
@@ -188,7 +188,6 @@ export class UsersService {
       throw new BadRequestException('You are already a host');
     }
 
-    // update role
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data:  { role: UserRole.HOST },
@@ -201,13 +200,12 @@ export class UsersService {
       },
     });
 
-    // issue new tokens with updated role
     const tokens = await this.auth.refreshTokens(userId);
 
     return {
-      message:     'You are now a host. Welcome!',
-      user:        updated,
-      accessToken: tokens.accessToken,
+      message:      'You are now a host. Welcome!',
+      user:         updated,
+      accessToken:  tokens.accessToken,
       refreshToken: tokens.refreshToken,
     };
   }
