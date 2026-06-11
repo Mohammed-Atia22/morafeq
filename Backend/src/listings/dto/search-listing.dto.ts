@@ -107,7 +107,14 @@ export class SearchListingDto {
   // Sorting
   @IsOptional()
   @IsString()
-  @IsIn(['newest', 'nearest', 'price_low', 'price_high', 'price_asc', 'price_desc'])
+  @IsIn([
+    'newest',
+    'nearest',
+    'price_low',
+    'price_high',
+    'price_asc',
+    'price_desc',
+  ])
   sortBy?:
     | 'newest'
     | 'nearest'

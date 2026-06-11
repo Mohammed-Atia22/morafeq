@@ -12,10 +12,7 @@ export class SearchController {
   }
 
   @Get('suggestions')
-  async suggestions(
-    @Query('q') q?: string,
-    @Query('limit') limit = '8',
-  ) {
+  async suggestions(@Query('q') q?: string, @Query('limit') limit = '8') {
     if (!q?.trim()) {
       return {
         data: [],

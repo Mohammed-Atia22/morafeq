@@ -191,7 +191,12 @@ export function ExpatriateSearchPage() {
   };
 
   // suggestions hook
-  const { query: sugQuery, setQuery: setSugQuery, suggestions, loading: sugLoading } = useSearchSuggestions({ limit: 8 });
+  const {
+    query: sugQuery,
+    setQuery: setSugQuery,
+    suggestions,
+    loading: sugLoading,
+  } = useSearchSuggestions({ limit: 8 });
 
   // sync main input with suggestions hook
   useEffect(() => {
@@ -276,7 +281,11 @@ export function ExpatriateSearchPage() {
           {/* Suggestions dropdown */}
           {showSuggestions && suggestions && suggestions.length > 0 && (
             <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-xl bg-white shadow-lg border border-slate-200 overflow-hidden">
-              {sugLoading && <div className="p-2 text-sm text-slate-500">جاري التحميل...</div>}
+              {sugLoading && (
+                <div className="p-2 text-sm text-slate-500">
+                  جاري التحميل...
+                </div>
+              )}
               <ul className="max-h-56 overflow-auto">
                 {suggestions.map((s) => (
                   <li

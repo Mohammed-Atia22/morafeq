@@ -130,7 +130,8 @@ export class SearchService {
 
     const where = this.buildWhere(dto);
 
-    const hasNearSearch = dto.nearLat !== undefined || dto.nearLng !== undefined;
+    const hasNearSearch =
+      dto.nearLat !== undefined || dto.nearLng !== undefined;
 
     if (hasNearSearch) {
       if (dto.nearLat === undefined || dto.nearLng === undefined) {
@@ -312,12 +313,12 @@ export class SearchService {
         status: 'ACTIVE',
         isDeleted: false,
         OR: [
-            { title: { contains: searchTerm } },
-            { city: { contains: searchTerm } },
-            { governorate: { contains: searchTerm } },
-            { country: { contains: searchTerm } },
-            { area: { name: { contains: searchTerm } } },
-          ],
+          { title: { contains: searchTerm } },
+          { city: { contains: searchTerm } },
+          { governorate: { contains: searchTerm } },
+          { country: { contains: searchTerm } },
+          { area: { name: { contains: searchTerm } } },
+        ],
       },
       take: limit,
       orderBy: [{ title: 'asc' }, { city: 'asc' }],
