@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import toast from "react-hot-toast";
 import { listingsApi } from "../../listings/services/listingsApi";
 import { AddListingForm } from "../../listings/components";
+import { ProfilePage } from "../../peofile/pages/ProfilePage";
 import { OwnerHeader } from "../components/OwnerHeader";
 import roomOne from "../../../../images/rooms (1).jpg";
 import roomTwo from "../../../../images/rooms (2).jpg";
@@ -286,19 +287,10 @@ export function OwnerPage() {
         <OwnerHeader />
 
         <main className="min-h-screen px-4 pb-24 pt-5 sm:px-6 lg:px-7 lg:pb-10">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              type="button"
-              onClick={() => setActiveSection("add")}
-              className="inline-flex h-11 w-fit items-center justify-center gap-2 rounded-xl bg-[#0b62d8] px-5 text-sm font-black text-white shadow-sm transition hover:bg-[#0754bd]"
-            >
-              <PlusIcon className="h-5 w-5" />
-              إضافة شقة
-            </button>
-          </div>
-
           {activeSection === "add" ? (
             <AddListingForm embedded onCreated={handleCreatedListing} />
+          ) : activeSection === "profile" ? (
+            <ProfilePage />
           ) : ["dashboard", "listings"].includes(activeSection) ? (
             <>
               <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

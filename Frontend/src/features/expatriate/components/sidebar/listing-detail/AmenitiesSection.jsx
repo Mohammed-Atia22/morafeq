@@ -12,7 +12,7 @@ const AMENITY_LABELS = {
   gym: "صالة رياضية",
   pool: "حمام سباحة",
   furnished: "مفروشة",
-  kitchen: "مطبخ",
+  kitchen: "مطبخ", 
   balcony: "بلكونة",
   garden: "حديقة",
   heating: "تدفئة",

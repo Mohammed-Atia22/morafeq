@@ -134,7 +134,8 @@ export class AuthService {
       });
 
       return {
-        message: 'Account created successfully. Please check your email for the verification code.',
+        message:
+          'Account created successfully. Please check your email for the verification code.',
         user,
       };
     } catch (error) {
@@ -159,7 +160,9 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new ForbiddenException('Email does not exist or is already verified');
+      throw new ForbiddenException(
+        'Email does not exist or is already verified',
+      );
     }
 
     // 2. find latest OTP
@@ -172,13 +175,17 @@ export class AuthService {
     });
 
     if (!otpExist) {
-      throw new ForbiddenException('OTP does not exist. Please request a new one.');
+      throw new ForbiddenException(
+        'OTP does not exist. Please request a new one.',
+      );
     }
 
     // 3. check expiry first
     if (new Date() > otpExist.expiresAt) {
       await this.prisma.oTP.delete({ where: { id: otpExist.id } });
-      throw new ForbiddenException('OTP has expired. Please request a new one.');
+      throw new ForbiddenException(
+        'OTP has expired. Please request a new one.',
+      );
     }
 
     // 4. compare OTP
@@ -221,7 +228,6 @@ export class AuthService {
   // ─── Login ─────────────────────────────────
 
   async login(dto: LoginDto) {
-    
     // 1. find verified user
     const user = await this.prisma.user.findFirst({
       where: {
@@ -245,7 +251,10 @@ export class AuthService {
     }
 
     // 3. verify password
-    const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
@@ -341,6 +350,7 @@ export class AuthService {
         isVerified: true,
         onboardingCompleted: true,
         createdAt: true,
+        passwordHash: true,
       },
     });
 
@@ -435,13 +445,17 @@ export class AuthService {
       });
 
       if (!otpExist) {
-        throw new ForbiddenException('OTP does not exist. Please request a new one.');
+        throw new ForbiddenException(
+          'OTP does not exist. Please request a new one.',
+        );
       }
 
       // 4. check expiry
       if (new Date() > otpExist.expiresAt) {
         await this.prisma.oTP.delete({ where: { id: otpExist.id } });
-        throw new ForbiddenException('OTP has expired. Please request a new one.');
+        throw new ForbiddenException(
+          'OTP has expired. Please request a new one.',
+        );
       }
 
       // 5. compare OTP
@@ -463,7 +477,10 @@ export class AuthService {
       // 7. delete used OTP
       await this.prisma.oTP.delete({ where: { id: otpExist.id } });
 
-      return { message: 'Password changed successfully. Please login with your new password.' };
+      return {
+        message:
+          'Password changed successfully. Please login with your new password.',
+      };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       throw new InternalServerErrorException(error);
@@ -483,7 +500,9 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new ForbiddenException('Email does not exist or is already verified');
+      throw new ForbiddenException(
+        'Email does not exist or is already verified',
+      );
     }
 
     // delete all old email confirmation OTPs for this user
@@ -547,11 +566,7 @@ export class AuthService {
 
   // ─── Private: generate tokens ──────────────
 
-  private async generateTokens(
-    userId: number,
-    email: string,
-    role: string,
-  ) {
+  private async generateTokens(userId: number, email: string, role: string) {
     const payload: JwtPayload = { sub: userId, email, role };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -561,7 +576,9 @@ export class AuthService {
       }),
       this.jwt.signAsync(payload, {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.getOrThrow<string>('JWT_REFRESH_EXPIRES_IN') as any,
+        expiresIn: this.config.getOrThrow<string>(
+          'JWT_REFRESH_EXPIRES_IN',
+        ) as any,
       }),
     ]);
 

@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 function IconBase({ children, className = "h-5 w-5" }) {
   return (
@@ -88,7 +88,11 @@ export function SettingsIcon({ className }) {
 export function UserIcon({ className }) {
   return (
     <IconBase className={className}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+      />
     </IconBase>
   );
 }
@@ -99,6 +103,19 @@ export function OwnerSidebar({
   activeSection,
   setActiveSection,
 }) {
+  const navigate = useNavigate();
+
+  const handleSectionClick = (section) => {
+    setActiveSection(section);
+    if (
+      section === "dashboard" ||
+      section === "listings" ||
+      section === "settings"
+    ) {
+      navigate("/owner");
+    }
+  };
+
   return (
     <>
       <div className="flex h-[74px] items-center gap-3 border-b border-slate-200 px-5">
@@ -118,13 +135,13 @@ export function OwnerSidebar({
           label="لوحة التحكم"
           icon={GridIcon}
           active={activeSection === "dashboard"}
-          onClick={() => setActiveSection("dashboard")}
+          onClick={() => handleSectionClick("dashboard")}
         />
         <SidebarItem
           label="عقاراتي"
           icon={BuildingIcon}
           active={activeSection === "listings"}
-          onClick={() => setActiveSection("listings")}
+          onClick={() => handleSectionClick("listings")}
         />
         <SidebarItem
           label="طلبات المعاينة"
@@ -158,20 +175,14 @@ export function OwnerSidebar({
           label="الإعدادات"
           icon={SettingsIcon}
           active={activeSection === "settings"}
-          onClick={() => setActiveSection("settings")}
+          onClick={() => handleSectionClick("settings")}
         />
-        <Link
-          to="/profile"
-          className={[
-            "flex h-12 w-full items-center gap-3 rounded-xl px-4 text-sm font-bold transition",
-            location.pathname === "/profile"
-              ? "bg-[#e9f0ff] text-[#0b62d8]"
-              : "text-slate-500 hover:bg-slate-50 hover:text-[#0b62d8]",
-          ].join(" ")}
-        >
-          <UserIcon className="h-5 w-5" />
-          ملفي
-        </Link>
+        <SidebarItem
+          label="ملفي"
+          icon={UserIcon}
+          active={activeSection === "profile"}
+          onClick={() => setActiveSection("profile")}
+        />
       </nav>
 
       <div className="border-t border-slate-200 p-4">

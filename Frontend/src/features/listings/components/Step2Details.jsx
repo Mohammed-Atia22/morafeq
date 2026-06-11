@@ -179,12 +179,12 @@ export function Step2Details({
                         color: "#344050",
                       }}
                     >
-                      عدد الأسرة
+                     عدد السراير
                       <input
                         style={fieldStyles}
                         placeholder="مثال: 3"
                         type="number"
-                        {...register("beds", { required: "عدد الأسرة مطلوب" })}
+                        {...register("beds", { required: "عدد السراير مطلوب" })}
                       />
                       {errors.beds && (
                         <span style={{ color: "#dc2626" }}>
@@ -327,59 +327,7 @@ export function Step2Details({
                   </label>
                 </div>
 
-                <div
-                  style={{
-                    marginTop: "18px",
-                    display: "flex",
-                    gap: "10px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: "999px",
-                      background: "#eff6ff",
-                      color: "#1d4ed8",
-                      fontSize: "13px",
-                    }}
-                  >
-                    ممنوع التدخين
-                  </span>
-                  <span
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: "999px",
-                      background: "#eff6ff",
-                      color: "#1d4ed8",
-                      fontSize: "13px",
-                    }}
-                  >
-                    الإنترنت مش شامل
-                  </span>
-                  <span
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: "999px",
-                      background: "#eff6ff",
-                      color: "#1d4ed8",
-                      fontSize: "13px",
-                    }}
-                  >
-                    مفروش
-                  </span>
-                  <span
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: "999px",
-                      background: "#eff6ff",
-                      color: "#1d4ed8",
-                      fontSize: "13px",
-                    }}
-                  >
-                    تكييف
-                  </span>
-                </div>
+     
 
                 <PhotoUploader
                   fieldStyles={fieldStyles}

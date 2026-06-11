@@ -175,8 +175,13 @@ export function ProfilePage() {
         </div>
       </div>
 
-      {/* Change password */}
-      <ChangePasswordForm loading={passwordLoading} onSubmit={changePassword} />
+      {/* Change password — only for email/password users */}
+      {profile?.passwordHash && (
+        <ChangePasswordForm
+          loading={passwordLoading}
+          onSubmit={changePassword}
+        />
+      )}
     </div>
   );
 }
