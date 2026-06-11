@@ -736,6 +736,16 @@ export class ListingsService {
 
   const photo = await this.prisma.listingPhoto.findFirst({
     where: { id: photoId, listingId },
+    select: {
+      id: true,
+      listingId: true,
+      url: true,
+      thumbnailUrl: true,
+      sortOrder: true,
+      isCover: true,
+      createdAt: true,
+      deleteUrl: true,
+    },
   });
 
   if (!photo) throw new NotFoundException('Photo not found');
