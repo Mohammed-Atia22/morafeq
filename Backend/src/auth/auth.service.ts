@@ -221,6 +221,7 @@ export class AuthService {
   // ─── Login ─────────────────────────────────
 
   async login(dto: LoginDto) {
+    
     // 1. find verified user
     const user = await this.prisma.user.findFirst({
       where: {
@@ -228,7 +229,6 @@ export class AuthService {
         isVerified: true,
       },
     });
-
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }

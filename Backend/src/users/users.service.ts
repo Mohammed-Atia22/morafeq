@@ -107,32 +107,23 @@ export class UsersService {
 
   // ─── Upload avatar ─────────────────────────
 
-  async uploadAvatar(
-    userId: number,
-    file: Express.Multer.File,
-  ) {
-    const user = await this.prisma.user.findUnique({
-      where:  { id: userId },
-      select: { avatarUrl: true },
-    });
+  async uploadAvatar(userId: number, file: Express.Multer.File) {
+  const result = await this.uploads.uploadImage(file, 'avatars');
 
-    const avatarUrl = await this.uploads.uploadImage(file, 'avatars');
+  const user = await this.prisma.user.update({
+    where: { id: userId },
+    data:  { avatarUrl: result.url },
+    select: {
+      id:        true,
+      email:     true,
+      firstName: true,
+      lastName:  true,
+      avatarUrl: true,
+    },
+  });
 
-    if (user?.avatarUrl) {
-      await this.uploads.deleteImage(user.avatarUrl);
-    }
-
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data:  { avatarUrl },
-      select: {
-        id:        true,
-        avatarUrl: true,
-      },
-    });
-
-    return updated;
-  }
+  return user;
+}
 
   // ─── Change password ───────────────────────
 

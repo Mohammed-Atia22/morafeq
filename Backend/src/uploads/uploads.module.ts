@@ -5,6 +5,6 @@ import { ConfigModule } from '@nestjs/config';
 @Module({
   imports: [ConfigModule],
   providers: [UploadsService],
-  exports:   [UploadsService],  // export so UsersModule can use it
+  exports: [UploadsService],
 })
 export class UploadsModule {}
