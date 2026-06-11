@@ -21,6 +21,7 @@ export const expatriateListingsApi = {
     append("country", filters.country);
     append("minPrice", filters.minPrice);
     append("maxPrice", filters.maxPrice);
+    append("q", filters.q);
     append("roomType", filters.roomType);
     append("propertyType", filters.propertyType);
     append("genderPreference", filters.genderPreference);
@@ -37,6 +38,6 @@ export const expatriateListingsApi = {
     }
 
     const qs = params.toString();
-    return apiRequest(`/listings${qs ? `?${qs}` : ""}`);
+    return apiRequest(`/search/listings${qs ? `?${qs}` : ""}`);
   },
 };

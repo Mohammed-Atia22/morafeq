@@ -24,6 +24,10 @@ export class SearchListingDto {
   country?: string;
 
   @IsOptional()
+  @IsString()
+  q?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   areaId?: number;
@@ -103,8 +107,14 @@ export class SearchListingDto {
   // Sorting
   @IsOptional()
   @IsString()
-  @IsIn(['newest', 'nearest', 'price_low', 'price_high'])
-  sortBy?: 'newest' | 'nearest' | 'price_low' | 'price_high';
+  @IsIn(['newest', 'nearest', 'price_low', 'price_high', 'price_asc', 'price_desc'])
+  sortBy?:
+    | 'newest'
+    | 'nearest'
+    | 'price_low'
+    | 'price_high'
+    | 'price_asc'
+    | 'price_desc';
 
   // Pagination
   @IsOptional()

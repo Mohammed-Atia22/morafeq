@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useListings } from "../hooks/useListings";
 import { useDestinationSearch } from "../hooks/useDestinationSearch";
 import LocationPickerMap from "../../../shared/components/maps/LocationPickerMap";
 import { ListingsGrid } from "../components/sidebar/home/ListingsGrid";
 import { AmenitiesSelector } from "../../listings/components/AmenitiesSelector";
+import { useSearchSuggestions } from "../hooks/useSearchSuggestions";
 
 const ROOM_TYPES = [
   { value: "", label: "الكل" },
@@ -105,6 +106,8 @@ export function ExpatriateSearchPage() {
   const [approvedLocation, setApprovedLocation] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsRef = useRef(null);
   const [showMapModal, setShowMapModal] = useState(false);
 
   useEffect(() => {
@@ -184,6 +187,39 @@ export function ExpatriateSearchPage() {
 
     setHasSearched(true);
     fetchListings(searchParams);
+    setShowSuggestions(false);
+  };
+
+  // suggestions hook
+  const { query: sugQuery, setQuery: setSugQuery, suggestions, loading: sugLoading } = useSearchSuggestions({ limit: 8 });
+
+  // sync main input with suggestions hook
+  useEffect(() => {
+    setSugQuery(searchQuery || "");
+    if (searchQuery && searchQuery.trim().length > 0) setShowSuggestions(true);
+    else setShowSuggestions(false);
+  }, [searchQuery, setSugQuery]);
+
+  // close suggestions when clicking outside
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!suggestionsRef.current) return;
+      if (!suggestionsRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, []);
+
+  const handlePickSuggestion = (item) => {
+    // item: { id, title, subtitle, areaName }
+    const display = item.title || item.subtitle || item.areaName || "";
+    setSearchQuery(display);
+    setShowSuggestions(false);
+    // optionally run search immediately
+    handleSearch();
   };
 
   const handleReset = () => {
@@ -223,7 +259,7 @@ export function ExpatriateSearchPage() {
 
       {/* Search bar + filter icon */}
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 flex items-center gap-3">
-        <div className="flex-1">
+        <div className="flex-1 relative" ref={suggestionsRef}>
           <input
             type="text"
             dir="rtl"
@@ -232,7 +268,29 @@ export function ExpatriateSearchPage() {
             placeholder="ابحث عن منطقة، جامعة أو كلمة مفتاحية"
             className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-[#1752F0] focus:ring-2 focus:ring-[#1752F0]/20"
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            onFocus={() => searchQuery && setShowSuggestions(true)}
+            aria-autocomplete="list"
+            aria-expanded={showSuggestions}
           />
+
+          {/* Suggestions dropdown */}
+          {showSuggestions && suggestions && suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-xl bg-white shadow-lg border border-slate-200 overflow-hidden">
+              {sugLoading && <div className="p-2 text-sm text-slate-500">جاري التحميل...</div>}
+              <ul className="max-h-56 overflow-auto">
+                {suggestions.map((s) => (
+                  <li
+                    key={s.id}
+                    onClick={() => handlePickSuggestion(s)}
+                    className="cursor-pointer px-4 py-2 hover:bg-slate-50"
+                  >
+                    <div className="text-sm font-semibold">{s.title}</div>
+                    <div className="text-xs text-slate-500">{s.subtitle}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <button

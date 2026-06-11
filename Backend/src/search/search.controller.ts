@@ -1,34 +1,33 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { SearchService } from './search.service';
-import { CreateSearchDto } from './dto/create-search.dto';
-import { UpdateSearchDto } from './dto/update-search.dto';
+import { SearchListingDto } from '../listings/dto/search-listing.dto';
 
 @Controller('search')
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
-  @Post()
-  create(@Body() createSearchDto: CreateSearchDto) {
-    return this.searchService.create(createSearchDto);
+  @Get('listings')
+  search(@Query() query: SearchListingDto) {
+    return this.searchService.searchListings(query);
   }
 
-  @Get()
-  findAll() {
-    return this.searchService.findAll();
-  }
+  @Get('suggestions')
+  async suggestions(
+    @Query('q') q?: string,
+    @Query('limit') limit = '8',
+  ) {
+    if (!q?.trim()) {
+      return {
+        data: [],
+        meta: { total: 0, limit: Number(limit) },
+      };
+    }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.searchService.findOne(+id);
-  }
+    const parsedLimit = Number(limit);
+    if (Number.isNaN(parsedLimit) || parsedLimit < 1) {
+      throw new BadRequestException('limit must be a positive integer');
+    }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateSearchDto: UpdateSearchDto) {
-    return this.searchService.update(+id, updateSearchDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.searchService.remove(+id);
+    return this.searchService.searchSuggestions(q.trim(), parsedLimit);
   }
 }
