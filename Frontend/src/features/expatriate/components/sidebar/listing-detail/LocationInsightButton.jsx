@@ -12,13 +12,23 @@ export function LocationInsightButton({ listingId }) {
       <div className="flex items-center gap-3">
         {/* Icon */}
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/20 backdrop-blur">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7" />
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className="h-5 w-5"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7"
+            />
           </svg>
         </div>
 
         <div dir="rtl" className="text-right">
-          <p className="text-sm font-black">تحليل المنطقة بالذكاء الاصطناعي</p>
+          <p className="text-sm font-black">تحليل المنطقه</p>
           <p className="text-xs text-white/70">
             صيدليات · مواصلات · مستشفيات · جامعات وأكثر
           </p>
@@ -33,7 +43,11 @@ export function LocationInsightButton({ listingId }) {
         strokeWidth="2.5"
         className="h-4 w-4 shrink-0 text-white/70 transition group-hover:translate-x-[-3px]"
       >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M15 19l-7-7 7-7"
+        />
       </svg>
     </button>
   );
