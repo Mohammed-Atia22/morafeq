@@ -693,68 +693,76 @@ export class ListingsService {
 
   // ─── Upload photos ─────────────────────────
 
-  async uploadPhotos(id: number, hostId: number, files: Express.Multer.File[]) {
-    await this.verifyOwnership(id, hostId);
+  async uploadPhotos(
+  id: number,
+  hostId: number,
+  files: Express.Multer.File[],
+) {
+  await this.verifyOwnership(id, hostId);
 
-    const existingCount = await this.prisma.listingPhoto.count({
-      where: { listingId: id },
-    });
+  const existingCount = await this.prisma.listingPhoto.count({
+    where: { listingId: id },
+  });
 
-    if (existingCount + files.length > 20) {
-      throw new BadRequestException('Maximum 20 photos allowed per listing');
-    }
-
-    // Upload all files to S3 in parallel
-    const uploadPromises = files.map((file, index) =>
-      this.uploads.uploadImage(file, 'listings').then((url) => ({
-        listingId: id,
-        url,
-        sortOrder: existingCount + index,
-        isCover: existingCount === 0 && index === 0,
-      })),
-    );
-
-    const photoData = await Promise.all(uploadPromises);
-
-    await this.prisma.listingPhoto.createMany({ data: photoData });
-
-    return this.prisma.listingPhoto.findMany({
-      where: { listingId: id },
-      orderBy: { sortOrder: 'asc' },
-    });
+  if (existingCount + files.length > 20) {
+    throw new BadRequestException('Maximum 20 photos allowed per listing');
   }
+
+  // upload all files to ImageBB in parallel
+  const uploadPromises = files.map((file, index) =>
+    this.uploads.uploadImage(file, 'listings').then((result) => ({
+      listingId: id,
+      url:       result.url,
+      deleteUrl: result.deleteUrl,
+      sortOrder: existingCount + index,
+      isCover:   existingCount === 0 && index === 0,
+    })),
+  );
+
+  const photoData = await Promise.all(uploadPromises);
+
+  await this.prisma.listingPhoto.createMany({ data: photoData });
+
+  return this.prisma.listingPhoto.findMany({
+    where:   { listingId: id },
+    orderBy: { sortOrder: 'asc' },
+  });
+}
 
   // ─── Delete photo ──────────────────────────
 
   async deletePhoto(listingId: number, photoId: number, hostId: number) {
-    await this.verifyOwnership(listingId, hostId);
+  await this.verifyOwnership(listingId, hostId);
 
-    const photo = await this.prisma.listingPhoto.findFirst({
-      where: { id: photoId, listingId },
+  const photo = await this.prisma.listingPhoto.findFirst({
+    where: { id: photoId, listingId },
+  });
+
+  if (!photo) throw new NotFoundException('Photo not found');
+
+  // delete from ImageBB using stored deleteUrl
+  await this.uploads.deleteImage(photo.deleteUrl);
+
+  // delete from database
+  await this.prisma.listingPhoto.delete({ where: { id: photoId } });
+
+  // if deleted photo was the cover, promote the next photo
+  if (photo.isCover) {
+    const next = await this.prisma.listingPhoto.findFirst({
+      where:   { listingId },
+      orderBy: { sortOrder: 'asc' },
     });
 
-    if (!photo) throw new NotFoundException('Photo not found');
-
-    await this.uploads.deleteImage(photo.url);
-
-    await this.prisma.listingPhoto.delete({ where: { id: photoId } });
-
-    // If deleted photo was cover, set first remaining as cover
-    if (photo.isCover) {
-      const first = await this.prisma.listingPhoto.findFirst({
-        where: { listingId },
-        orderBy: { sortOrder: 'asc' },
+    if (next) {
+      await this.prisma.listingPhoto.update({
+        where: { id: next.id },
+        data:  { isCover: true },
       });
-      if (first) {
-        await this.prisma.listingPhoto.update({
-          where: { id: first.id },
-          data: { isCover: true },
-        });
-      }
     }
-
-    return { message: 'Photo deleted' };
   }
+
+  return { message: 'Photo deleted successfully' };
+}
 
   // ─── Set amenities ─────────────────────────
 

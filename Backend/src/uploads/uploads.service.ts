@@ -1,74 +1,100 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-} from '@aws-sdk/client-s3';
-import { v4 as uuidv4 } from 'uuid';
+  Injectable,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
+import FormData from 'form-data';
 
 @Injectable()
 export class UploadsService {
-  private s3: S3Client;
-  private bucket: string;
+  constructor(private config: ConfigService) {}
 
-  constructor(private config: ConfigService) {
-    this.s3 = new S3Client({
-      region: config.get<string>('AWS_REGION')!,
-      credentials: {
-        accessKeyId:     config.get<string>('AWS_ACCESS_KEY_ID')!,
-        secretAccessKey: config.get<string>('AWS_SECRET_ACCESS_KEY')!,
-      },
-    });
-    this.bucket = config.get<string>('AWS_S3_BUCKET')!;
-  }
+  // ─── Upload image to ImageBB ───────────────
 
   async uploadImage(
     file: Express.Multer.File,
-    folder: string,
-  ): Promise<string> {
-    // validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.mimetype)) {
+    folder: string = 'general',
+  ): Promise<{ url: string; deleteUrl: string | null }> {
+    // 1. validate file type
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+    ];
+
+    if (!allowedMimeTypes.includes(file.mimetype)) {
       throw new BadRequestException(
-        'Only JPEG, PNG, and WebP images are allowed'
+        'Invalid file type. Only JPEG, PNG and WebP are allowed',
       );
     }
 
-    // validate file size — max 5MB
+    // 2. validate file size — 5MB max
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      throw new BadRequestException('Image must be smaller than 5MB');
+      throw new BadRequestException('File size must not exceed 5MB');
     }
 
-    // generate unique filename
-    const extension = file.originalname.split('.').pop();
-    const filename   = `${folder}/${uuidv4()}.${extension}`;
+    try {
+      const apiKey = this.config.getOrThrow<string>('IMGBB_API_KEY');
 
-    // upload to S3
-    await this.s3.send(
-      new PutObjectCommand({
-        Bucket:      this.bucket,
-        Key:         filename,
-        Body:        file.buffer,
-        ContentType: file.mimetype,
-      }),
-    );
+      // 3. convert buffer to base64 — ImageBB requires this format
+      const base64Image = file.buffer.toString('base64');
 
-    // return public URL
-    return `https://${this.bucket}.s3.${this.config.get('AWS_REGION')}.amazonaws.com/${filename}`;
+      // 4. build form data
+      const formData = new FormData();
+      formData.append('image', base64Image);
+      formData.append('name', `${folder}_${Date.now()}`);
+
+      // 5. call ImageBB API
+      const response = await axios.post(
+        `https://api.imgbb.com/1/upload?key=${apiKey}`,
+        formData,
+        {
+          headers: formData.getHeaders(),
+          timeout: 15000, // 15 seconds timeout
+        },
+      );
+
+      if (!response.data?.success) {
+        throw new InternalServerErrorException(
+          'ImageBB upload failed — no success response',
+        );
+      }
+
+      return {
+        url:       response.data.data.url,
+        deleteUrl: response.data.data.delete_url ?? null,
+      };
+    } catch (error) {
+      // rethrow our own exceptions as-is
+      if (error instanceof BadRequestException) throw error;
+      if (error instanceof InternalServerErrorException) throw error;
+
+      // wrap unknown axios/network errors
+      throw new InternalServerErrorException(
+        'Failed to upload image. Please try again.',
+      );
+    }
   }
 
-  async deleteImage(imageUrl: string): Promise<void> {
-    // extract the key from the full URL
-    const key = imageUrl.split('.amazonaws.com/')[1];
-    if (!key) return;
+  // ─── Delete image from ImageBB ─────────────
 
-    await this.s3.send(
-      new DeleteObjectCommand({
-        Bucket: this.bucket,
-        Key:    key,
-      }),
-    );
+  async deleteImage(deleteUrl: string | null): Promise<void> {
+    if (!deleteUrl) {
+      // nothing to delete — silently return
+      return;
+    }
+
+    try {
+      // ImageBB deletion works by visiting the delete URL
+      await axios.get(deleteUrl, { timeout: 10000 });
+    } catch {
+      // do not throw — deletion failure should never crash the main flow
+      // the image may already be gone or the URL may have expired
+      console.warn(`Could not delete image from ImageBB: ${deleteUrl}`);
+    }
   }
 }

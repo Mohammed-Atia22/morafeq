@@ -208,6 +208,7 @@ model ListingPhoto {
   isCover      Boolean  @default(false)
   createdAt    DateTime @default(now())
   listing      Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  deleteUrl    String?  @db.VarChar(500)
 
   @@index([listingId])
   @@map("listing_photos")
