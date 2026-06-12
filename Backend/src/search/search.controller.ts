@@ -10,7 +10,6 @@ export class SearchController {
   search(@Query() query: SearchListingDto) {
     return this.searchService.searchListings(query);
   }
-
   @Get('suggestions')
   async suggestions(@Query('q') q?: string, @Query('limit') limit = '8') {
     if (!q?.trim()) {
