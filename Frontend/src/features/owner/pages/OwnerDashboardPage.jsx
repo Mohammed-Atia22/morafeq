@@ -175,7 +175,8 @@ export function OwnerPage() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [editingId, setEditingId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -246,30 +247,21 @@ export function OwnerPage() {
     });
   }, [activeFilter, listings]);
 
-  const handleUpdateListing = async (id, payload) => {
+  const handleDeleteListing = async () => {
+    if (!deleteTarget) return;
+
     try {
-      const updatedListing = await listingsApi.updateListing(id, payload);
-
+      setDeletingId(deleteTarget.id);
+      await listingsApi.deleteListing(deleteTarget.id);
       setListings((current) =>
-        current.map((listing) =>
-          listing.id === id
-            ? {
-                ...listing,
-                ...updatedListing,
-                photos: updatedListing.photos?.length
-                  ? updatedListing.photos
-                  : listing.photos,
-                _count: updatedListing._count || listing._count,
-              }
-            : listing,
-        ),
+        current.filter((listing) => listing.id !== deleteTarget.id),
       );
-
-      setEditingId(null);
-      toast.success("تم تحديث العقار بنجاح");
+      toast.success("تم حذف العقار بنجاح");
+      setDeleteTarget(null);
     } catch (caughtError) {
-      toast.error(caughtError.message || "تعذر تحديث العقار");
-      throw caughtError;
+      toast.error(caughtError.message || "تعذر حذف العقار");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -349,10 +341,8 @@ export function OwnerPage() {
                       fallbackImage={
                         fallbackImages[index % fallbackImages.length]
                       }
-                      isEditing={editingId === listing.id}
-                      onEdit={() => setEditingId(listing.id)}
-                      onCancel={() => setEditingId(null)}
-                      onSave={handleUpdateListing}
+                      onEdit={() => navigate(`/owner/listings/${listing.id}/edit`)}
+                      onDelete={() => setDeleteTarget(listing)}
                     />
                   ))}
                 </section>
@@ -370,6 +360,15 @@ export function OwnerPage() {
             />
           )}
         </main>
+
+        {deleteTarget ? (
+          <DeleteListingDialog
+            listing={deleteTarget}
+            deleting={deletingId === deleteTarget.id}
+            onCancel={() => setDeleteTarget(null)}
+            onConfirm={handleDeleteListing}
+          />
+        ) : null}
 
         <nav className="fixed bottom-0 inset-x-0 z-40 grid grid-cols-4 border-t border-slate-200 bg-white px-2 py-2 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] lg:hidden">
           <MobileNavItem
@@ -447,11 +446,63 @@ function SidebarItem({
   );
 }
 
+function DeleteListingDialog({ listing, deleting, onCancel, onConfirm }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-listing-title"
+      dir="rtl"
+    >
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 text-right shadow-2xl">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-red-50 text-red-500">
+            <TrashIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h2
+              id="delete-listing-title"
+              className="text-lg font-black text-[#172033]"
+            >
+              هل تريد حذف هذا العقار؟
+            </h2>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+              سيتم حذف بطاقة "{listing.title}" من عقاراتك. يمكنك الإلغاء الآن
+              إذا لم تكن متأكدًا.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={deleting}
+            className="h-11 flex-1 rounded-xl bg-red-500 text-sm font-black text-white transition hover:bg-red-600 disabled:opacity-60"
+          >
+            {deleting ? "جاري الحذف..." : "نعم، احذف"}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={deleting}
+            className="h-11 flex-1 rounded-xl border border-slate-200 text-sm font-black text-slate-500 transition hover:bg-slate-50 disabled:opacity-60"
+          >
+            إلغاء
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ListingCard({
   listing,
   fallbackImage,
   isEditing,
   onEdit,
+  onDelete,
   onCancel,
   onSave,
 }) {
@@ -845,7 +896,9 @@ function ListingCard({
               </button>
               <button
                 type="button"
+                onClick={onDelete}
                 className="grid h-10 w-10 place-items-center rounded-xl border border-amber-100 bg-white text-amber-500"
+                aria-label="حذف العقار"
               >
                 <TrashIcon className="h-4 w-4" />
               </button>

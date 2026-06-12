@@ -19,6 +19,7 @@ import OwnerLayout from "./app/layouts/OwnerLayout";
 import ExpatriateLayout from "./app/layouts/ExpatriateLayout";
 import { Toaster } from "react-hot-toast";
 import AddListingPage from "./features/listings/pages/AddListingPage";
+import EditListingPage from "./features/listings/pages/EditListingPage";
 import { ProtectedRoute } from "./app/routes/ProtectedRoute";
 
 function App() {
@@ -38,18 +39,20 @@ function App() {
           <Route path="auth/callback" element={<AuthCallbackPage />} />
 
           <Route path="onboarding" element={<OnboardingPage />} />
+        </Route>
 
-          <Route
-            path="owner"
-            element={
-              <ProtectedRoute>
-                <OwnerLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<OwnerPage />} />
-            <Route path="add" element={<AddListingPage />} />
-          </Route>
+        {/* ─── Owner routes (own layout, no navbar) ─ */}
+        <Route
+          path="owner"
+          element={
+            <ProtectedRoute>
+              <OwnerLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<OwnerPage />} />
+          <Route path="add" element={<AddListingPage />} />
+          <Route path="listings/:id/edit" element={<EditListingPage />} />
         </Route>
 
         {/* ─── Expatriate routes (own layout + sidebar) ─ */}
