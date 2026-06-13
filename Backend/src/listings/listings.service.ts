@@ -687,7 +687,7 @@ export class ListingsService {
 
     return this.prisma.listing.update({
       where: { id },
-      data: { status: ListingStatus.ACTIVE },
+      data: { status: ListingStatus.PENDING_APPROVAL },
     });
   }
 
