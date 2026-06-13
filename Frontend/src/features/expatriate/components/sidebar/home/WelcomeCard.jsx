@@ -63,34 +63,7 @@ export function WelcomeCard({ firstName, totalListings = 0 }) {
         </div>
       </div>
 
-      {/* Search bar */}
-      <form onSubmit={handleSearch} className="mt-6 flex gap-2">
-        <button
-          type="submit"
-          className="shrink-0 rounded-xl bg-white px-5 py-3 text-sm font-black text-[#1752F0] shadow transition hover:bg-slate-50"
-        >
-          ابحث الآن
-        </button>
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="منطقة، جامعة أو نوع السكن..."
-            dir="rtl"
-            className="w-full rounded-xl bg-white/20 px-4 py-3 text-sm text-white placeholder:text-white/60 backdrop-blur outline-none focus:bg-white/25 focus:ring-2 focus:ring-white/40"
-          />
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-          </svg>
-        </div>
-      </form>
+
 
       {/* Stats row */}
       <div className="mt-5 grid grid-cols-3 gap-3">

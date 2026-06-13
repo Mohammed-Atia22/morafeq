@@ -4,7 +4,6 @@ import toast from "react-hot-toast";
 import { listingsApi } from "../../listings/services/listingsApi";
 import { AddListingForm } from "../../listings/components";
 import { ProfilePage } from "../../peofile/pages/ProfilePage";
-import { OwnerHeader } from "../components/OwnerHeader";
 import roomOne from "../../../../images/rooms (1).jpg";
 import roomTwo from "../../../../images/rooms (2).jpg";
 import roomThree from "../../../../images/rooms (3).jpg";
@@ -275,9 +274,7 @@ export function OwnerPage() {
 
   return (
     <div className="min-h-screen bg-[#eef3ff] text-[#172033]" dir="rtl">
-      <div className="min-h-screen ">
-        <OwnerHeader />
-
+      <div className="min-h-screen">
         <main className="min-h-screen px-4 pb-24 pt-5 sm:px-6 lg:px-7 lg:pb-10">
           {activeSection === "add" ? (
             <AddListingForm embedded onCreated={handleCreatedListing} />
@@ -341,7 +338,9 @@ export function OwnerPage() {
                       fallbackImage={
                         fallbackImages[index % fallbackImages.length]
                       }
-                      onEdit={() => navigate(`/owner/listings/${listing.id}/edit`)}
+                      onEdit={() =>
+                        navigate(`/owner/listings/${listing.id}/edit`)
+                      }
                       onDelete={() => setDeleteTarget(listing)}
                     />
                   ))}

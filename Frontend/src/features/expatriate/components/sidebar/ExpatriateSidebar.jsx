@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../auth/hooks/useAuth";
 
 const NAV_ITEMS = [
@@ -66,43 +66,21 @@ const NAV_ITEMS = [
 
 export function ExpatriateSidebar() {
   const { user, logout } = useAuth();
-
-  const initials = user?.firstName
-    ? user.firstName.charAt(0).toUpperCase()
-    : "م";
+  const navigate = useNavigate();
 
   return (
-    <aside
-      dir="rtl"
-      className="fixed right-0 top-0 z-20 flex h-screen w-[220px] flex-col border-l border-slate-100 bg-white shadow-sm"
-    >
-      {/* Logo */}
-      <div className="flex items-center gap-2 px-5 py-5 border-b border-slate-100">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#1752F0] text-base font-black text-white">
+    <>
+      <div className="flex h-[74px] items-center gap-3 border-b border-slate-200 px-5">
+        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0b62d8] text-xl font-black text-white">
           س
-        </span>
-        <span className="text-xl font-black text-[#0f172a]">سَكن</span>
-      </div>
-
-      {/* User info */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-        <div className="grid h-9 w-9 place-items-center rounded-full bg-[#1752F0] text-sm font-bold text-white shrink-0">
-          {initials}
         </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-[#0f172a]">
-            {user?.firstName
-              ? `${user.firstName} ${user.lastName ?? ""}`.trim()
-              : "المستخدم"}
-          </p>
-          <p className="truncate text-xs text-slate-400">
-            {user?.university ?? "طالب مغترب"}
-          </p>
+        <div>
+          <p className="text-lg font-black text-[#172033]">مرافق</p>
+          <p className="text-xs font-semibold text-slate-400">لوحة الطالب</p>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 pt-4 space-y-1">
+      <nav className="flex-1 space-y-2 px-3 py-4">
         {NAV_ITEMS.map(({ to, end, label, icon }) => (
           <NavLink
             key={to}
@@ -112,7 +90,7 @@ export function ExpatriateSidebar() {
               [
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all",
                 isActive
-                  ? "bg-[#EEF3FF] text-[#1752F0]"
+                  ? "bg-[#E8F0FF] text-[#0b62d8]"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-800",
               ].join(" ")
             }
@@ -120,7 +98,7 @@ export function ExpatriateSidebar() {
             {({ isActive }) => (
               <>
                 <span
-                  className={isActive ? "text-[#1752F0]" : "text-slate-400"}
+                  className={isActive ? "text-[#0b62d8]" : "text-slate-400"}
                 >
                   {icon}
                 </span>
@@ -131,29 +109,31 @@ export function ExpatriateSidebar() {
         ))}
       </nav>
 
-      {/* Logout */}
-      <div className="px-3 pb-5 pt-2 border-t border-slate-100 mt-auto">
+      <div className="border-t border-slate-200 p-4">
+        <button
+          type="button"
+          onClick={() => navigate("/expatriate/profile")}
+          className="mb-3 flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition hover:bg-blue-200"
+        >
+          <div className="grid h-11 w-11 place-items-center rounded-full bg-[#0b62d8] text-lg font-black text-white shrink-0">
+            {user?.firstName?.[0] || "ط"}
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-black text-[#172033]">
+              {[user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+                "الطالب"}
+            </p>
+            <p className="text-xs font-semibold text-blue-500">طالب مغترب</p>
+          </div>
+        </button>
         <button
           type="button"
           onClick={logout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-red-50 hover:text-red-500"
+          className="w-full text-center text-sm font-bold text-red-500 hover:text-red-600"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="h-5 w-5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-            />
-          </svg>
           تسجيل الخروج
         </button>
       </div>
-    </aside>
+    </>
   );
 }

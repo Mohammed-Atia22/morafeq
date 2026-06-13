@@ -306,10 +306,23 @@ export function ExpatriateSearchPage() {
           type="button"
           aria-label="فتح الفلاتر"
           onClick={() => setShowFilters(true)}
-          className="shrink-0 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+          className="shrink-0 rounded-xl border border-slate-200 bg-white p-3 text-slate-700 transition hover:bg-slate-50"
+          title="فتح الفلاتر"
         >
-          <img src="/images/filter .png" alt="فلتر" className="h-5 w-5" />
-          الفلاتر
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-5 w-5"
+          >
+            <path d="M4 6h16" />
+            <path d="M7 12h10" />
+            <path d="M10 18h4" />
+          </svg>
         </button>
         <button
           type="button"
@@ -322,13 +335,13 @@ export function ExpatriateSearchPage() {
 
       {/* Filter drawer (slide-over) */}
       {showFilters && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 min-h-screen overflow-hidden">
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/40 "
             onClick={() => setShowFilters(false)}
           />
           <aside
-            className="relative ml-auto w-full max-w-md bg-white p-6"
+            className="fixed right-0 top-0 bottom-0 h-screen w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl"
             dir="rtl"
           >
             <div className="flex items-center justify-between">

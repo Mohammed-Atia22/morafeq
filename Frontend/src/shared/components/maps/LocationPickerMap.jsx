@@ -40,21 +40,22 @@ function ClickToMoveMarker({ onChange }) {
 export default function LocationPickerMap({
   position,
   onChange,
-  height = "100%",
+  height = "360px",
 }) {
   if (!position) return null;
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex flex-col" style={{ height }}>
       <div className="mb-3 text-sm text-slate-600">
         الموقع تقريبي. حرّك العلامة أو اضغط على الخريطة لتحديد مكان العقار بدقة.
       </div>
 
-      <div className="flex-1 h-full rounded-2xl overflow-hidden border border-slate-200">
+      <div className="flex-1 rounded-2xl overflow-hidden border border-slate-200">
         <MapContainer
           center={[position.lat, position.lng]}
           zoom={15}
           className="h-full w-full"
+          style={{ height: "100%" }}
         >
           <RecenterMap position={position} />
 

@@ -186,18 +186,22 @@ export function OwnerSidebar({
       </nav>
 
       <div className="border-t border-slate-200 p-4">
-        <div className="mb-3 flex items-center gap-3 rounded-xl bg-[#eef3ff] p-3">
-          <div className="grid h-11 w-11 place-items-center rounded-full bg-[#0aa886] text-lg font-black text-white">
+        <button
+          type="button"
+          onClick={() => navigate("/profile")}
+          className="mb-3 flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition hover:bg-blue-200"
+        >
+          <div className="grid h-11 w-11 place-items-center rounded-full bg-[#0aa886] text-lg font-black text-white shrink-0">
             {user?.firstName?.[0] || "ك"}
           </div>
-          <div>
+          <div className="text-left">
             <p className="text-sm font-black text-[#172033]">
               {[user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
                 "كريم محمود"}
             </p>
             <p className="text-xs font-semibold text-emerald-500">مالك موثق</p>
           </div>
-        </div>
+        </button>
         <button
           type="button"
           onClick={logout}
