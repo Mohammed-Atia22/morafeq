@@ -10,6 +10,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import * as CryptoJS from 'crypto-js';
 
 @Injectable()
 export class UsersService {
@@ -47,6 +48,16 @@ export class UsersService {
     });
 
     if (!user) throw new NotFoundException('User not found');
+
+    if (user.phone) {
+  const bytes = CryptoJS.AES.decrypt(
+    user.phone,
+    process.env.PHONE_CRYPTO_SECRET!,
+  );
+
+  user.phone = bytes.toString(CryptoJS.enc.Utf8);
+}
+
 
     return user;
   }
