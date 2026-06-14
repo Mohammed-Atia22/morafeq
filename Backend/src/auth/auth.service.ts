@@ -40,111 +40,169 @@ export class AuthService {
   // ─── Register ──────────────────────────────
 
   async register(body: RegisterDto) {
-    try {
-      const { firstName, lastName, email, phone, password, gender } = body;
+  try {
+    const { firstName, lastName, email, phone, password, gender } = body;
 
-      // 1. check email not already used
-      const existing = await this.prisma.user.findUnique({
-        where: { email: email.toLowerCase() },
-      });
+    const normalizedEmail = email.trim().toLowerCase();
 
-      if (existing) {
-        throw new ConflictException('This email is already registered');
-      }
+    // 1. Find existing user by email
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
 
-      // 2. validate and normalize phone
-      const phoneNumber = parsePhoneNumberFromString(phone);
+    // Verified account cannot register again
+    if (existingUser?.isVerified) {
+      throw new ConflictException('This email is already registered');
+    }
 
-      if (!phoneNumber || !phoneNumber.isValid()) {
-        throw new BadRequestException('Invalid phone number');
-      }
+    // 2. Validate and normalize phone
+    const phoneNumber = parsePhoneNumberFromString(phone.trim());
 
-      const normalizedPhone = phoneNumber.number;
-      const phoneCountry = phoneNumber.country ?? null;
-      const phoneCountryCode = phoneNumber.countryCallingCode;
+    if (!phoneNumber || !phoneNumber.isValid()) {
+      throw new BadRequestException('Invalid phone number');
+    }
 
-      const phoneCryptoSecret =
-        process.env.PHONE_CRYPTO_SECRET ?? 'dev_phone_crypto_secret';
+    const normalizedPhone = phoneNumber.number;
+    const phoneCountry = phoneNumber.country ?? null;
+    const phoneCountryCode = phoneNumber.countryCallingCode;
 
-      const phoneHashSecret =
-        process.env.PHONE_HASH_SECRET ?? 'dev_phone_hash_secret';
+    const phoneCryptoSecret =
+      process.env.PHONE_CRYPTO_SECRET ?? 'dev_phone_crypto_secret';
 
-      const encryptedPhone = CryptoJS.AES.encrypt(
-        normalizedPhone,
-        phoneCryptoSecret,
-      ).toString();
+    const phoneHashSecret =
+      process.env.PHONE_HASH_SECRET ?? 'dev_phone_hash_secret';
 
-      const phoneHash = CryptoJS.HmacSHA256(
-        normalizedPhone,
-        phoneHashSecret,
-      ).toString();
+    const encryptedPhone = CryptoJS.AES.encrypt(
+      normalizedPhone,
+      phoneCryptoSecret,
+    ).toString();
 
-      // 3. check phone not already used
-      const existingPhone = await this.prisma.user.findUnique({
-        where: { phoneHash },
-      });
+    const phoneHash = CryptoJS.HmacSHA256(
+      normalizedPhone,
+      phoneHashSecret,
+    ).toString();
 
-      if (existingPhone) {
-        throw new ConflictException('This phone number is already registered');
-      }
+    // 3. Check phone uniqueness, excluding the same unverified user
+    const existingPhone = await this.prisma.user.findFirst({
+      where: {
+        phoneHash,
+        ...(existingUser
+          ? {
+              id: {
+                not: existingUser.id,
+              },
+            }
+          : {}),
+      },
+    });
 
-      // 4. hash password
-      const saltRounds = Number(process.env.SaltRound ?? 12);
-      const passwordHash = await bcrypt.hash(password, saltRounds);
+    if (existingPhone) {
+      throw new ConflictException(
+        'This phone number is already registered',
+      );
+    }
 
-      // 5. create user
-      const user = await this.prisma.user.create({
-        data: {
-          email: email.toLowerCase(),
-          passwordHash,
-          firstName,
-          lastName,
-          gender,
-          phone: encryptedPhone,
-          phoneCountry,
-          phoneCountryCode,
-          phoneHash,
-        },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          gender: true,
-          createdAt: true,
-        },
-      });
+    // 4. Hash password
+    const saltRounds = Number(process.env.SaltRound ?? 12);
+    const passwordHash = await bcrypt.hash(password, saltRounds);
 
-      // 6. generate and send OTP
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const codeHash = await bcrypt.hash(code, saltRounds);
+    // 5. Create new user or update the existing unverified user
+    const user = existingUser
+      ? await this.prisma.user.update({
+          where: {
+            id: existingUser.id,
+          },
+          data: {
+            passwordHash,
+            firstName,
+            lastName,
+            gender,
+            phone: encryptedPhone,
+            phoneCountry,
+            phoneCountryCode,
+            phoneHash,
+          },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            gender: true,
+            createdAt: true,
+          },
+        })
+      : await this.prisma.user.create({
+          data: {
+            email: normalizedEmail,
+            passwordHash,
+            firstName,
+            lastName,
+            gender,
+            phone: encryptedPhone,
+            phoneCountry,
+            phoneCountryCode,
+            phoneHash,
+          },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            gender: true,
+            createdAt: true,
+          },
+        });
 
-      await this.OtpRepository.create({
-        otp: codeHash,
+    // 6. Generate OTP
+    const code = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
+
+    const codeHash = await bcrypt.hash(code, saltRounds);
+
+    // Remove any previous email-confirmation OTPs
+    await this.prisma.oTP.deleteMany({
+      where: {
         userId: user.id,
         otpTypes: OTPTypes.EMAIL_CONFIRMATION,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
-      });
+      },
+    });
 
-      await sendEmail({
-        to: email,
-        subject: 'Confirm your email',
-        html: `<h1>Your verification code: ${code}</h1><p>This code expires in 10 minutes.</p>`,
-      });
+    // Create the latest OTP
+    await this.OtpRepository.create({
+      otp: codeHash,
+      userId: user.id,
+      otpTypes: OTPTypes.EMAIL_CONFIRMATION,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    });
 
-      return {
-        message:
-          'Account created successfully. Please check your email for the verification code.',
-        user,
-      };
-    } catch (error) {
-      // rethrow NestJS HTTP exceptions as-is
-      if (error instanceof HttpException) throw error;
-      // wrap unknown errors
-      throw new InternalServerErrorException(error);
+    await sendEmail({
+      to: normalizedEmail,
+      subject: 'Confirm your email',
+      html: `
+        <h1>Your verification code: ${code}</h1>
+        <p>This code expires in 10 minutes.</p>
+      `,
+    });
+
+    return {
+      message: existingUser
+        ? 'A new verification code has been sent to your email.'
+        : 'Account created successfully. Please check your email for the verification code.',
+      user,
+    };
+  } catch (error) {
+    if (error instanceof HttpException) {
+      throw error;
     }
+
+    throw new InternalServerErrorException(
+      'Registration failed',
+    );
   }
+}
 
   // ─── Confirm OTP ───────────────────────────
 
