@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useListings } from "../hooks/useListings";
 import { useDestinationSearch } from "../hooks/useDestinationSearch";
 import LocationPickerMap from "../../../shared/components/maps/LocationPickerMap";
-import { ListingsGrid } from "../components/sidebar/home/ListingsGrid";
+import { ListingsGrid } from "../components/home/ListingsGrid";
 import { AmenitiesSelector } from "../../listings/components/AmenitiesSelector";
 import { useSearchSuggestions } from "../hooks/useSearchSuggestions";
 

@@ -13,7 +13,7 @@ import { ExpatriateHomePage } from "./features/expatriate/pages/ExpatriateHomePa
 import { ExpatriateSearchPage } from "./features/expatriate/pages/ExpatriateSearchPage";
 import { ExpatriateListingDetailPage } from "./features/expatriate/pages/ExpatriateListingDetailPage";
 import { ExpatriateLocationInsightPage } from "./features/expatriate/pages/ExpatriateLocationInsightPage";
-import { ProfilePage } from "./features/peofile/pages/ProfilePage";
+import { ProfilePage } from "./features/profile/pages/ProfilePage";
 import Layout from "./app/layouts/MainLayout";
 import OwnerLayout from "./app/layouts/OwnerLayout";
 import ExpatriateLayout from "./app/layouts/ExpatriateLayout";

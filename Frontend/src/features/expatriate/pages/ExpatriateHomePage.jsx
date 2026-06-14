@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { useListings } from "../hooks/useListings";
-import { WelcomeCard } from "../components/sidebar/home/WelcomeCard";
-import { ListingsGrid } from "../components/sidebar/home/ListingsGrid";
+import { WelcomeCard } from "../components/home/WelcomeCard";
+import { ListingsGrid } from "../components/home/ListingsGrid";
 
 export function ExpatriateHomePage() {
   const { user } = useAuth();

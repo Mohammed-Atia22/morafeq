@@ -3,7 +3,7 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import toast from "react-hot-toast";
 import { listingsApi } from "../../listings/services/listingsApi";
 import { AddListingForm } from "../../listings/components";
-import { ProfilePage } from "../../peofile/pages/ProfilePage";
+import { ProfilePage } from "../../profile/pages/ProfilePage";
 import roomOne from "../../../../images/rooms (1).jpg";
 import roomTwo from "../../../../images/rooms (2).jpg";
 import roomThree from "../../../../images/rooms (3).jpg";

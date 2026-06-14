@@ -1,12 +1,12 @@
 import { useParams, Link } from "react-router-dom";
 import { useListingDetail } from "../hooks/useListingDetail";
-import { PhotoGallery } from "../components/sidebar/listing-detail/PhotoGallery";
-import { ListingInfo } from "../components/sidebar/listing-detail/ListingInfo";
-import { HostCard } from "../components/sidebar/listing-detail/HostCard";
-import { AmenitiesSection } from "../components/sidebar/listing-detail/AmenitiesSection";
-import { ReviewsSection } from "../components/sidebar/listing-detail/ReviewsSection";
-import { BookingCard } from "../components/sidebar/listing-detail/BookingCard";
-import { LocationInsightButton } from "../components/sidebar/listing-detail/LocationInsightButton";
+import { PhotoGallery } from "../components/listing-detail/PhotoGallery";
+import { ListingInfo } from "../components/listing-detail/ListingInfo";
+import { HostCard } from "../components/listing-detail/HostCard";
+import { AmenitiesSection } from "../components/listing-detail/AmenitiesSection";
+import { ReviewsSection } from "../components/listing-detail/ReviewsSection";
+import { BookingCard } from "../components/listing-detail/BookingCard";
+import { LocationInsightButton } from "../components/listing-detail/LocationInsightButton";
 
 // ─── Breadcrumb ───────────────────────────────
 function Breadcrumb({ title }) {
