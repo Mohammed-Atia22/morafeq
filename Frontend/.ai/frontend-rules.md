@@ -1,4 +1,4 @@
-//Follow the architecture rules in .ai/frontend-architecture-rules.md
+//Follow the architecture rules in .ai/frontend-rules.md
 
 
 Use this as a permanent architecture/system prompt for [OpenAI Codex](https://openai.com/codex?utm_source=chatgpt.com) whenever you ask it to build or modify frontend features in your project.

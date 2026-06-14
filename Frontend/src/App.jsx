@@ -9,6 +9,9 @@ import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage";
 import { AuthCallbackPage } from "./features/auth/pages/AuthCallbackPage";
 import { OnboardingPage } from "./features/onboarding/pages/OnboardingPage";
 import { OwnerPage } from "./features/owner/pages/OwnerDashboardPage";
+import { OwnerBookingsPage } from "./features/owner/pages/OwnerBookingsPage";
+import { OwnerMessagesPage } from "./features/owner/pages/OwnerMessagesPage";
+import { OwnerSettingsPage } from "./features/owner/pages/OwnerSettingsPage";
 import { ExpatriateHomePage } from "./features/expatriate/pages/ExpatriateHomePage";
 import { ExpatriateSearchPage } from "./features/expatriate/pages/ExpatriateSearchPage";
 import { ExpatriateListingDetailPage } from "./features/expatriate/pages/ExpatriateListingDetailPage";
@@ -51,6 +54,10 @@ function App() {
           }
         >
           <Route index element={<OwnerPage />} />
+          <Route path="bookings" element={<OwnerBookingsPage />} />
+          <Route path="messages" element={<OwnerMessagesPage />} />
+          <Route path="settings" element={<OwnerSettingsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
           <Route path="add" element={<AddListingPage />} />
           <Route path="listings/:id/edit" element={<EditListingPage />} />
         </Route>

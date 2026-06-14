@@ -1,119 +1,32 @@
-import { useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  BuildingIcon,
+  EyeIcon,
+  GridIcon,
+  MessageIcon,
+  PlusCircleIcon,
+  SettingsIcon,
+  UserIcon,
+} from "../common/OwnerIcons";
 
-function IconBase({ children, className = "h-5 w-5" }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      {children}
-    </svg>
-  );
-}
-
-export function GridIcon({ className }) {
-  return (
-    <IconBase className={className}>
-      <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
-    </IconBase>
-  );
-}
-
-export function BuildingIcon({ className }) {
-  return (
-    <IconBase className={className}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M6 21V4h12v17M4 21h16M9 8h2M13 8h2M9 12h2M13 12h2M10 21v-5h4v5"
-      />
-    </IconBase>
-  );
-}
-
-export function EyeIcon({ className }) {
-  return (
-    <IconBase className={className}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"
-      />
-      <circle cx="12" cy="12" r="3" />
-    </IconBase>
-  );
-}
-
-export function PlusCircleIcon({ className }) {
-  return (
-    <IconBase className={className}>
-      <circle cx="12" cy="12" r="9" />
-      <path strokeLinecap="round" d="M12 8v8M8 12h8" />
-    </IconBase>
-  );
-}
-
-export function MessageIcon({ className }) {
-  return (
-    <IconBase className={className}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M21 12a8 8 0 0 1-8 8H7l-4 2 1.3-4A8 8 0 1 1 21 12Z"
-      />
-    </IconBase>
-  );
-}
-
-export function SettingsIcon({ className }) {
-  return (
-    <IconBase className={className}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19.4 15a8.8 8.8 0 0 0 .1-6l-2.1-.5-1-2-2 .8a9 9 0 0 0-5 0l-2-.8-1 2-2.1.5a8.8 8.8 0 0 0 .1 6l2 .5 1 2 2-.8a9 9 0 0 0 5 0l2 .8 1-2 2-.5Z"
-      />
-    </IconBase>
-  );
-}
-
-export function UserIcon({ className }) {
-  return (
-    <IconBase className={className}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-      />
-    </IconBase>
-  );
-}
-
-export function OwnerSidebar({
-  user,
-  logout,
-  activeSection,
-  setActiveSection,
-}) {
+export function OwnerSidebar({ user, logout }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const ownerSection = location.state?.ownerSection || "listings";
+  const isOwnerHome = location.pathname === "/owner";
 
-  const handleSectionClick = (section) => {
-    setActiveSection(section);
-    if (
-      section === "dashboard" ||
-      section === "listings" ||
-      section === "settings"
-    ) {
-      navigate("/owner");
-    }
+  const itemClassName = (active) =>
+    [
+      "flex h-12 w-full items-center justify-between rounded-xl px-4 text-sm font-bold transition",
+      active
+        ? "bg-[#e9f0ff] text-[#0b62d8]"
+        : "text-slate-500 hover:bg-slate-50 hover:text-[#0b62d8]",
+    ].join(" ");
+
+  const showAddListing = () => {
+    navigate("/owner", {
+      state: { ownerSection: "add", ownerSectionKey: Date.now() },
+    });
   };
 
   return (
@@ -121,7 +34,7 @@ export function OwnerSidebar({
       <div className="border-b border-slate-200 p-4">
         <button
           type="button"
-          onClick={() => navigate("/profile")}
+          onClick={() => navigate("/owner/profile")}
           className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition hover:bg-blue-200"
         >
           <div className="grid h-11 w-11 place-items-center rounded-full bg-[#0aa886] text-lg font-black text-white shrink-0">
@@ -138,31 +51,35 @@ export function OwnerSidebar({
       </div>
 
       <nav className="flex-1 space-y-2 px-3 py-4">
-        <SidebarItem
+        <SidebarNavItem
+          to="/owner"
+          state={{ ownerSection: "dashboard" }}
           label="لوحة التحكم"
           icon={GridIcon}
-          active={activeSection === "dashboard"}
-          onClick={() => handleSectionClick("dashboard")}
+          active={isOwnerHome && ownerSection === "dashboard"}
+          className={itemClassName}
         />
-        <SidebarItem
+        <SidebarNavItem
+          to="/owner"
+          state={{ ownerSection: "listings" }}
           label="عقاراتي"
           icon={BuildingIcon}
-          active={activeSection === "listings"}
-          onClick={() => handleSectionClick("listings")}
+          active={isOwnerHome && ownerSection !== "dashboard" && ownerSection !== "add"}
+          className={itemClassName}
         />
-        <SidebarItem
+        <SidebarNavItem
+          to="/owner/bookings"
           label="طلبات المعاينة"
           icon={EyeIcon}
-          active={activeSection === "requests"}
-          onClick={() => setActiveSection("requests")}
           badge="5"
+          className={itemClassName}
         />
         <button
           type="button"
-          onClick={() => setActiveSection("add")}
+          onClick={showAddListing}
           className={[
             "flex h-12 w-full items-center gap-3 rounded-xl px-4 text-sm font-bold transition",
-            activeSection === "add"
+            isOwnerHome && ownerSection === "add"
               ? "bg-[#e9f0ff] text-[#0b62d8]"
               : "text-slate-500 hover:bg-slate-50 hover:text-[#0b62d8]",
           ].join(" ")}
@@ -170,25 +87,25 @@ export function OwnerSidebar({
           <PlusCircleIcon className="h-5 w-5" />
           إضافة شقة
         </button>
-        <SidebarItem
+        <SidebarNavItem
+          to="/owner/messages"
           label="الرسائل"
           icon={MessageIcon}
-          active={activeSection === "messages"}
-          onClick={() => setActiveSection("messages")}
           badge="11"
           danger
+          className={itemClassName}
         />
-        <SidebarItem
+        <SidebarNavItem
+          to="/owner/settings"
           label="الإعدادات"
           icon={SettingsIcon}
-          active={activeSection === "settings"}
-          onClick={() => handleSectionClick("settings")}
+          className={itemClassName}
         />
-        <SidebarItem
+        <SidebarNavItem
+          to="/owner/profile"
           label="ملفي"
           icon={UserIcon}
-          active={activeSection === "profile"}
-          onClick={() => setActiveSection("profile")}
+          className={itemClassName}
         />
       </nav>
 
@@ -205,25 +122,22 @@ export function OwnerSidebar({
   );
 }
 
-function SidebarItem({
+function SidebarNavItem({
+  to,
+  state,
   label,
   icon: Icon,
-  active = false,
   badge,
   danger = false,
-  onClick,
+  active,
+  className,
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <NavLink
+      to={to}
+      state={state}
       aria-current={active ? "page" : undefined}
-      className={[
-        "flex h-12 w-full items-center justify-between rounded-xl px-4 text-sm font-bold transition",
-        active
-          ? "bg-[#e9f0ff] text-[#0b62d8]"
-          : "text-slate-500 hover:bg-slate-50 hover:text-[#0b62d8]",
-      ].join(" ")}
+      className={({ isActive }) => className(active ?? isActive)}
     >
       <span className="flex items-center gap-3">
         <Icon className="h-5 w-5" />
@@ -239,6 +153,6 @@ function SidebarItem({
           {badge}
         </span>
       ) : null}
-    </button>
+    </NavLink>
   );
 }

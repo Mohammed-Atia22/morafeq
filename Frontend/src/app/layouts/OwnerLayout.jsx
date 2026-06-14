@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../features/auth/hooks/useAuth";
 import { AppNavbar } from "../../shared/components/navigation/AppNavbar";
@@ -6,7 +5,6 @@ import { OwnerSidebar } from "../../features/owner/components/sidebar/OwnerSideb
 
 export default function OwnerLayout() {
   const { user, logout } = useAuth();
-  const [activeSection, setActiveSection] = useState("listings");
 
   return (
     <>
@@ -17,14 +15,12 @@ export default function OwnerLayout() {
           <OwnerSidebar
             user={user}
             logout={logout}
-            activeSection={activeSection}
-            setActiveSection={setActiveSection}
           />
         </aside>
 
         {/* Main content pushed left of sidebar */}
         <main className="mr-[260px] flex-1 min-w-0 px-6 py-6 bg-white">
-          <Outlet context={{ activeSection, setActiveSection, user, logout }} />
+          <Outlet context={{ user, logout }} />
         </main>
       </div>
     </>
