@@ -70,14 +70,23 @@ export function ExpatriateSidebar() {
 
   return (
     <>
-      <div className="flex h-[74px] items-center gap-3 border-b border-slate-200 px-5">
-        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0b62d8] text-xl font-black text-white">
-          س
-        </div>
-        <div>
-          <p className="text-lg font-black text-[#172033]">مرافق</p>
-          <p className="text-xs font-semibold text-slate-400">لوحة الطالب</p>
-        </div>
+      <div className="border-b border-slate-200 p-4">
+        <button
+          type="button"
+          onClick={() => navigate("/expatriate/profile")}
+          className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition hover:bg-blue-200"
+        >
+          <div className="grid h-11 w-11 place-items-center rounded-full bg-[#0b62d8] text-lg font-black text-white shrink-0">
+            {user?.firstName?.[0] || "ط"}
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-black text-[#172033]">
+              {[user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+                "الطالب"}
+            </p>
+            <p className="text-xs font-semibold text-blue-500">طالب مغترب</p>
+          </div>
+        </button>
       </div>
 
       <nav className="flex-1 space-y-2 px-3 py-4">
@@ -110,22 +119,6 @@ export function ExpatriateSidebar() {
       </nav>
 
       <div className="border-t border-slate-200 p-4">
-        <button
-          type="button"
-          onClick={() => navigate("/expatriate/profile")}
-          className="mb-3 flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition hover:bg-blue-200"
-        >
-          <div className="grid h-11 w-11 place-items-center rounded-full bg-[#0b62d8] text-lg font-black text-white shrink-0">
-            {user?.firstName?.[0] || "ط"}
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-black text-[#172033]">
-              {[user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
-                "الطالب"}
-            </p>
-            <p className="text-xs font-semibold text-blue-500">طالب مغترب</p>
-          </div>
-        </button>
         <button
           type="button"
           onClick={logout}

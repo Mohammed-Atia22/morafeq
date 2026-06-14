@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import { apiRequest } from "../../../shared/services/api";
 import { listingsApi } from "../services/listingsApi";
+import { AmenitiesSelector } from "../components/AmenitiesSelector";
+import { PhotoUploader } from "../components/PhotoUploader";
 
 const propertyTypeOptions = [
   { value: "APARTMENT", label: "شقة" },
@@ -34,6 +37,9 @@ const locationPrivacyOptions = [
   { value: "EXACT", label: "دقيق" },
 ];
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1";
+const MAX_PHOTO_UPLOAD_SIZE = 5 * 1024 * 1024;
+
 const statusOptions = [
   { value: "ACTIVE", label: "متاحة" },
   { value: "INACTIVE", label: "مؤجرة" },
@@ -42,6 +48,15 @@ const statusOptions = [
   { value: "APPROVED", label: "معتمدة" },
   { value: "REJECTED", label: "مرفوضة" },
   { value: "SUSPENDED", label: "موقوفة" },
+];
+
+const AMENITY_OPTIONS = [
+  { key: "wifi", label: "Wi-Fi" },
+  { key: "kitchen", label: "Kitchen" },
+  { key: "parking", label: "Parking" },
+  { key: "air_conditioning", label: "Air conditioning" },
+  { key: "washing_machine", label: "Washing machine" },
+  { key: "workspace", label: "Workspace" },
 ];
 
 const numericListingFields = [
@@ -105,6 +120,9 @@ export default function EditListingPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [selectedAmenities, setSelectedAmenities] = useState([]);
+  const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [existingPhotos, setExistingPhotos] = useState([]);
 
   useEffect(() => {
     setActiveSection?.("listings");
@@ -120,10 +138,18 @@ export default function EditListingPage() {
         if (!ignore) {
           setForm(listingToForm(listing));
           setListingTitle(listing.title || "");
+          setSelectedAmenities(
+            listing.amenities?.map((item) => item.amenityKey) ?? [],
+          );
+          setExistingPhotos(listing.photos ?? []);
         }
       } catch (caughtError) {
         if (!ignore) {
-          if (/unauthorized|session expired|jwt expired/i.test(caughtError.message)) {
+          if (
+            /unauthorized|session expired|jwt expired/i.test(
+              caughtError.message,
+            )
+          ) {
             logout?.();
             navigate("/login", { replace: true });
             return;
@@ -149,6 +175,59 @@ export default function EditListingPage() {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
+  const toggleAmenity = (amenityKey) => {
+    setSelectedAmenities((currentAmenities) => {
+      const exists = currentAmenities.includes(amenityKey);
+      return exists
+        ? currentAmenities.filter((key) => key !== amenityKey)
+        : [...currentAmenities, amenityKey];
+    });
+  };
+
+  const handlePhotoChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    const validFiles = files.filter(
+      (file) => file.size <= MAX_PHOTO_UPLOAD_SIZE,
+    );
+
+    if (files.length !== validFiles.length) {
+      toast.error("الصور يجب ألا تتجاوز 5 ميغابايت لكل صورة");
+    }
+
+    setSelectedPhotos((currentPhotos) =>
+      [...currentPhotos, ...validFiles].slice(0, 10),
+    );
+    event.target.value = "";
+  };
+
+  const uploadSelectedPhotos = async (listingId, photos) => {
+    if (photos.length === 0) return null;
+
+    const formData = new FormData();
+    photos.forEach((photo) => formData.append("photos", photo));
+
+    const token = localStorage.getItem("morafeq_access_token");
+    const response = await fetch(`${API_URL}/listings/${listingId}/photos`, {
+      method: "POST",
+      credentials: "include",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "فشل تحميل الصور");
+    }
+
+    return response.json();
+  };
+
+  const saveListingAmenities = async (listingId, amenities) =>
+    apiRequest(`/listings/${listingId}/amenities`, {
+      method: "POST",
+      body: JSON.stringify({ amenities }),
+    });
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSaving(true);
@@ -168,6 +247,12 @@ export default function EditListingPage() {
       }
 
       await listingsApi.updateListing(id, payload);
+      await saveListingAmenities(id, selectedAmenities);
+
+      if (selectedPhotos.length > 0) {
+        await uploadSelectedPhotos(id, selectedPhotos);
+      }
+
       toast.success("تم تحديث العقار بنجاح");
       navigate("/owner");
     } catch (caughtError) {
@@ -193,7 +278,10 @@ export default function EditListingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#eef3ff] px-4 py-5 text-[#172033] sm:px-6 lg:px-7" dir="rtl">
+    <div
+      className="min-h-screen bg-[#eef3ff] px-4 py-5 text-[#172033] sm:px-6 lg:px-7"
+      dir="rtl"
+    >
       <div className="mx-auto max-w-5xl">
         <div className="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -211,7 +299,10 @@ export default function EditListingPage() {
           </button>
         </div>
 
-        <form className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" onSubmit={handleSubmit}>
+        <form
+          className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
+          onSubmit={handleSubmit}
+        >
           <FormSection title="المعلومات الأساسية">
             <EditField
               label="عنوان الشقة"
@@ -263,46 +354,206 @@ export default function EditListingPage() {
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <EditField label="عدد السكان" type="number" min="1" value={form.maxTenants} onChange={(value) => updateField("maxTenants", value)} required />
-              <EditField label="غرف النوم" type="number" min="1" value={form.bedrooms} onChange={(value) => updateField("bedrooms", value)} required />
-              <EditField label="الأسرة" type="number" min="1" value={form.beds} onChange={(value) => updateField("beds", value)} required />
-              <EditField label="الحمامات" type="number" min="1" value={form.bathrooms} onChange={(value) => updateField("bathrooms", value)} required />
+              <EditField
+                label="عدد السكان"
+                type="number"
+                min="1"
+                value={form.maxTenants}
+                onChange={(value) => updateField("maxTenants", value)}
+                required
+              />
+              <EditField
+                label="غرف النوم"
+                type="number"
+                min="1"
+                value={form.bedrooms}
+                onChange={(value) => updateField("bedrooms", value)}
+                required
+              />
+              <EditField
+                label="الأسرة"
+                type="number"
+                min="1"
+                value={form.beds}
+                onChange={(value) => updateField("beds", value)}
+                required
+              />
+              <EditField
+                label="الحمامات"
+                type="number"
+                min="1"
+                value={form.bathrooms}
+                onChange={(value) => updateField("bathrooms", value)}
+                required
+              />
             </div>
           </FormSection>
 
           <FormSection title="القواعد والحالة">
             <div className="grid gap-3 sm:grid-cols-2">
-              <EditField label="متاح من" type="date" value={form.availableFrom} onChange={(value) => updateField("availableFrom", value)} required />
-              <EditField label="حالة العقار" type="select" value={form.status} onChange={(value) => updateField("status", value)} options={statusOptions} />
-              <EditField label="أقل مدة إقامة بالشهور" type="number" min="1" value={form.minimumStayMonths} onChange={(value) => updateField("minimumStayMonths", value)} />
-              <EditField label="أقصى مدة إقامة بالشهور" type="number" min="1" value={form.maximumStayMonths} onChange={(value) => updateField("maximumStayMonths", value)} />
-              <EditField label="تفضيل الجنس" type="select" value={form.genderPreference} onChange={(value) => updateField("genderPreference", value)} options={genderPreferenceOptions} />
-              <EditField label="التدخين" type="select" value={form.smokingPolicy} onChange={(value) => updateField("smokingPolicy", value)} options={smokingPolicyOptions} />
+              <EditField
+                label="متاح من"
+                type="date"
+                value={form.availableFrom}
+                onChange={(value) => updateField("availableFrom", value)}
+                required
+              />
+              <EditField
+                label="حالة العقار"
+                type="select"
+                value={form.status}
+                onChange={(value) => updateField("status", value)}
+                options={statusOptions}
+              />
+              <EditField
+                label="أقل مدة إقامة بالشهور"
+                type="number"
+                min="1"
+                value={form.minimumStayMonths}
+                onChange={(value) => updateField("minimumStayMonths", value)}
+              />
+              <EditField
+                label="أقصى مدة إقامة بالشهور"
+                type="number"
+                min="1"
+                value={form.maximumStayMonths}
+                onChange={(value) => updateField("maximumStayMonths", value)}
+              />
+              <EditField
+                label="تفضيل الجنس"
+                type="select"
+                value={form.genderPreference}
+                onChange={(value) => updateField("genderPreference", value)}
+                options={genderPreferenceOptions}
+              />
+              <EditField
+                label="التدخين"
+                type="select"
+                value={form.smokingPolicy}
+                onChange={(value) => updateField("smokingPolicy", value)}
+                options={smokingPolicyOptions}
+              />
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <ToggleField label="مفروش" checked={form.furnished} onChange={(value) => updateField("furnished", value)} />
-              <ToggleField label="المرافق مشمولة" checked={form.utilitiesIncluded} onChange={(value) => updateField("utilitiesIncluded", value)} />
-              <ToggleField label="الإنترنت مشمول" checked={form.internetIncluded} onChange={(value) => updateField("internetIncluded", value)} />
+              <ToggleField
+                label="مفروش"
+                checked={form.furnished}
+                onChange={(value) => updateField("furnished", value)}
+              />
+              <ToggleField
+                label="المرافق مشمولة"
+                checked={form.utilitiesIncluded}
+                onChange={(value) => updateField("utilitiesIncluded", value)}
+              />
+              <ToggleField
+                label="الإنترنت مشمول"
+                checked={form.internetIncluded}
+                onChange={(value) => updateField("internetIncluded", value)}
+              />
             </div>
           </FormSection>
 
           <FormSection title="العنوان">
             <div className="grid gap-3 sm:grid-cols-2">
-              <EditField label="المحافظة" value={form.governorate} onChange={(value) => updateField("governorate", value)} required />
-              <EditField label="المدينة" value={form.city} onChange={(value) => updateField("city", value)} required />
-              <EditField label="المنطقة" value={form.areaName} onChange={(value) => updateField("areaName", value)} required />
-              <EditField label="اسم الشارع" value={form.streetName} onChange={(value) => updateField("streetName", value)} required />
-              <EditField label="رقم العمارة" value={form.buildingNumber} onChange={(value) => updateField("buildingNumber", value)} />
-              <EditField label="رقم الطابق" value={form.floorNumber} onChange={(value) => updateField("floorNumber", value)} />
-              <EditField label="رقم الشقة" value={form.apartmentNumber} onChange={(value) => updateField("apartmentNumber", value)} />
-              <EditField label="معلم قريب" value={form.nearbyLandmark} onChange={(value) => updateField("nearbyLandmark", value)} />
-              <EditField label="خصوصية الموقع" type="select" value={form.locationPrivacy} onChange={(value) => updateField("locationPrivacy", value)} options={locationPrivacyOptions} />
-              <EditField label="الدولة" value={form.country} onChange={(value) => updateField("country", value)} />
+              <EditField
+                label="المحافظة"
+                value={form.governorate}
+                onChange={(value) => updateField("governorate", value)}
+                required
+              />
+              <EditField
+                label="المدينة"
+                value={form.city}
+                onChange={(value) => updateField("city", value)}
+                required
+              />
+              <EditField
+                label="المنطقة"
+                value={form.areaName}
+                onChange={(value) => updateField("areaName", value)}
+                required
+              />
+              <EditField
+                label="اسم الشارع"
+                value={form.streetName}
+                onChange={(value) => updateField("streetName", value)}
+                required
+              />
+              <EditField
+                label="رقم العمارة"
+                value={form.buildingNumber}
+                onChange={(value) => updateField("buildingNumber", value)}
+              />
+              <EditField
+                label="رقم الطابق"
+                value={form.floorNumber}
+                onChange={(value) => updateField("floorNumber", value)}
+              />
+              <EditField
+                label="رقم الشقة"
+                value={form.apartmentNumber}
+                onChange={(value) => updateField("apartmentNumber", value)}
+              />
+              <EditField
+                label="معلم قريب"
+                value={form.nearbyLandmark}
+                onChange={(value) => updateField("nearbyLandmark", value)}
+              />
+              <EditField
+                label="خصوصية الموقع"
+                type="select"
+                value={form.locationPrivacy}
+                onChange={(value) => updateField("locationPrivacy", value)}
+                options={locationPrivacyOptions}
+              />
+              <EditField
+                label="الدولة"
+                value={form.country}
+                onChange={(value) => updateField("country", value)}
+              />
             </div>
             <EditField
               label="عنوان جوجل"
               value={form.googleFormattedAddress}
               onChange={(value) => updateField("googleFormattedAddress", value)}
+            />
+          </FormSection>
+
+          <FormSection title="الصور ووسائل الراحة">
+            {existingPhotos.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-3">
+                {existingPhotos.slice(0, 6).map((photo) => (
+                  <img
+                    key={photo.id}
+                    src={photo.url}
+                    alt="صورة العقار"
+                    className="h-28 w-full rounded-xl object-cover"
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            <PhotoUploader
+              fieldStyles={{
+                width: "100%",
+                borderRadius: "16px",
+                border: "1px solid #d8dde8",
+                padding: "12px",
+                fontSize: "0.9rem",
+              }}
+              selectedPhotos={selectedPhotos}
+              handlePhotoChange={handlePhotoChange}
+              removeSelectedPhoto={(index) =>
+                setSelectedPhotos((currentPhotos) =>
+                  currentPhotos.filter((_, idx) => idx !== index),
+                )
+              }
+            />
+
+            <AmenitiesSelector
+              amenityOptions={AMENITY_OPTIONS}
+              selectedAmenities={selectedAmenities}
+              toggleAmenity={toggleAmenity}
             />
           </FormSection>
 
@@ -353,10 +604,20 @@ function EditField({
   ].join(" ");
 
   return (
-    <label className={["flex flex-col gap-2 text-right text-xs font-black text-slate-500", className].join(" ")}>
+    <label
+      className={[
+        "flex flex-col gap-2 text-right text-xs font-black text-slate-500",
+        className,
+      ].join(" ")}
+    >
       {label}
       {type === "select" ? (
-        <select value={value} onChange={(event) => onChange(event.target.value)} className={fieldClassName} {...props}>
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={fieldClassName}
+          {...props}
+        >
           {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -364,9 +625,20 @@ function EditField({
           ))}
         </select>
       ) : type === "textarea" ? (
-        <textarea value={value} onChange={(event) => onChange(event.target.value)} className={fieldClassName} {...props} />
+        <textarea
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={fieldClassName}
+          {...props}
+        />
       ) : (
-        <input type={type} value={value} onChange={(event) => onChange(event.target.value)} className={fieldClassName} {...props} />
+        <input
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={fieldClassName}
+          {...props}
+        />
       )}
     </label>
   );
@@ -388,10 +660,15 @@ function ToggleField({ label, checked, onChange }) {
 
 function PageState({ title, text, actionLabel, onAction }) {
   return (
-    <div className="min-h-screen bg-[#eef3ff] px-4 py-5 text-[#172033]" dir="rtl">
+    <div
+      className="min-h-screen bg-[#eef3ff] px-4 py-5 text-[#172033]"
+      dir="rtl"
+    >
       <div className="mx-auto mt-8 max-w-3xl rounded-xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center">
         <p className="text-lg font-black text-[#172033]">{title}</p>
-        {text ? <p className="mt-2 text-sm font-semibold text-slate-500">{text}</p> : null}
+        {text ? (
+          <p className="mt-2 text-sm font-semibold text-slate-500">{text}</p>
+        ) : null}
         {actionLabel ? (
           <button
             type="button"

@@ -7,7 +7,6 @@ import { AuthMessage } from "../components/AuthMessage";
 import { FormField, inputClass } from "../components/FormField";
 import { GoogleButton } from "../components/GoogleButton";
 import { authApi } from "../services/authApi";
-import axios from "axios";
 import { getCountries, getCountryCallingCode } from "libphonenumber-js";
 import toast from "react-hot-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -104,15 +103,9 @@ export function RegisterPage() {
       delete payload.countryCode;
       delete payload.phoneNumber;
 
-      const res = await axios.post(
-        "http://localhost:3001/api/v1/auth/register",
-        payload,
-      );
-
-      if (res.status == 201) {
-        toast.success("تم التسجيل بنجاح");
-        navigate("/confirm-otp");
-      }
+      await authApi.register(payload);
+      toast.success("تم التسجيل بنجاح");
+      navigate("/confirm-otp");
     } catch (error) {
       console.log(error.response?.data || error.message);
       setServerError(error.response?.data?.message || error.message);

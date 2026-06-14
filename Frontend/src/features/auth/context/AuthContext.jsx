@@ -78,11 +78,6 @@
 //   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 // }
 
-
-
-
-
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authApi } from "../services/authApi";
 import { AuthContext } from "../utils/authState";
@@ -93,6 +88,7 @@ export function AuthProvider({ children }) {
   );
 
   const [user, setUser] = useState(null);
+  const [isUserLoading, setIsUserLoading] = useState(true);
 
   const saveSession = useCallback((accessToken, nextUser = null) => {
     localStorage.setItem("morafeq_access_token", accessToken);
@@ -105,9 +101,13 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const loadCurrentUser = async () => {
-      if (!token) return;
+      if (!token) {
+        setIsUserLoading(false);
+        return;
+      }
 
       try {
+        setIsUserLoading(true);
         const currentUser = await authApi.me();
         setUser(currentUser);
       } catch {
@@ -115,6 +115,8 @@ export function AuthProvider({ children }) {
         localStorage.removeItem("morafeq_user");
         setToken(null);
         setUser(null);
+      } finally {
+        setIsUserLoading(false);
       }
     };
 
@@ -146,29 +148,26 @@ export function AuthProvider({ children }) {
   //   [saveSession],
   // );
 
-
   const confirmOtp = useCallback(
-  async (payload) => {
-    const data = await authApi.confirm(payload);
+    async (payload) => {
+      const data = await authApi.confirm(payload);
 
-    if (data.accessToken) {
-      saveSession(data.accessToken);
+      if (data.accessToken) {
+        saveSession(data.accessToken);
 
-      const currentUser = await authApi.me();
-      setUser(currentUser);
+        const currentUser = await authApi.me();
+        setUser(currentUser);
 
-      return {
-        ...data,
-        user: currentUser,
-      };
-    }
+        return {
+          ...data,
+          user: currentUser,
+        };
+      }
 
-    return data;
-  },
-  [saveSession],
-);
-
-
+      return data;
+    },
+    [saveSession],
+  );
 
   const completeGoogleLogin = useCallback(
     async (accessToken) => {
@@ -200,13 +199,22 @@ export function AuthProvider({ children }) {
     () => ({
       token,
       user,
+      isUserLoading,
       isAuthenticated: Boolean(token),
       login,
       confirmOtp,
       completeGoogleLogin,
       logout,
     }),
-    [token, user, login, confirmOtp, completeGoogleLogin, logout],
+    [
+      token,
+      user,
+      isUserLoading,
+      login,
+      confirmOtp,
+      completeGoogleLogin,
+      logout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

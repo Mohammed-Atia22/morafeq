@@ -6,7 +6,7 @@ import { Step2Details } from "./Step2Details";
 import { Step3Rules } from "./Step3Rules";
 import { useAuth } from "../../auth/hooks/useAuth";
 
-const API_BASE_URL = "http://localhost:3001/api/v1";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1";
 const AMENITY_OPTIONS = [
   { key: "wifi", label: "Wi-Fi" },
   { key: "kitchen", label: "Kitchen" },
@@ -224,16 +224,13 @@ export function AddListingForm({ embedded = false, onCreated }) {
       photoData.append("photos", photo);
     });
 
-    const response = await fetch(
-      `${API_BASE_URL}/listings/${listingId}/photos`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: photoData,
+    const response = await fetch(`${API_URL}/listings/${listingId}/photos`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
       },
-    );
+      body: photoData,
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -248,17 +245,14 @@ export function AddListingForm({ embedded = false, onCreated }) {
   const saveSelectedAmenities = async (listingId, token) => {
     if (selectedAmenities.length === 0) return null;
 
-    const response = await fetch(
-      `${API_BASE_URL}/listings/${listingId}/amenities`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ amenities: selectedAmenities }),
+    const response = await fetch(`${API_URL}/listings/${listingId}/amenities`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
-    );
+      body: JSON.stringify({ amenities: selectedAmenities }),
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

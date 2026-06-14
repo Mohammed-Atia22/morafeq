@@ -93,9 +93,7 @@ function ServiceCard({ serviceKey, count }) {
     <div
       className={[
         "rounded-2xl p-4 ring-1 transition",
-        isEmpty
-          ? "bg-slate-50 ring-slate-100"
-          : `${config.bg} ${config.ring}`,
+        isEmpty ? "bg-slate-50 ring-slate-100" : `${config.bg} ${config.ring}`,
       ].join(" ")}
     >
       <div className="flex items-center justify-between">
@@ -230,7 +228,6 @@ export function ExpatriateLocationInsightPage() {
       {/* Content */}
       {!loading && insight && (
         <div className="space-y-5">
-
           {/* ── Hero score card ───────────────────── */}
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-[#1752F0] to-[#1240c4] px-7 py-7 text-white">
             {/* Decorative circles */}
@@ -260,7 +257,7 @@ export function ExpatriateLocationInsightPage() {
               <div className="shrink-0 text-center">
                 <div className="relative grid h-24 w-24 place-items-center rounded-full bg-white/15 ring-4 ring-white/20 backdrop-blur">
                   <div>
-                    <p className={`text-3xl font-black ${scoreColor} text-white`}>
+                    <p className={`text-3xl font-black ${scoreColor}`}>
                       {totalScore}
                     </p>
                     <p className="text-xs text-white/70">/ 100</p>
@@ -292,21 +289,41 @@ export function ExpatriateLocationInsightPage() {
             <div className="rounded-2xl bg-white px-6 py-5 shadow-sm ring-1 ring-slate-100">
               <div className="mb-4 flex items-center gap-2">
                 <div className="grid h-7 w-7 place-items-center rounded-lg bg-emerald-100">
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-emerald-600">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="h-4 w-4 text-emerald-600"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </div>
-                <h2 className="text-sm font-black text-[#0f172a]">مميزات المنطقة</h2>
+                <h2 className="text-sm font-black text-[#0f172a]">
+                  مميزات المنطقة
+                </h2>
               </div>
               <ul className="space-y-2.5">
                 {advantages.map((adv, i) => (
                   <li key={i} className="flex items-start gap-2.5">
                     <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-emerald-100">
-                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3 text-emerald-600">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-3 w-3 text-emerald-600"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </span>
-                    <p className="text-sm leading-relaxed text-slate-700">{adv}</p>
+                    <p className="text-sm leading-relaxed text-slate-700">
+                      {adv}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -318,21 +335,41 @@ export function ExpatriateLocationInsightPage() {
             <div className="rounded-2xl bg-white px-6 py-5 shadow-sm ring-1 ring-slate-100">
               <div className="mb-4 flex items-center gap-2">
                 <div className="grid h-7 w-7 place-items-center rounded-lg bg-amber-100">
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-amber-600">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="h-4 w-4 text-amber-600"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </div>
-                <h2 className="text-sm font-black text-[#0f172a]">نقاط يجب مراعاتها</h2>
+                <h2 className="text-sm font-black text-[#0f172a]">
+                  نقاط يجب مراعاتها
+                </h2>
               </div>
               <ul className="space-y-2.5">
                 {disadvantages.map((dis, i) => (
                   <li key={i} className="flex items-start gap-2.5">
                     <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-100">
-                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3 text-amber-600">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-3 w-3 text-amber-600"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </span>
-                    <p className="text-sm leading-relaxed text-slate-700">{dis}</p>
+                    <p className="text-sm leading-relaxed text-slate-700">
+                      {dis}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -342,8 +379,9 @@ export function ExpatriateLocationInsightPage() {
           {/* ── Disclaimer ────────────────────────── */}
           <div className="rounded-xl bg-slate-50 px-5 py-3 ring-1 ring-slate-100">
             <p className="text-xs leading-relaxed text-slate-400">
-              ⚠️ هذا التحليل مبني على بيانات OpenStreetMap في نطاق {radiusKm} كم من العقار.
-              البيانات قد لا تكون شاملة لجميع الخدمات المتاحة في المنطقة.
+              ⚠️ هذا التحليل مبني على بيانات OpenStreetMap في نطاق {radiusKm} كم
+              من العقار. البيانات قد لا تكون شاملة لجميع الخدمات المتاحة في
+              المنطقة.
             </p>
           </div>
 
@@ -352,8 +390,18 @@ export function ExpatriateLocationInsightPage() {
             to={`/expatriate/listings/${id}`}
             className="flex items-center gap-2 text-sm font-bold text-[#1752F0] transition hover:text-[#1240c4]"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-4 w-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className="h-4 w-4"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 5l7 7-7 7"
+              />
             </svg>
             العودة لتفاصيل العقار
           </Link>

@@ -96,10 +96,15 @@ export function ExpatriateSearchPage() {
     sortBy: "",
   });
 
+  const [drawerFilters, setDrawerFilters] = useState(filters);
   const [hasSearched, setHasSearched] = useState(false);
 
   const updateFilter = useCallback((key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const updateDrawerFilter = useCallback((key, value) => {
+    setDrawerFilters((prev) => ({ ...prev, [key]: value }));
   }, []);
 
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -130,8 +135,28 @@ export function ExpatriateSearchPage() {
   const handleConfirm = () => {
     setApprovedLocation(null);
     confirmDestination({
-      city: filters.city || undefined,
-      governorate: filters.governorate || undefined,
+      city: drawerFilters.city || undefined,
+      governorate: drawerFilters.governorate || undefined,
+    });
+  };
+
+  const handleApplyFilters = () => {
+    setFilters(drawerFilters);
+    setShowFilters(false);
+    handleSearch(drawerFilters);
+  };
+
+  const closeDrawer = () => {
+    setDrawerFilters(filters);
+    setShowFilters(false);
+  };
+
+  const toggleDrawerAmenity = (key) => {
+    setDrawerFilters((prev) => {
+      const list = prev.amenities || [];
+      const exists = list.includes(key);
+      const next = exists ? list.filter((a) => a !== key) : [...list, key];
+      return { ...prev, amenities: next };
     });
   };
 
@@ -154,23 +179,23 @@ export function ExpatriateSearchPage() {
     setSelectedLocation(null);
   };
 
-  const handleSearch = () => {
+  const handleSearch = (sourceFilters = filters) => {
     const searchParams = {
       q: searchQuery?.trim() || undefined,
-      city: filters.city || undefined,
-      governorate: filters.governorate || undefined,
-      minPrice: filters.minPrice || undefined,
-      maxPrice: filters.maxPrice || undefined,
-      roomType: filters.roomType || undefined,
-      propertyType: filters.propertyType || undefined,
-      genderPreference: filters.genderPreference || undefined,
-      guests: filters.guests || undefined,
-      country: filters.country || undefined,
+      city: sourceFilters.city || undefined,
+      governorate: sourceFilters.governorate || undefined,
+      minPrice: sourceFilters.minPrice || undefined,
+      maxPrice: sourceFilters.maxPrice || undefined,
+      roomType: sourceFilters.roomType || undefined,
+      propertyType: sourceFilters.propertyType || undefined,
+      genderPreference: sourceFilters.genderPreference || undefined,
+      guests: sourceFilters.guests || undefined,
+      country: sourceFilters.country || undefined,
       amenities:
-        filters.amenities && filters.amenities.length > 0
-          ? filters.amenities
+        sourceFilters.amenities && sourceFilters.amenities.length > 0
+          ? sourceFilters.amenities
           : undefined,
-      sortBy: filters.sortBy || undefined,
+      sortBy: sourceFilters.sortBy || undefined,
       limit: 12,
     };
 
@@ -180,7 +205,7 @@ export function ExpatriateSearchPage() {
     if (targetLocation) {
       searchParams.nearLat = targetLocation.lat;
       searchParams.nearLng = targetLocation.lng;
-      searchParams.radiusKm = filters.radiusKm;
+      searchParams.radiusKm = sourceFilters.radiusKm;
       // if user selected sort explicitly keep it, otherwise sort by nearest when using location
       if (!searchParams.sortBy) searchParams.sortBy = "nearest";
     }
@@ -228,7 +253,7 @@ export function ExpatriateSearchPage() {
   };
 
   const handleReset = () => {
-    setFilters({
+    const resetFilters = {
       city: "",
       governorate: "",
       country: "",
@@ -241,7 +266,10 @@ export function ExpatriateSearchPage() {
       radiusKm: 5,
       amenities: [],
       sortBy: "",
-    });
+    };
+
+    setFilters(resetFilters);
+    setDrawerFilters(resetFilters);
     setHasSearched(false);
     // clear destination and map selections
     clearDestination();
@@ -305,7 +333,10 @@ export function ExpatriateSearchPage() {
         <button
           type="button"
           aria-label="فتح الفلاتر"
-          onClick={() => setShowFilters(true)}
+          onClick={() => {
+            setDrawerFilters(filters);
+            setShowFilters(true);
+          }}
           className="shrink-0 rounded-xl border border-slate-200 bg-white p-3 text-slate-700 transition hover:bg-slate-50"
           title="فتح الفلاتر"
         >
@@ -338,7 +369,7 @@ export function ExpatriateSearchPage() {
         <div className="fixed inset-0 z-50 min-h-screen overflow-hidden">
           <div
             className="absolute inset-0 bg-black/40 "
-            onClick={() => setShowFilters(false)}
+            onClick={closeDrawer}
           />
           <aside
             className="fixed right-0 top-0 bottom-0 h-screen w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl"
@@ -346,10 +377,7 @@ export function ExpatriateSearchPage() {
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">فلاتر البحث</h2>
-              <button
-                onClick={() => setShowFilters(false)}
-                className="text-slate-500"
-              >
+              <button onClick={closeDrawer} className="text-slate-500">
                 اغلاق
               </button>
             </div>
@@ -389,8 +417,8 @@ export function ExpatriateSearchPage() {
                 <div>
                   <FilterLabel>المدينة</FilterLabel>
                   <input
-                    value={filters.city}
-                    onChange={(e) => updateFilter("city", e.target.value)}
+                    value={drawerFilters.city}
+                    onChange={(e) => updateDrawerFilter("city", e.target.value)}
                     className="w-full rounded-xl border border-slate-200 px-3 py-2"
                     dir="rtl"
                   />
@@ -398,9 +426,9 @@ export function ExpatriateSearchPage() {
                 <div>
                   <FilterLabel>المحافظة</FilterLabel>
                   <input
-                    value={filters.governorate}
+                    value={drawerFilters.governorate}
                     onChange={(e) =>
-                      updateFilter("governorate", e.target.value)
+                      updateDrawerFilter("governorate", e.target.value)
                     }
                     className="w-full rounded-xl border border-slate-200 px-3 py-2"
                     dir="rtl"
@@ -409,8 +437,10 @@ export function ExpatriateSearchPage() {
                 <div>
                   <FilterLabel>البلد</FilterLabel>
                   <input
-                    value={filters.country}
-                    onChange={(e) => updateFilter("country", e.target.value)}
+                    value={drawerFilters.country}
+                    onChange={(e) =>
+                      updateDrawerFilter("country", e.target.value)
+                    }
                     className="w-full rounded-xl border border-slate-200 px-3 py-2"
                     dir="rtl"
                   />
@@ -420,8 +450,10 @@ export function ExpatriateSearchPage() {
                   <input
                     type="number"
                     min="1"
-                    value={filters.guests}
-                    onChange={(e) => updateFilter("guests", e.target.value)}
+                    value={drawerFilters.guests}
+                    onChange={(e) =>
+                      updateDrawerFilter("guests", e.target.value)
+                    }
                     className="w-full rounded-xl border border-slate-200 px-3 py-2"
                     dir="rtl"
                   />
@@ -429,8 +461,10 @@ export function ExpatriateSearchPage() {
                 <div>
                   <FilterLabel>الحد الأدنى للسعر</FilterLabel>
                   <input
-                    value={filters.minPrice}
-                    onChange={(e) => updateFilter("minPrice", e.target.value)}
+                    value={drawerFilters.minPrice}
+                    onChange={(e) =>
+                      updateDrawerFilter("minPrice", e.target.value)
+                    }
                     className="w-full rounded-xl border border-slate-200 px-3 py-2"
                     dir="rtl"
                   />
@@ -438,8 +472,10 @@ export function ExpatriateSearchPage() {
                 <div>
                   <FilterLabel>الحد الأقصى للسعر</FilterLabel>
                   <input
-                    value={filters.maxPrice}
-                    onChange={(e) => updateFilter("maxPrice", e.target.value)}
+                    value={drawerFilters.maxPrice}
+                    onChange={(e) =>
+                      updateDrawerFilter("maxPrice", e.target.value)
+                    }
                     className="w-full rounded-xl border border-slate-200 px-3 py-2"
                     dir="rtl"
                   />
@@ -447,16 +483,16 @@ export function ExpatriateSearchPage() {
                 <div>
                   <FilterLabel>نطاق البحث</FilterLabel>
                   <FilterSelect
-                    value={filters.radiusKm}
-                    onChange={(v) => updateFilter("radiusKm", Number(v))}
+                    value={drawerFilters.radiusKm}
+                    onChange={(v) => updateDrawerFilter("radiusKm", Number(v))}
                     options={RADIUS_OPTIONS}
                   />
                 </div>
                 <div>
                   <FilterLabel>الفرز</FilterLabel>
                   <FilterSelect
-                    value={filters.sortBy}
-                    onChange={(v) => updateFilter("sortBy", v)}
+                    value={drawerFilters.sortBy}
+                    onChange={(v) => updateDrawerFilter("sortBy", v)}
                     options={[
                       { value: "", label: "الأكثر صلة" },
                       { value: "nearest", label: "الأقرب" },
@@ -472,8 +508,8 @@ export function ExpatriateSearchPage() {
                 <FilterLabel>وسائل الراحة (اختياري)</FilterLabel>
                 <AmenitiesSelector
                   amenityOptions={AMENITY_OPTIONS}
-                  selectedAmenities={filters.amenities}
-                  toggleAmenity={toggleAmenity}
+                  selectedAmenities={drawerFilters.amenities}
+                  toggleAmenity={toggleDrawerAmenity}
                 />
               </div>
 
@@ -488,10 +524,7 @@ export function ExpatriateSearchPage() {
                   مسح
                 </button>
                 <button
-                  onClick={() => {
-                    setShowFilters(false);
-                    handleSearch();
-                  }}
+                  onClick={handleApplyFilters}
                   className="ml-auto rounded-xl bg-[#1752F0] px-4 py-2 text-sm font-bold text-white"
                 >
                   تطبيق

@@ -65,7 +65,7 @@ export function ExpatriateListingDetailPage() {
 
       {/* Content */}
       {!loading && listing && (
-        <div className="flex gap-6 items-start">
+        <div className="flex flex-col gap-6 lg:flex-row items-start">
           {/* ── Left column: booking card (sticky) ── */}
           <aside className="w-[260px] shrink-0">
             <BookingCard
