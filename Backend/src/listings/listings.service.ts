@@ -671,25 +671,55 @@ export class ListingsService {
 
   // ─── Publish listing ───────────────────────
 
-  async publish(id: number, hostId: number) {
-    await this.verifyOwnership(id, hostId);
+  // ─── Submit listing for admin review ──────
 
-    const listing = await this.prisma.listing.findUnique({
-      where: { id },
-      include: { photos: true },
-    });
+async submit(id: number, hostId: number) {
+  const listing = await this.verifyOwnership(id, hostId);
 
-    if (listing!.photos.length === 0) {
-      throw new BadRequestException(
-        'Please add at least one photo before publishing',
-      );
-    }
-
-    return this.prisma.listing.update({
-      where: { id },
-      data: { status: ListingStatus.PENDING_APPROVAL },
-    });
+  // must have at least one photo before submitting
+  if (listing.status === ListingStatus.APPROVED) {
+    throw new BadRequestException(
+      'This listing is already approved and live',
+    );
   }
+
+  if (listing.status === ListingStatus.PENDING_APPROVAL) {
+    throw new BadRequestException(
+      'This listing is already submitted and waiting for admin review',
+    );
+  }
+
+  if (listing.status === ListingStatus.SUSPENDED) {
+    throw new ForbiddenException(
+      'This listing has been suspended and cannot be resubmitted',
+    );
+  }
+
+  // check photos exist
+  const photoCount = await this.prisma.listingPhoto.count({
+    where: { listingId: id },
+  });
+
+  if (photoCount === 0) {
+    throw new BadRequestException(
+      'Please upload at least one photo before submitting',
+    );
+  }
+
+  return this.prisma.listing.update({
+    where: { id },
+    data: {
+      status:      ListingStatus.PENDING_APPROVAL,
+      submittedAt: new Date(),
+    },
+    select: {
+      id:          true,
+      title:       true,
+      status:      true,
+      submittedAt: true,
+    },
+  });
+}
 
   // ─── Upload photos ─────────────────────────
 
@@ -857,22 +887,22 @@ export class ListingsService {
   // ─── Private: verify ownership ─────────────
 
   private async verifyOwnership(listingId: number, hostId: number) {
-    const listing = await this.prisma.listing.findFirst({
-      where: { id: listingId, isDeleted: false },
-    });
+  const listing = await this.prisma.listing.findFirst({
+    where: { id: listingId, isDeleted: false },
+  });
 
-    if (!listing) {
-      throw new NotFoundException('Listing not found');
-    }
-
-    if (listing.hostId !== hostId) {
-      throw new ForbiddenException(
-        'You do not have permission to modify this listing',
-      );
-    }
-
-    return listing;
+  if (!listing) {
+    throw new NotFoundException('Listing not found');
   }
+
+  if (listing.hostId !== hostId) {
+    throw new ForbiddenException(
+      'You do not have permission to modify this listing',
+    );
+  }
+
+  return listing; // ← make sure this line exists
+}
 
   // ─── Soft delete ───────────────────────────
 

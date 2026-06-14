@@ -83,14 +83,15 @@ export class ListingsController {
 
   // ─── Publish listing ───────────────────────
 
-  @Patch(':id/publish')
+  @Patch(':id/submit')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('HOST', 'ADMIN')
-  publish(
+  @HttpCode(HttpStatus.OK)
+  submit(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: any,
   ) {
-    return this.listingsService.publish(id, user.id);
+    return this.listingsService.submit(id, user.id);
   }
 
   // ─── Delete listing ────────────────────────
