@@ -120,6 +120,10 @@ export class UsersService {
   // ─── Upload avatar ─────────────────────────
 
   async uploadAvatar(userId: number, file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Please upload an avatar image');
+    }
+
     const result = await this.uploads.uploadImage(file, 'avatars');
 
     const user = await this.prisma.user.update({

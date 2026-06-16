@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { apiRequest } from "../../../shared/services/api";
+import { listingsApi } from "../services/listingsApi";
 import { Step1Location } from "./Step1Location";
 import { Step2Details } from "./Step2Details";
 import { Step3Rules } from "./Step3Rules";
 import { useAuth } from "../../auth/hooks/useAuth";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1";
 const AMENITY_OPTIONS = [
   { key: "wifi", label: "Wi-Fi" },
   { key: "kitchen", label: "Kitchen" },
@@ -17,7 +17,7 @@ const AMENITY_OPTIONS = [
 ];
 
 export function AddListingForm({ embedded = false, onCreated }) {
-  const { user, token, completeGoogleLogin } = useAuth();
+  const { user, completeGoogleLogin } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
 
   const [mapResult, setMapResult] = useState(null);
@@ -216,52 +216,16 @@ export function AddListingForm({ embedded = false, onCreated }) {
     );
   };
 
-  const uploadSelectedPhotos = async (listingId, token) => {
+  const uploadSelectedPhotos = async (listingId) => {
     if (selectedPhotos.length === 0) return null;
 
-    const photoData = new FormData();
-    selectedPhotos.forEach((photo) => {
-      photoData.append("photos", photo);
-    });
-
-    const response = await fetch(`${API_URL}/listings/${listingId}/photos`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: photoData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || "Listing created, but photo upload failed",
-      );
-    }
-
-    return response.json();
+    return listingsApi.uploadPhotos(listingId, selectedPhotos);
   };
 
-  const saveSelectedAmenities = async (listingId, token) => {
+  const saveSelectedAmenities = async (listingId) => {
     if (selectedAmenities.length === 0) return null;
 
-    const response = await fetch(`${API_URL}/listings/${listingId}/amenities`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ amenities: selectedAmenities }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || "Listing created, but amenities were not saved",
-      );
-    }
-
-    return response.json();
+    return listingsApi.setAmenities(listingId, selectedAmenities);
   };
 
   const onSubmit = async (data) => {
@@ -345,10 +309,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
 
       console.log("Final data sent to backend:", finalData);
 
-      const result = await apiRequest("/listings", {
-        method: "POST",
-        body: JSON.stringify(finalData),
-      });
+      const result = await listingsApi.createListing(finalData);
 
       console.log("Create listing response:", result);
       console.log("Create listing response messages:", result?.message);
@@ -420,13 +381,13 @@ export function AddListingForm({ embedded = false, onCreated }) {
 
       if (listingId) {
         try {
-          await saveSelectedAmenities(listingId, token);
+          await saveSelectedAmenities(listingId);
         } catch (optionalError) {
           optionalWarnings.push(optionalError.message);
         }
 
         try {
-          await uploadSelectedPhotos(listingId, token);
+          await uploadSelectedPhotos(listingId);
         } catch (optionalError) {
           optionalWarnings.push(optionalError.message);
         }

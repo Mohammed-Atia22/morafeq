@@ -17,6 +17,15 @@ export class UploadsService {
     file: Express.Multer.File,
     folder: string = 'general',
   ): Promise<{ url: string; deleteUrl: string | null }> {
+    const apiKey = this.config.get<string>('IMGBB_API_KEY')?.trim();
+
+    if (!apiKey) {
+      console.error('Image upload is not configured: missing IMGBB_API_KEY');
+      throw new InternalServerErrorException(
+        'Image upload is currently unavailable. Please try again later.',
+      );
+    }
+
     // 1. validate file type
     const allowedMimeTypes = [
       'image/jpeg',
@@ -38,8 +47,6 @@ export class UploadsService {
     }
 
     try {
-      const apiKey = this.config.getOrThrow<string>('IMGBB_API_KEY');
-
       // 3. convert buffer to base64 — ImageBB requires this format
       const base64Image = file.buffer.toString('base64');
 

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { apiRequest } from "../../../shared/services/api";
 import { listingsApi } from "../services/listingsApi";
 import { AmenitiesSelector } from "../components/AmenitiesSelector";
 import { PhotoUploader } from "../components/PhotoUploader";
@@ -37,7 +36,6 @@ const locationPrivacyOptions = [
   { value: "EXACT", label: "دقيق" },
 ];
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1";
 const MAX_PHOTO_UPLOAD_SIZE = 5 * 1024 * 1024;
 
 const statusOptions = [
@@ -203,30 +201,11 @@ export default function EditListingPage() {
   const uploadSelectedPhotos = async (listingId, photos) => {
     if (photos.length === 0) return null;
 
-    const formData = new FormData();
-    photos.forEach((photo) => formData.append("photos", photo));
-
-    const token = localStorage.getItem("morafeq_access_token");
-    const response = await fetch(`${API_URL}/listings/${listingId}/photos`, {
-      method: "POST",
-      credentials: "include",
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || "فشل تحميل الصور");
-    }
-
-    return response.json();
+    return listingsApi.uploadPhotos(listingId, photos);
   };
 
   const saveListingAmenities = async (listingId, amenities) =>
-    apiRequest(`/listings/${listingId}/amenities`, {
-      method: "POST",
-      body: JSON.stringify({ amenities }),
-    });
+    listingsApi.setAmenities(listingId, amenities);
 
   const handleSubmit = async (event) => {
     event.preventDefault();

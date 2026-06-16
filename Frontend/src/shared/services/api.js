@@ -56,16 +56,19 @@ const clearSession = () => {
 export async function apiRequest(path, options = {}, retry = true) {
   const token = localStorage.getItem("morafeq_access_token");
   const method = options.method?.toUpperCase() || "GET";
-  const isJsonRequest = method !== "GET" || options.body != null;
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
+  const isJsonRequest = !isFormData && (method !== "GET" || options.body != null);
+  const { headers: optionHeaders, ...fetchOptions } = options;
 
   const response = await fetch(`${API_URL}${path}`, {
     credentials: "include",
+    ...fetchOptions,
     headers: {
       ...(isJsonRequest ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
+      ...optionHeaders,
     },
-    ...options,
   });
 
   if (

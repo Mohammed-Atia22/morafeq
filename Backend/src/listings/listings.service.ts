@@ -730,6 +730,10 @@ async submit(id: number, hostId: number) {
 ) {
   await this.verifyOwnership(id, hostId);
 
+  if (!files?.length) {
+    throw new BadRequestException('Please upload at least one photo');
+  }
+
   const existingCount = await this.prisma.listingPhoto.count({
     where: { listingId: id },
   });
