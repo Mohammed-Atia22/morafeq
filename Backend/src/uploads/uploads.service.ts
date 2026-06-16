@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
+import axios, { isAxiosError } from 'axios';
 import FormData from 'form-data';
 
 @Injectable()
@@ -68,16 +68,22 @@ export class UploadsService {
         url:       response.data.data.url,
         deleteUrl: response.data.data.delete_url ?? null,
       };
-    } catch (error) {
-      // rethrow our own exceptions as-is
-      if (error instanceof BadRequestException) throw error;
-      if (error instanceof InternalServerErrorException) throw error;
+    } catch (error: unknown) {
+  if (isAxiosError(error)) {
+    console.error('ImageBB upload failed:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+      code: error.code,
+    });
+  } else {
+    console.error('Unexpected upload error:', error);
+  }
 
-      // wrap unknown axios/network errors
-      throw new InternalServerErrorException(
-        'Failed to upload image. Please try again.',
-      );
-    }
+  throw new InternalServerErrorException(
+    'Failed to upload image. Please try again.',
+  );
+}
   }
 
   // ─── Delete image from ImageBB ─────────────

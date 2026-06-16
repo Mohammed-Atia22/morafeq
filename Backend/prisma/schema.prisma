@@ -8,29 +8,31 @@ datasource db {
 }
 
 model User {
-  id                  Int         @id @default(autoincrement()) @db.UnsignedInt
-  email               String      @unique @db.VarChar(255)
-  passwordHash        String?     @db.VarChar(255)
-  firstName           String      @db.VarChar(100)
-  lastName            String      @db.VarChar(100)
-  avatarUrl           String?     @db.VarChar(500)
-  phone               String?     @db.Text
-  phoneCountry        String?     @db.VarChar(2)
-  phoneCountryCode    String?     @db.VarChar(5)
-  phoneHash           String?     @unique @db.VarChar(64)
-  role                UserRole    @default(GUEST)
-  onboardingCompleted Boolean     @default(false)
-  gender              genderTypes @default(male)
-  bio                 String?     @db.Text
-  isVerified          Boolean     @default(false)
-  isActive            Boolean     @default(true)
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  id                  Int            @id @default(autoincrement()) @db.UnsignedInt
+  email               String         @unique @db.VarChar(255)
+  passwordHash        String?        @db.VarChar(255)
+  firstName           String         @db.VarChar(100)
+  lastName            String         @db.VarChar(100)
+  avatarUrl           String?        @db.VarChar(500)
+  phone               String?        @db.Text
+  phoneCountry        String?        @db.VarChar(2)
+  phoneCountryCode    String?        @db.VarChar(5)
+  phoneHash           String?        @unique @db.VarChar(64)
+  role                UserRole       @default(GUEST)
+  onboardingCompleted Boolean        @default(false)
+  gender              genderTypes    @default(male)
+  bio                 String?        @db.Text
+  isVerified          Boolean        @default(false)
+  isActive            Boolean        @default(true)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
   bookings            Booking[]
   listings            Listing[]
-  sentMessages        Message[]
   reviews             Review[]
   otps                OTP[]
+  guestConversations  Conversation[] @relation("GuestConversations")
+  hostConversations   Conversation[] @relation("HostConversations")
+  sentMessages        Message[]      @relation("MessageSender")
 
   @@index([email])
   @@index([phoneCountry])
@@ -120,8 +122,9 @@ model Listing {
   deletedAt  DateTime?
   viewsCount Int       @default(0) @db.UnsignedInt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  conversations Conversation[]
 
   host       User      @relation(fields: [hostId], references: [id])
   area       Area?     @relation(fields: [areaId], references: [id], onDelete: SetNull)
@@ -255,8 +258,7 @@ model Booking {
   review Review?
 
   // هنسيب العلاقات دي مؤقتًا لأن Models موجودة حاليًا
-  messages Message[]
-  payment  Payment?
+  payment Payment?
 
   @@index([guestId])
   @@index([listingId])
@@ -316,19 +318,42 @@ model Review {
   @@map("reviews")
 }
 
-model Message {
+model Conversation {
   id        Int      @id @default(autoincrement()) @db.UnsignedInt
-  bookingId Int      @db.UnsignedInt
-  senderId  Int      @db.UnsignedInt
-  content   String   @db.Text
-  isRead    Boolean  @default(false)
+  guestId   Int      @db.UnsignedInt
+  hostId    Int      @db.UnsignedInt
+  listingId Int      @db.UnsignedInt
   createdAt DateTime @default(now())
-  booking   Booking  @relation(fields: [bookingId], references: [id])
-  sender    User     @relation(fields: [senderId], references: [id])
+  updatedAt DateTime @updatedAt
 
-  @@index([bookingId])
+  guest   User    @relation("GuestConversations", fields: [guestId], references: [id], onDelete: Cascade)
+  host    User    @relation("HostConversations", fields: [hostId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  @@unique([guestId, hostId, listingId])
+  @@index([guestId])
+  @@index([hostId])
+  @@index([listingId])
+  @@map("conversations")
+}
+
+model Message {
+  id             Int       @id @default(autoincrement()) @db.UnsignedInt
+  conversationId Int       @db.UnsignedInt
+  senderId       Int       @db.UnsignedInt
+  content        String    @db.Text
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
   @@index([senderId])
-  @@index([createdAt])
+  @@index([conversationId, createdAt])
   @@map("messages")
 }
 
