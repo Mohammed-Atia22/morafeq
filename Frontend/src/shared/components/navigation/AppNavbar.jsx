@@ -22,8 +22,8 @@ function BellIcon({ className }) {
 
 const navLinkClass = ({ isActive }) =>
   [
-    "text-sm font-semibold transition hover:text-white",
-    isActive ? "text-white" : "text-slate-300",
+    "text-sm font-black transition hover:text-[#075fd6]",
+    isActive ? "text-[#075fd6]" : "text-[#172033]",
   ].join(" ");
 
 const publicNavbarPaths = new Set([
@@ -54,7 +54,7 @@ export function AppNavbar() {
       >
         <nav className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-4 sm:px-8">
           <Link to="/" className="flex items-center gap-3">
-            <img src={logo} alt="مرافق" className="h-10 w-auto" />
+            <img src={logo} alt="مرافق" className="h-12 w-auto" />
           </Link>
 
           <div className="hidden items-center gap-10 lg:flex">
@@ -136,27 +136,27 @@ export function AppNavbar() {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-30 border-b border-white/10 bg-[#102b4a]/95 backdrop-blur ${sidebarPaddingClass}`}
+      className={`fixed inset-x-0 top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur ${sidebarPaddingClass}`}
     >
       <nav className="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-5 sm:px-8">
         <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="مرافق" className="h-9 w-auto" />
+          <img src={logo} alt="مرافق" className="h-11 w-auto" />
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
           <NavLink to="/" className={navLinkClass}>
             الرئيسية
           </NavLink>
-          <a href="#listings" className="text-sm font-semibold text-slate-300">
+          <a href="#listings" className="text-sm font-black text-[#172033] transition hover:text-[#075fd6]">
             استعراض العقارات
           </a>
           <a
             href="#how-it-works"
-            className="text-sm font-semibold text-slate-300"
+            className="text-sm font-black text-[#172033] transition hover:text-[#075fd6]"
           >
             كيف يعمل
           </a>
-          <a href="#contact" className="text-sm font-semibold text-slate-300">
+          <a href="#contact" className="text-sm font-black text-[#172033] transition hover:text-[#075fd6]">
             تواصل معنا
           </a>
         </div>
@@ -166,18 +166,18 @@ export function AppNavbar() {
             <>
               <button
                 type="button"
-                className="relative grid h-10 w-10 place-items-center rounded-full text-slate-200 transition hover:bg-white/10"
+                className="relative grid h-10 w-10 place-items-center rounded-full text-[#172033] transition hover:bg-blue-50 hover:text-[#075fd6]"
               >
                 <BellIcon className="h-5 w-5" />
                 <span className="absolute bottom-2 right-2 h-2 w-2 rounded-full bg-red-500" />
               </button>
-              <span className="hidden text-sm font-semibold text-slate-200 sm:block">
+              <span className="hidden text-sm font-black text-[#172033] sm:block">
                 {user?.firstName ? `مرحبا، ${user.firstName}` : "مرحبا بك"}
               </span>
               <button
                 type="button"
                 onClick={logout}
-                className="rounded-full border border-white/20 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/10"
+                className="rounded-lg bg-[#075fd6] px-5 py-2.5 text-sm font-black text-white shadow transition hover:bg-[#0754bd]"
               >
                 تسجيل الخروج
               </button>
@@ -186,13 +186,13 @@ export function AppNavbar() {
             <>
               <NavLink
                 to="/login"
-                className="rounded-full px-4 py-2 text-sm font-bold text-slate-200 transition hover:bg-white/10 hover:text-white"
+                className="rounded-lg px-4 py-2 text-sm font-black text-[#172033] transition hover:bg-blue-50 hover:text-[#075fd6]"
               >
                 تسجيل الدخول
               </NavLink>
               <NavLink
                 to="/register"
-                className="rounded-full bg-white px-4 py-2 text-sm font-black text-[#075ed8] shadow-sm transition hover:bg-slate-100"
+                className="rounded-lg bg-[#075fd6] px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-[#0754bd]"
               >
                 إنشاء حساب
               </NavLink>
