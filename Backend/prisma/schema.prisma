@@ -30,17 +30,13 @@ model User {
   updatedAt           DateTime       @updatedAt
   bookings            Booking[]
   listings            Listing[]
-<<<<<<< HEAD
   reviewsWritten      Review[]       @relation("ReviewsWritten")
   reviewsReceived     Review[]       @relation("ReviewsReceived")
-=======
-  reviews             Review[]
-  verification        Verification?
->>>>>>> 9c52e99397a8276ac6898a8e029b502ce8c8c992
   otps                OTP[]
   guestConversations  Conversation[] @relation("GuestConversations")
   hostConversations   Conversation[] @relation("HostConversations")
   sentMessages        Message[]      @relation("MessageSender")
+   verification        Verification?
 
   @@index([email])
   @@index([phoneCountry])

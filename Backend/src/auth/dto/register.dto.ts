@@ -98,8 +98,7 @@ import {
   IsEnum,
    Matches,
   IsNotEmpty,
-  Length,
-  Matches,
+  Length
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { genderTypes } from '@prisma/client';

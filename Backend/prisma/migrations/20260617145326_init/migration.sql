@@ -15,6 +15,8 @@ CREATE TABLE `users` (
     `gender` ENUM('male', 'female') NOT NULL DEFAULT 'male',
     `bio` TEXT NULL,
     `isVerified` BOOLEAN NOT NULL DEFAULT false,
+    `verificationStatus` ENUM('NOT_STARTED', 'PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'NOT_STARTED',
+    `trustScore` INTEGER UNSIGNED NOT NULL DEFAULT 0,
     `isActive` BOOLEAN NOT NULL DEFAULT true,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
@@ -24,6 +26,23 @@ CREATE TABLE `users` (
     INDEX `users_email_idx`(`email`),
     INDEX `users_phoneCountry_idx`(`phoneCountry`),
     INDEX `users_phoneCountryCode_idx`(`phoneCountryCode`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `verifications` (
+    `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
+    `userId` INTEGER UNSIGNED NOT NULL,
+    `idFrontUrl` VARCHAR(500) NOT NULL,
+    `idBackUrl` VARCHAR(500) NOT NULL,
+    `selfieUrl` VARCHAR(500) NOT NULL,
+    `status` ENUM('NOT_STARTED', 'PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+    `rejectionReason` TEXT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `verifications_userId_key`(`userId`),
+    INDEX `verifications_status_idx`(`status`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -212,14 +231,14 @@ CREATE TABLE `bookings` (
 CREATE TABLE `payments` (
     `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
     `bookingId` INTEGER UNSIGNED NOT NULL,
-    `stripePaymentIntentId` VARCHAR(255) NULL,
-    `stripeChargeId` VARCHAR(255) NULL,
-    `stripeRefundId` VARCHAR(255) NULL,
+    `paymobOrderId` VARCHAR(255) NULL,
+    `paymobTransactionId` VARCHAR(255) NULL,
     `amount` INTEGER UNSIGNED NOT NULL,
-    `hostPayoutAmount` INTEGER UNSIGNED NULL,
-    `platformFee` INTEGER UNSIGNED NULL,
-    `currency` VARCHAR(3) NOT NULL DEFAULT 'usd',
+    `platformFee` INTEGER UNSIGNED NOT NULL DEFAULT 0,
+    `hostPayoutAmount` INTEGER UNSIGNED NOT NULL DEFAULT 0,
+    `currency` VARCHAR(3) NOT NULL DEFAULT 'EGP',
     `status` ENUM('PENDING', 'CAPTURED', 'REFUNDED', 'PARTIALLY_REFUNDED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    `paymentMethod` VARCHAR(50) NULL,
     `refundReason` TEXT NULL,
     `paidAt` DATETIME(3) NULL,
     `refundedAt` DATETIME(3) NULL,
@@ -227,9 +246,11 @@ CREATE TABLE `payments` (
     `updatedAt` DATETIME(3) NOT NULL,
 
     UNIQUE INDEX `payments_bookingId_key`(`bookingId`),
-    UNIQUE INDEX `payments_stripePaymentIntentId_key`(`stripePaymentIntentId`),
+    UNIQUE INDEX `payments_paymobOrderId_key`(`paymobOrderId`),
+    UNIQUE INDEX `payments_paymobTransactionId_key`(`paymobTransactionId`),
     INDEX `payments_bookingId_idx`(`bookingId`),
-    INDEX `payments_stripePaymentIntentId_idx`(`stripePaymentIntentId`),
+    INDEX `payments_paymobOrderId_idx`(`paymobOrderId`),
+    INDEX `payments_paymobTransactionId_idx`(`paymobTransactionId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -289,6 +310,9 @@ CREATE TABLE `messages` (
     INDEX `messages_conversationId_createdAt_idx`(`conversationId`, `createdAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `verifications` ADD CONSTRAINT `verifications_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `otps` ADD CONSTRAINT `otps_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
