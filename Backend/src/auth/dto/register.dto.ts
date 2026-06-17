@@ -96,6 +96,7 @@ import {
   MaxLength,
   IsStrongPassword,
   IsEnum,
+   Matches,
   IsNotEmpty,
   Length,
   Matches,
@@ -136,22 +137,44 @@ export class RegisterDto {
   confirmPassword!: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'First name is required' })
-  @MinLength(2, { message: 'First name must be at least 2 characters' })
-  @MaxLength(100, { message: 'First name must not exceed 100 characters' })
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
-  firstName!: string;
+@IsNotEmpty({ message: 'First name is required' })
+@MinLength(2, {
+  message: 'First name must be at least 2 characters',
+})
+@MaxLength(100, {
+  message: 'First name must not exceed 100 characters',
+})
+@Matches(
+  /^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+)*$/u,
+  {
+    message:
+      'First name must contain letters only and may include spaces, hyphens, or apostrophes',
+  },
+)
+@Transform(({ value }) =>
+  typeof value === 'string' ? value.trim() : value,
+)
+firstName!: string;
 
-  @IsString()
-  @IsNotEmpty({ message: 'Last name is required' })
-  @MinLength(2, { message: 'Last name must be at least 2 characters' })
-  @MaxLength(100, { message: 'Last name must not exceed 100 characters' })
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
-  lastName!: string;
+@IsString()
+@IsNotEmpty({ message: 'Last name is required' })
+@MinLength(2, {
+  message: 'Last name must be at least 2 characters',
+})
+@MaxLength(100, {
+  message: 'Last name must not exceed 100 characters',
+})
+@Matches(
+  /^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+)*$/u,
+  {
+    message:
+      'Last name must contain letters only and may include spaces, hyphens, or apostrophes',
+  },
+)
+@Transform(({ value }) =>
+  typeof value === 'string' ? value.trim() : value,
+)
+lastName!: string;
 
   @IsEnum(genderTypes, { message: 'Gender must be male or female' })
   gender!: genderTypes;
