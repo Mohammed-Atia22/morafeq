@@ -49,12 +49,12 @@ const statusOptions = [
 ];
 
 const AMENITY_OPTIONS = [
-  { key: "wifi", label: "Wi-Fi" },
-  { key: "kitchen", label: "Kitchen" },
-  { key: "parking", label: "Parking" },
-  { key: "air_conditioning", label: "Air conditioning" },
-  { key: "washing_machine", label: "Washing machine" },
-  { key: "workspace", label: "Workspace" },
+  { key: "wifi", label: "واي فاي" },
+  { key: "kitchen", label: "مطبخ" },
+  { key: "parking", label: "موقف سيارات" },
+  { key: "air_conditioning", label: "تكييف" },
+  { key: "washing_machine", label: "غسالة" },
+  { key: "workspace", label: "مساحة عمل" },
 ];
 
 const numericListingFields = [
@@ -577,6 +577,31 @@ function EditField({
   className = "",
   ...props
 }) {
+  const { min: _min, onKeyDown, ...restProps } = props;
+  const inputProps =
+    type === "number"
+      ? {
+          min: "0",
+          onKeyDown: (event) => {
+            if (event.key === "-") {
+              event.preventDefault();
+            }
+            onKeyDown?.(event);
+          },
+        }
+      : {};
+
+  const handleChange = (event) => {
+    const nextValue = event.target.value;
+
+    if (type === "number" && Number(nextValue) < 0) {
+      onChange("");
+      return;
+    }
+
+    onChange(nextValue);
+  };
+
   const fieldClassName = [
     "w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-[#172033] outline-none transition focus:border-[#0b62d8] focus:ring-2 focus:ring-blue-100",
     type === "textarea" ? "min-h-28 resize-y py-3" : "h-11",
@@ -614,9 +639,10 @@ function EditField({
         <input
           type={type}
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={handleChange}
           className={fieldClassName}
-          {...props}
+          {...restProps}
+          {...inputProps}
         />
       )}
     </label>

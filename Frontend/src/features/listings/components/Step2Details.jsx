@@ -14,6 +14,26 @@ export function Step2Details({
   setCurrentStep,
   goToStep3,
 }) {
+  const nonNegativeNumberProps = {
+    type: "number",
+    min: "0",
+    onKeyDown: (event) => {
+      if (event.key === "-") {
+        event.preventDefault();
+      }
+    },
+    onInput: (event) => {
+      if (Number(event.currentTarget.value) < 0) {
+        event.currentTarget.value = "";
+      }
+    },
+  };
+
+  const nonNegativeRule = {
+    value: 0,
+    message: "لا يمكن إدخال قيمة سالبة",
+  };
+
   return (
 <div>
                 <div style={sectionTitleStyles}>
@@ -56,9 +76,10 @@ export function Step2Details({
                       <input
                         style={fieldStyles}
                         placeholder="مثال: 3500"
-                        type="number"
+                        {...nonNegativeNumberProps}
                         {...register("monthlyRent", {
                           required: "السعر مطلوب",
+                          min: nonNegativeRule,
                         })}
                       />
                       {errors.monthlyRent && (
@@ -80,8 +101,10 @@ export function Step2Details({
                       <input
                         style={fieldStyles}
                         placeholder="مثال: 5000"
-                        type="number"
-                        {...register("depositAmount")}
+                        {...nonNegativeNumberProps}
+                        {...register("depositAmount", {
+                          min: nonNegativeRule,
+                        })}
                       />
                     </label>
                   </div>
@@ -105,9 +128,10 @@ export function Step2Details({
                       <input
                         style={fieldStyles}
                         placeholder="مثال: 3"
-                        type="number"
+                        {...nonNegativeNumberProps}
                         {...register("bedrooms", {
                           required: "عدد الغرف مطلوب",
+                          min: nonNegativeRule,
                         })}
                       />
                       {errors.bedrooms && (
@@ -128,9 +152,10 @@ export function Step2Details({
                       <input
                         style={fieldStyles}
                         placeholder="مثال: 2"
-                        type="number"
+                        {...nonNegativeNumberProps}
                         {...register("bathrooms", {
                           required: "عدد الحمامات مطلوب",
+                          min: nonNegativeRule,
                         })}
                       />
                       {errors.bathrooms && (
@@ -151,9 +176,10 @@ export function Step2Details({
                       <input
                         style={fieldStyles}
                         placeholder="مثال: 4"
-                        type="number"
+                        {...nonNegativeNumberProps}
                         {...register("maxTenants", {
                           required: "الحد الأقصى مطلوب",
+                          min: nonNegativeRule,
                         })}
                       />
                       {errors.maxTenants && (
@@ -183,8 +209,11 @@ export function Step2Details({
                       <input
                         style={fieldStyles}
                         placeholder="مثال: 3"
-                        type="number"
-                        {...register("beds", { required: "عدد السراير مطلوب" })}
+                        {...nonNegativeNumberProps}
+                        {...register("beds", {
+                          required: "عدد السراير مطلوب",
+                          min: nonNegativeRule,
+                        })}
                       />
                       {errors.beds && (
                         <span style={{ color: "#dc2626" }}>
@@ -334,6 +363,7 @@ export function Step2Details({
                   selectedPhotos={selectedPhotos}
                   handlePhotoChange={handlePhotoChange}
                   removeSelectedPhoto={removeSelectedPhoto}
+                  required
                 />
 
                 <AmenitiesSelector

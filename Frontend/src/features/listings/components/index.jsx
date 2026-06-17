@@ -8,12 +8,12 @@ import { Step3Rules } from "./Step3Rules";
 import { useAuth } from "../../auth/hooks/useAuth";
 
 const AMENITY_OPTIONS = [
-  { key: "wifi", label: "Wi-Fi" },
-  { key: "kitchen", label: "Kitchen" },
-  { key: "parking", label: "Parking" },
-  { key: "air_conditioning", label: "Air conditioning" },
-  { key: "washing_machine", label: "Washing machine" },
-  { key: "workspace", label: "Workspace" },
+  { key: "wifi", label: "واي فاي" },
+  { key: "kitchen", label: "مطبخ" },
+  { key: "parking", label: "موقف سيارات" },
+  { key: "air_conditioning", label: "تكييف" },
+  { key: "washing_machine", label: "غسالة" },
+  { key: "workspace", label: "مساحة عمل" },
 ];
 
 export function AddListingForm({ embedded = false, onCreated }) {
@@ -170,6 +170,13 @@ export function AddListingForm({ embedded = false, onCreated }) {
   };
 
   const goToStep3 = async () => {
+    if (selectedPhotos.length === 0) {
+      setError("root", {
+        message: "صور الشقة مطلوبة",
+      });
+      return;
+    }
+
     const isStepValid = await trigger([
       "buildingNumber",
       "floorNumber",
@@ -255,7 +262,12 @@ export function AddListingForm({ embedded = false, onCreated }) {
       "apartmentNumber",
       "nearbyLandmark",
     ]);
-    if (!step2Valid) {
+    if (!step2Valid || selectedPhotos.length === 0) {
+      if (selectedPhotos.length === 0) {
+        setError("root", {
+          message: "صور الشقة مطلوبة",
+        });
+      }
       setCurrentStep(2);
       return;
     }
@@ -415,7 +427,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
   };
 
   const stepTitles = [
-    { number: 1, label: "الصور والتوثيق" },
+    { number: 1, label: "الموقع والتوثيق" },
     { number: 2, label: "تفاصيل الشقة" },
     { number: 3, label: "القواعد والموقع" },
   ];
