@@ -239,44 +239,65 @@ const openConversation = async () => {
     setError("");
     setMessages([]);
 
-    await joinConversation(
+    // 1. دخول غرفة المحادثة
+    await joinConversation(selectedConversationId);
+
+    // 2. جلب الرسائل القديمة
+    const oldMessages = await chatApi.getMessages(
       selectedConversationId,
     );
 
-    const oldMessages =
-      await chatApi.getMessages(
+    if (isCancelled) {
+      return;
+    }
+
+    // 3. اعرض الرسائل فورًا
+    setMessages(oldMessages);
+    setIsLoadingMessages(false);
+
+    // 4. حاول تعليم الرسائل كمقروءة عن طريق Socket
+    try {
+      await Promise.race([
+        markAsRead(selectedConversationId),
+
+        new Promise((_, reject) => {
+          window.setTimeout(() => {
+            reject(
+              new Error("Socket markAsRead timeout"),
+            );
+          }, 4000);
+        }),
+      ]);
+    } catch (socketReadError) {
+      console.error(
+        "Socket markAsRead failed, using REST:",
+        socketReadError,
+      );
+
+      // حل احتياطي لو Socket لم يرد
+      await chatApi.markAsRead(
         selectedConversationId,
       );
+    }
 
     if (isCancelled) {
       return;
     }
 
-    setMessages(oldMessages);
-
-    // تعليم الرسائل كمقروءة عن طريق Socket
-    await markAsRead(selectedConversationId);
+    // 5. تحديث العداد محليًا
+    setConversations((currentConversations) =>
+      currentConversations.map((conversation) =>
+        conversation.id === selectedConversationId
+          ? {
+              ...conversation,
+              unreadCount: 0,
+            }
+          : conversation,
+      ),
+    );
 
     window.dispatchEvent(
       new Event("chat-unread-changed"),
-    );
-
-    if (isCancelled) {
-      return;
-    }
-
-    setConversations(
-      (currentConversations) =>
-        currentConversations.map(
-          (conversation) =>
-            conversation.id ===
-            selectedConversationId
-              ? {
-                  ...conversation,
-                  unreadCount: 0,
-                }
-              : conversation,
-        ),
     );
   } catch (requestError) {
     if (!isCancelled) {
@@ -284,9 +305,7 @@ const openConversation = async () => {
         requestError.message ||
           "تعذر فتح المحادثة",
       );
-    }
-  } finally {
-    if (!isCancelled) {
+
       setIsLoadingMessages(false);
     }
   }

@@ -98,7 +98,11 @@ import {
   IsEnum,
    Matches,
   IsNotEmpty,
+<<<<<<< HEAD
+  Length,
+=======
   Length
+>>>>>>> 5f78d0f2c40f4e9534e884ee30a53beeaf86ba78
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { genderTypes } from '@prisma/client';

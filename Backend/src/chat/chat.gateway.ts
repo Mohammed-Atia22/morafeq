@@ -173,11 +173,17 @@ async markAsRead(
     const conversationId = Number(body.conversationId);
 
     if (!userId) {
-      throw new WsException('Unauthorized socket');
+      return {
+        success: false,
+        message: 'Unauthorized socket',
+      };
     }
 
     if (!conversationId || conversationId < 1) {
-      throw new WsException('Invalid conversation ID');
+      return {
+        success: false,
+        message: 'Invalid conversation ID',
+      };
     }
 
     const result =
@@ -188,19 +194,25 @@ async markAsRead(
 
     const roomName = `conversation:${conversationId}`;
 
-    // إبلاغ الطرفين إن الرسائل اتقرت
-    this.server.to(roomName).emit('messagesRead', result);
+    // إبلاغ الطرفين إن الرسائل تمت قراءتها
+    this.server
+      .to(roomName)
+      .emit('messagesRead', result);
 
     return {
       success: true,
       ...result,
     };
   } catch (error) {
-    throw new WsException(
-      error instanceof Error
-        ? error.message
-        : 'Could not mark messages as read',
-    );
+    console.error('markAsRead socket error:', error);
+
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Could not mark messages as read',
+    };
   }
 }
 }

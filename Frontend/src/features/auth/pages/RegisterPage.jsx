@@ -138,7 +138,7 @@ export function RegisterPage() {
           </>
         }
       >
-        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
           <AuthMessage>{serverError}</AuthMessage>
 
           <div className="grid gap-4 sm:grid-cols-2">
