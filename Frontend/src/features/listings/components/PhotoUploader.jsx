@@ -3,6 +3,7 @@ export function PhotoUploader({
   selectedPhotos,
   handlePhotoChange,
   removeSelectedPhoto,
+  required = false,
 }) {
   return (
                 <div
@@ -22,7 +23,7 @@ export function PhotoUploader({
                         fontSize: "17px",
                       }}
                     >
-                      Optional photos
+                      صور الشقة
                     </h3>
                     <p
                       style={{
@@ -31,8 +32,7 @@ export function PhotoUploader({
                         fontSize: "13px",
                       }}
                     >
-                      You can add up to 10 photos now, or skip this until upload
-                      is active.
+                      يمكنك إضافة حتى 10 صور، ويجب ألا تتجاوز كل صورة 5 ميغابايت.
                     </p>
                   </div>
 
@@ -40,6 +40,7 @@ export function PhotoUploader({
                     type="file"
                     accept="image/*"
                     multiple
+                    required={required && selectedPhotos.length === 0}
                     onChange={handlePhotoChange}
                     style={fieldStyles}
                   />
@@ -82,7 +83,7 @@ export function PhotoUploader({
                               padding: "8px 12px",
                             }}
                           >
-                            Delete
+                            حذف
                           </button>
                         </div>
                       ))}

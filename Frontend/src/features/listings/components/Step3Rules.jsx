@@ -8,6 +8,26 @@ export function Step3Rules({
   setCurrentStep,
   isSubmittingListing,
 }) {
+  const nonNegativeNumberProps = {
+    type: "number",
+    min: "0",
+    onKeyDown: (event) => {
+      if (event.key === "-") {
+        event.preventDefault();
+      }
+    },
+    onInput: (event) => {
+      if (Number(event.currentTarget.value) < 0) {
+        event.currentTarget.value = "";
+      }
+    },
+  };
+
+  const nonNegativeRule = {
+    value: 0,
+    message: "لا يمكن إدخال قيمة سالبة",
+  };
+
   return (
 <div>
                 <div style={sectionTitleStyles}>
@@ -123,8 +143,10 @@ export function Step3Rules({
                       <input
                         style={fieldStyles}
                         placeholder="مثال: 15"
+                        {...nonNegativeNumberProps}
                         {...register("buildingNumber", {
                           required: "رقم العمارة مطلوب",
+                          min: nonNegativeRule,
                         })}
                       />
                       {errors.buildingNumber && (
@@ -145,8 +167,10 @@ export function Step3Rules({
                       <input
                         style={fieldStyles}
                         placeholder="مثال: 3"
+                        {...nonNegativeNumberProps}
                         {...register("floorNumber", {
                           required: "رقم الطابق مطلوب",
+                          min: nonNegativeRule,
                         })}
                       />
                       {errors.floorNumber && (
@@ -176,8 +200,10 @@ export function Step3Rules({
                       <input
                         style={fieldStyles}
                         placeholder="مثال: 5"
+                        {...nonNegativeNumberProps}
                         {...register("apartmentNumber", {
                           required: "رقم الشقة مطلوب",
+                          min: nonNegativeRule,
                         })}
                       />
                       {errors.apartmentNumber && (

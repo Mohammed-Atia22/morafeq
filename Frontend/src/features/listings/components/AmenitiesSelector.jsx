@@ -21,7 +21,7 @@ export function AmenitiesSelector({
                         fontSize: "17px",
                       }}
                     >
-                      Optional amenities
+                      وسائل الراحة
                     </h3>
                     <p
                       style={{
@@ -30,7 +30,7 @@ export function AmenitiesSelector({
                         fontSize: "13px",
                       }}
                     >
-                      Select only what applies. Leaving this empty is allowed.
+                      اختر وسائل الراحة المتوفرة في الشقة.
                     </p>
                   </div>
 
