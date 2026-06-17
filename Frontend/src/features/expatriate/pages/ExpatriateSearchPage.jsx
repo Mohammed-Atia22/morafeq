@@ -291,7 +291,7 @@ export function ExpatriateSearchPage() {
       </div>
 
       {/* Search bar + filter icon */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 flex items-center gap-3">
+      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex-1 relative" ref={suggestionsRef}>
           <input
             type="text"
@@ -385,7 +385,7 @@ export function ExpatriateSearchPage() {
               {/* Destination search */}
               <div>
                 <FilterLabel>ابحث قريب من (جامعة، كلية، منطقة)</FilterLabel>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <button
                     type="button"
                     onClick={handleConfirm}
@@ -513,7 +513,7 @@ export function ExpatriateSearchPage() {
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <button
                   onClick={() => {
                     handleReset();

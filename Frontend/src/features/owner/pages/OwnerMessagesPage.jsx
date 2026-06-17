@@ -247,7 +247,7 @@ export function OwnerMessagesPage() {
   return (
     <div
       dir="rtl"
-      className="h-[calc(100vh-2rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+      className="flex h-full min-h-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     >
       <div className="grid h-full grid-cols-1 lg:grid-cols-[340px_1fr]">
         {/* قائمة المحادثات */}
@@ -459,7 +459,7 @@ export function OwnerMessagesPage() {
                   </p>
                 )}
 
-                <div className="flex items-end gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                   <textarea
                     value={content}
                     onChange={(event) =>
