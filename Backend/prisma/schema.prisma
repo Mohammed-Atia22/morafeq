@@ -1,0 +1,489 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  Int                @id @default(autoincrement()) @db.UnsignedInt
+  email               String             @unique @db.VarChar(255)
+  passwordHash        String?            @db.VarChar(255)
+  firstName           String             @db.VarChar(100)
+  lastName            String             @db.VarChar(100)
+  avatarUrl           String?            @db.VarChar(500)
+  phone               String?            @db.Text
+  phoneCountry        String?            @db.VarChar(2)
+  phoneCountryCode    String?            @db.VarChar(5)
+  phoneHash           String?            @unique @db.VarChar(64)
+  role                UserRole           @default(GUEST)
+  onboardingCompleted Boolean            @default(false)
+  gender              genderTypes        @default(male)
+  bio                 String?            @db.Text
+  isVerified          Boolean            @default(false)
+  verificationStatus  VerificationStatus @default(NOT_STARTED)
+  trustScore          Int                @default(0) @db.UnsignedInt
+  isActive            Boolean            @default(true)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  bookings            Booking[]
+  listings            Listing[]
+  reviewsWritten      Review[]           @relation("ReviewsWritten")
+  reviewsReceived     Review[]           @relation("ReviewsReceived")
+  otps                OTP[]
+  guestConversations  Conversation[]     @relation("GuestConversations")
+  hostConversations   Conversation[]     @relation("HostConversations")
+  sentMessages        Message[]          @relation("MessageSender")
+  verification        Verification?
+
+  @@index([email])
+  @@index([phoneCountry])
+  @@index([phoneCountryCode])
+  @@map("users")
+}
+
+model Verification {
+  id              Int                @id @default(autoincrement()) @db.UnsignedInt
+  userId          Int                @unique @db.UnsignedInt
+  idFrontUrl      String             @db.VarChar(500)
+  idBackUrl       String             @db.VarChar(500)
+  selfieUrl       String             @db.VarChar(500)
+  status          VerificationStatus @default(PENDING)
+  rejectionReason String?            @db.Text
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("verifications")
+}
+
+model Category {
+  id       Int       @id @default(autoincrement()) @db.UnsignedInt
+  name     String    @db.VarChar(100)
+  iconUrl  String?   @db.VarChar(500)
+  slug     String    @unique @db.VarChar(100)
+  listings Listing[]
+
+  @@index([slug])
+  @@map("categories")
+}
+
+model OTP {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  otp       String   @db.VarChar(100)
+  userId    Int      @db.UnsignedInt
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otpTypes  OTPTypes
+
+  @@index([userId])
+  @@map("otps")
+}
+
+model Listing {
+  id     Int  @id @default(autoincrement()) @db.UnsignedInt
+  hostId Int  @db.UnsignedInt
+  areaId Int? @db.UnsignedInt
+
+  title       String @db.VarChar(255)
+  description String @db.Text
+
+  propertyType PropertyType
+  roomType     RoomType
+
+  streetName      String  @db.VarChar(255)
+  buildingNumber  String? @db.VarChar(50)
+  floorNumber     String? @db.VarChar(50)
+  apartmentNumber String? @db.VarChar(50)
+  nearbyLandmark  String? @db.VarChar(255)
+
+  city        String @db.VarChar(100)
+  governorate String @db.VarChar(100)
+  country     String @default("Egypt") @db.VarChar(100)
+
+  lat                    Decimal                 @db.Decimal(10, 8)
+  lng                    Decimal                 @db.Decimal(11, 8)
+  googleFormattedAddress String?                 @db.VarChar(500)
+  googlePlaceId          String?                 @db.VarChar(255)
+  locationPrivacy        LocationPrivacy         @default(APPROXIMATE)
+  locationInsight        ListingLocationInsight?
+
+  monthlyRent   Int      @db.UnsignedInt
+  depositAmount Int      @default(0) @db.UnsignedInt
+  currency      Currency @default(EGP)
+
+  maxTenants Int @db.UnsignedInt
+  bedrooms   Int @db.UnsignedInt
+  beds       Int @db.UnsignedInt
+  bathrooms  Int @db.UnsignedInt
+
+  furnished         Boolean @default(true)
+  utilitiesIncluded Boolean @default(false)
+  internetIncluded  Boolean @default(false)
+  minimumStayMonths Int     @default(1) @db.UnsignedInt
+  maximumStayMonths Int?    @db.UnsignedInt
+
+  availableFrom DateTime @db.Date
+
+  genderPreference GenderPreference @default(ANY)
+  smokingPolicy    SmokingPolicy    @default(NOT_ALLOWED)
+
+  status          ListingStatus @default(DRAFT)
+  rejectionReason String?       @db.Text
+
+  submittedAt DateTime?
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+
+  isDeleted  Boolean   @default(false)
+  deletedAt  DateTime?
+  viewsCount Int       @default(0) @db.UnsignedInt
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  conversations Conversation[]
+
+  host       User      @relation(fields: [hostId], references: [id])
+  area       Area?     @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId Int?      @db.UnsignedInt
+
+  photos             ListingPhoto[]
+  amenities          ListingAmenity[]
+  availabilityBlocks AvailabilityBlock[]
+  bookings           Booking[]
+  reviews            Review[]
+
+  @@index([hostId])
+  @@index([areaId])
+  @@index([categoryId])
+  @@index([city])
+  @@index([governorate])
+  @@index([status])
+  @@index([monthlyRent])
+  @@index([lat, lng])
+  @@map("listings")
+}
+
+model ListingLocationInsight {
+  id        Int @id @default(autoincrement()) @db.UnsignedInt
+  listingId Int @unique @db.UnsignedInt
+
+  provider String @default("overpass") @db.VarChar(50)
+
+  radiusMeters Int @default(1000) @db.UnsignedInt
+
+  nearbyServices Json?
+  advantages     Json?
+  disadvantages  Json?
+
+  generatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("listing_location_insights")
+}
+
+model AvailabilityBlock {
+  id          Int         @id @default(autoincrement()) @db.UnsignedInt
+  listingId   Int         @db.UnsignedInt
+  blockedDate DateTime    @db.Date
+  reason      BlockReason @default(HOST_BLOCKED)
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, blockedDate])
+  @@index([listingId, blockedDate])
+  @@map("availability_blocks")
+}
+
+model Area {
+  id Int @id @default(autoincrement()) @db.UnsignedInt
+
+  name        String @db.VarChar(100)
+  city        String @db.VarChar(100)
+  governorate String @db.VarChar(100)
+  country     String @default("Egypt") @db.VarChar(100)
+
+  googlePlaceId String? @unique @db.VarChar(255)
+
+  listings Listing[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, city, governorate, country])
+  @@index([city])
+  @@index([governorate])
+  @@map("areas")
+}
+
+model ListingPhoto {
+  id           Int      @id @default(autoincrement()) @db.UnsignedInt
+  listingId    Int      @db.UnsignedInt
+  url          String   @db.VarChar(500)
+  thumbnailUrl String?  @db.VarChar(500)
+  sortOrder    Int      @default(0) @db.UnsignedInt
+  isCover      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  listing      Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  deleteUrl    String?  @db.VarChar(500)
+
+  @@index([listingId])
+  @@map("listing_photos")
+}
+
+model ListingAmenity {
+  id         Int     @id @default(autoincrement()) @db.UnsignedInt
+  listingId  Int     @db.UnsignedInt
+  amenityKey String  @db.VarChar(50)
+  listing    Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, amenityKey])
+  @@index([listingId])
+  @@map("listing_amenities")
+}
+
+model Booking {
+  id        Int @id @default(autoincrement()) @db.UnsignedInt
+  guestId   Int @db.UnsignedInt
+  listingId Int @db.UnsignedInt
+
+  preferredMoveInDate DateTime? @db.Date
+  guestMessage        String?   @db.Text
+
+  status BookingStatus @default(PENDING_HOST_APPROVAL)
+
+  hostResponseNote   String? @db.Text
+  rejectionReason    String? @db.Text
+  cancellationReason String? @db.Text
+
+  acceptedAt  DateTime?
+  confirmedAt DateTime?
+  rejectedAt  DateTime?
+  cancelledAt DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  guest   User    @relation(fields: [guestId], references: [id])
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  review Review[]
+
+  // هنسيب العلاقات دي مؤقتًا لأن Models موجودة حاليًا
+  payment Payment?
+
+  @@index([guestId])
+  @@index([listingId])
+  @@index([status])
+  @@map("bookings")
+}
+
+model Payment {
+  id        Int @id @default(autoincrement()) @db.UnsignedInt
+  bookingId Int @unique @db.UnsignedInt
+
+  // Paymob specific fields
+  paymobOrderId       String? @unique @db.VarChar(255)
+  paymobTransactionId String? @unique @db.VarChar(255)
+
+  amount           Int    @db.UnsignedInt // in piastres (EGP cents)
+  platformFee      Int    @default(0) @db.UnsignedInt
+  hostPayoutAmount Int    @default(0) @db.UnsignedInt
+  currency         String @default("EGP") @db.VarChar(3)
+
+  status PaymentStatus @default(PENDING)
+
+  paymentMethod String? @db.VarChar(50) // card, fawry, wallet
+  refundReason  String? @db.Text
+
+  paidAt     DateTime?
+  refundedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@index([paymobOrderId])
+  @@index([paymobTransactionId])
+  @@map("payments")
+}
+
+model Review {
+  id         Int        @id @default(autoincrement()) @db.UnsignedInt
+  bookingId  Int        @db.UnsignedInt
+  reviewerId Int        @db.UnsignedInt
+  listingId  Int?       @db.UnsignedInt // nullable — host-to-guest has no listing
+  reviewedId Int        @db.UnsignedInt // who is being reviewed
+  type       ReviewType
+
+  rating Int @db.UnsignedInt
+
+  // sub-ratings — only relevant for GUEST_TO_HOST
+  cleanliness Int? @db.UnsignedInt
+  location    Int? @db.UnsignedInt
+  accuracy    Int? @db.UnsignedInt
+  value       Int? @db.UnsignedInt
+
+  comment   String? @db.Text
+  isVisible Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking  Booking  @relation(fields: [bookingId], references: [id])
+  reviewer User     @relation("ReviewsWritten", fields: [reviewerId], references: [id])
+  reviewed User     @relation("ReviewsReceived", fields: [reviewedId], references: [id])
+  listing  Listing? @relation(fields: [listingId], references: [id])
+
+  // one review per booking per type — no duplicates
+  @@unique([bookingId, type])
+  @@index([reviewerId])
+  @@index([reviewedId])
+  @@index([listingId])
+  @@map("reviews")
+}
+
+model Conversation {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  guestId   Int      @db.UnsignedInt
+  hostId    Int      @db.UnsignedInt
+  listingId Int      @db.UnsignedInt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guest   User    @relation("GuestConversations", fields: [guestId], references: [id], onDelete: Cascade)
+  host    User    @relation("HostConversations", fields: [hostId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  @@unique([guestId, hostId, listingId])
+  @@index([guestId])
+  @@index([hostId])
+  @@index([listingId])
+  @@map("conversations")
+}
+
+model Message {
+  id             Int       @id @default(autoincrement()) @db.UnsignedInt
+  conversationId Int       @db.UnsignedInt
+  senderId       Int       @db.UnsignedInt
+  content        String    @db.Text
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+enum UserRole {
+  GUEST
+  HOST
+  ADMIN
+}
+
+enum GenderPreference {
+  MALE
+  FEMALE
+  ANY
+}
+
+enum SmokingPolicy {
+  ALLOWED
+  NOT_ALLOWED
+}
+
+enum LocationPrivacy {
+  EXACT
+  APPROXIMATE
+}
+
+enum Currency {
+  EGP
+}
+
+enum ListingStatus {
+  ACTIVE
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  INACTIVE
+  SUSPENDED
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  VILLA
+  CABIN
+  STUDIO
+  OTHER
+}
+
+enum RoomType {
+  ENTIRE_PLACE
+  PRIVATE_ROOM
+  SHARED_ROOM
+}
+
+enum BookingStatus {
+  PENDING_HOST_APPROVAL
+  PENDING_PAYMENT
+  CONFIRMED
+  REJECTED
+  CANCELLED_BY_GUEST
+  CANCELLED_BY_HOST
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  CAPTURED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  FAILED
+}
+
+enum BlockReason {
+  BOOKED
+  HOST_BLOCKED
+  MAINTENANCE
+}
+
+enum ReviewType {
+  GUEST_TO_HOST
+  HOST_TO_GUEST
+}
+
+enum OTPTypes {
+  EMAIL_CONFIRMATION
+  RESET_PASSWORD
+}
+
+enum genderTypes {
+  male
+  female
+}
+
+enum VerificationStatus {
+  NOT_STARTED
+  PENDING
+  APPROVED
+  REJECTED
+}
