@@ -158,4 +158,49 @@ export class ChatGateway
       );
     }
   }
+
+
+  @SubscribeMessage('markAsRead')
+async markAsRead(
+  @ConnectedSocket() client: Socket,
+  @MessageBody()
+  body: {
+    conversationId: number;
+  },
+) {
+  try {
+    const userId = client.data.userId as number;
+    const conversationId = Number(body.conversationId);
+
+    if (!userId) {
+      throw new WsException('Unauthorized socket');
+    }
+
+    if (!conversationId || conversationId < 1) {
+      throw new WsException('Invalid conversation ID');
+    }
+
+    const result =
+      await this.chatService.markConversationAsRead(
+        userId,
+        conversationId,
+      );
+
+    const roomName = `conversation:${conversationId}`;
+
+    // إبلاغ الطرفين إن الرسائل اتقرت
+    this.server.to(roomName).emit('messagesRead', result);
+
+    return {
+      success: true,
+      ...result,
+    };
+  } catch (error) {
+    throw new WsException(
+      error instanceof Error
+        ? error.message
+        : 'Could not mark messages as read',
+    );
+  }
+}
 }

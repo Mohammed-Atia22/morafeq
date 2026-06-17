@@ -85,7 +85,10 @@ export function ExpatriateListingDetailPage() {
             <ListingInfo listing={listing} />
 
             {/* Host */}
-            <HostCard host={listing.host} />
+            <HostCard
+  host={listing.host}
+  listingId={listing.id}
+/>
 
             {/* Amenities */}
             <AmenitiesSection amenities={listing.amenities ?? []} />

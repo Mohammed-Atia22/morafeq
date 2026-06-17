@@ -307,25 +307,26 @@ async markConversationAsRead(
     conversationId,
   );
 
+  const readAt = new Date();
+
   const result = await this.prisma.message.updateMany({
     where: {
       conversationId,
-
-      // متعلمش رسائل المستخدم نفسه كمقروءة
       senderId: {
         not: userId,
       },
-
       isRead: false,
     },
     data: {
       isRead: true,
-      readAt: new Date(),
+      readAt,
     },
   });
 
   return {
-    message: 'Messages marked as read',
+    conversationId,
+    readerId: userId,
+    readAt,
     updatedMessagesCount: result.count,
   };
 }
