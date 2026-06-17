@@ -28,7 +28,8 @@ model User {
   updatedAt           DateTime       @updatedAt
   bookings            Booking[]
   listings            Listing[]
-  reviews             Review[]
+  reviewsWritten      Review[]       @relation("ReviewsWritten")
+  reviewsReceived     Review[]       @relation("ReviewsReceived")
   otps                OTP[]
   guestConversations  Conversation[] @relation("GuestConversations")
   hostConversations   Conversation[] @relation("HostConversations")
@@ -255,7 +256,7 @@ model Booking {
   guest   User    @relation(fields: [guestId], references: [id])
   listing Listing @relation(fields: [listingId], references: [id])
 
-  review Review?
+  review Review[]
 
   // هنسيب العلاقات دي مؤقتًا لأن Models موجودة حاليًا
   payment Payment?
@@ -269,52 +270,66 @@ model Booking {
 model Payment {
   id                    Int           @id @default(autoincrement()) @db.UnsignedInt
   bookingId             Int           @unique @db.UnsignedInt
-  stripePaymentIntentId String?       @unique @db.VarChar(255)
-  stripeChargeId        String?       @db.VarChar(255)
-  stripeRefundId        String?       @db.VarChar(255)
-  amount                Int           @db.UnsignedInt
-  hostPayoutAmount      Int?          @db.UnsignedInt
-  platformFee           Int?          @db.UnsignedInt
-  currency              String        @default("usd") @db.VarChar(3)
+
+  // Paymob specific fields
+  paymobOrderId         String?       @unique @db.VarChar(255)
+  paymobTransactionId   String?       @unique @db.VarChar(255)
+
+  amount                Int           @db.UnsignedInt  // in piastres (EGP cents)
+  platformFee           Int           @default(0) @db.UnsignedInt
+  hostPayoutAmount      Int           @default(0) @db.UnsignedInt
+  currency              String        @default("EGP") @db.VarChar(3)
+
   status                PaymentStatus @default(PENDING)
+
+  paymentMethod         String?       @db.VarChar(50)  // card, fawry, wallet
   refundReason          String?       @db.Text
+
   paidAt                DateTime?
   refundedAt            DateTime?
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
-  booking               Booking       @relation(fields: [bookingId], references: [id])
+
+  booking Booking @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
-  @@index([stripePaymentIntentId])
+  @@index([paymobOrderId])
+  @@index([paymobTransactionId])
   @@map("payments")
 }
 
 model Review {
-  id         Int @id @default(autoincrement()) @db.UnsignedInt
-  bookingId  Int @unique @db.UnsignedInt
-  reviewerId Int @db.UnsignedInt
-  listingId  Int @db.UnsignedInt
+  id         Int        @id @default(autoincrement()) @db.UnsignedInt
+  bookingId  Int        @db.UnsignedInt
+  reviewerId Int        @db.UnsignedInt
+  listingId  Int?       @db.UnsignedInt  // nullable — host-to-guest has no listing
+  reviewedId Int        @db.UnsignedInt  // who is being reviewed
+  type       ReviewType
 
   rating Int @db.UnsignedInt
 
+  // sub-ratings — only relevant for GUEST_TO_HOST
   cleanliness Int? @db.UnsignedInt
   location    Int? @db.UnsignedInt
   accuracy    Int? @db.UnsignedInt
   value       Int? @db.UnsignedInt
 
   comment   String? @db.Text
-  isVisible Boolean @default(false)
+  isVisible Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   booking  Booking @relation(fields: [bookingId], references: [id])
-  reviewer User    @relation(fields: [reviewerId], references: [id])
-  listing  Listing @relation(fields: [listingId], references: [id])
+  reviewer User    @relation("ReviewsWritten", fields: [reviewerId], references: [id])
+  reviewed User    @relation("ReviewsReceived", fields: [reviewedId], references: [id])
+  listing  Listing? @relation(fields: [listingId], references: [id])
 
-  @@index([listingId])
+  // one review per booking per type — no duplicates
+  @@unique([bookingId, type])
   @@index([reviewerId])
+  @@index([reviewedId])
+  @@index([listingId])
   @@map("reviews")
 }
 

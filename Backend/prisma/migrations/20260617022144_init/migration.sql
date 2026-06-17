@@ -238,35 +238,55 @@ CREATE TABLE `reviews` (
     `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
     `bookingId` INTEGER UNSIGNED NOT NULL,
     `reviewerId` INTEGER UNSIGNED NOT NULL,
-    `listingId` INTEGER UNSIGNED NOT NULL,
+    `listingId` INTEGER UNSIGNED NULL,
+    `reviewedId` INTEGER UNSIGNED NOT NULL,
+    `type` ENUM('GUEST_TO_HOST', 'HOST_TO_GUEST') NOT NULL,
     `rating` INTEGER UNSIGNED NOT NULL,
     `cleanliness` INTEGER UNSIGNED NULL,
     `location` INTEGER UNSIGNED NULL,
     `accuracy` INTEGER UNSIGNED NULL,
     `value` INTEGER UNSIGNED NULL,
     `comment` TEXT NULL,
-    `isVisible` BOOLEAN NOT NULL DEFAULT false,
+    `isVisible` BOOLEAN NOT NULL DEFAULT true,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    UNIQUE INDEX `reviews_bookingId_key`(`bookingId`),
-    INDEX `reviews_listingId_idx`(`listingId`),
     INDEX `reviews_reviewerId_idx`(`reviewerId`),
+    INDEX `reviews_reviewedId_idx`(`reviewedId`),
+    INDEX `reviews_listingId_idx`(`listingId`),
+    UNIQUE INDEX `reviews_bookingId_type_key`(`bookingId`, `type`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `conversations` (
+    `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
+    `guestId` INTEGER UNSIGNED NOT NULL,
+    `hostId` INTEGER UNSIGNED NOT NULL,
+    `listingId` INTEGER UNSIGNED NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `conversations_guestId_idx`(`guestId`),
+    INDEX `conversations_hostId_idx`(`hostId`),
+    INDEX `conversations_listingId_idx`(`listingId`),
+    UNIQUE INDEX `conversations_guestId_hostId_listingId_key`(`guestId`, `hostId`, `listingId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
 CREATE TABLE `messages` (
     `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
-    `bookingId` INTEGER UNSIGNED NOT NULL,
+    `conversationId` INTEGER UNSIGNED NOT NULL,
     `senderId` INTEGER UNSIGNED NOT NULL,
     `content` TEXT NOT NULL,
     `isRead` BOOLEAN NOT NULL DEFAULT false,
+    `readAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
-    INDEX `messages_bookingId_idx`(`bookingId`),
+    INDEX `messages_conversationId_idx`(`conversationId`),
     INDEX `messages_senderId_idx`(`senderId`),
-    INDEX `messages_createdAt_idx`(`createdAt`),
+    INDEX `messages_conversationId_createdAt_idx`(`conversationId`, `createdAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -310,10 +330,22 @@ ALTER TABLE `reviews` ADD CONSTRAINT `reviews_bookingId_fkey` FOREIGN KEY (`book
 ALTER TABLE `reviews` ADD CONSTRAINT `reviews_reviewerId_fkey` FOREIGN KEY (`reviewerId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `reviews` ADD CONSTRAINT `reviews_listingId_fkey` FOREIGN KEY (`listingId`) REFERENCES `listings`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `reviews` ADD CONSTRAINT `reviews_reviewedId_fkey` FOREIGN KEY (`reviewedId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `messages` ADD CONSTRAINT `messages_bookingId_fkey` FOREIGN KEY (`bookingId`) REFERENCES `bookings`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `reviews` ADD CONSTRAINT `reviews_listingId_fkey` FOREIGN KEY (`listingId`) REFERENCES `listings`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `messages` ADD CONSTRAINT `messages_senderId_fkey` FOREIGN KEY (`senderId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `conversations` ADD CONSTRAINT `conversations_guestId_fkey` FOREIGN KEY (`guestId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `conversations` ADD CONSTRAINT `conversations_hostId_fkey` FOREIGN KEY (`hostId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `conversations` ADD CONSTRAINT `conversations_listingId_fkey` FOREIGN KEY (`listingId`) REFERENCES `listings`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `messages` ADD CONSTRAINT `messages_conversationId_fkey` FOREIGN KEY (`conversationId`) REFERENCES `conversations`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `messages` ADD CONSTRAINT `messages_senderId_fkey` FOREIGN KEY (`senderId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

@@ -75,7 +75,7 @@ export class UsersService {
         bio: true,
         createdAt: true,
         _count: {
-          select: { listings: true, reviews: true },
+          select: { listings: true, reviewsReceived: true },
         },
       },
     });

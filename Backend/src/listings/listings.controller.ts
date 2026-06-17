@@ -23,10 +23,12 @@ import { BlockDatesDto } from './dto/block-dates.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReviewsService } from 'src/reviews/reviews.service';
+import { QueryReviewsDto } from 'src/reviews/dto/query-reviews.dto';
 
 @Controller('listings')
 export class ListingsController {
-  constructor(private listingsService: ListingsService) {}
+  constructor(private listingsService: ListingsService, private reviewsService: ReviewsService) {}
 
   // ─── Create listing (HOST only) ───────────
 
@@ -189,4 +191,13 @@ export class ListingsController {
   ) {
     return this.listingsService.unblockDates(id, user.id, dates);
   }
+
+  // add this endpoint
+@Get(':id/reviews')
+getListingReviews(
+  @Param('id', ParseIntPipe) id: number,
+  @Query() query: QueryReviewsDto,
+) {
+  return this.reviewsService.getListingReviews(id, query);
+}
 }
