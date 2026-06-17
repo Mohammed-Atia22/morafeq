@@ -34,6 +34,11 @@ import { ProfilePage } from "./features/profile/pages/ProfilePage";
 
 import AddListingPage from "./features/listings/pages/AddListingPage";
 import EditListingPage from "./features/listings/pages/EditListingPage";
+import { AdminRoute } from "./app/routes/AdminRoute";
+import { AdminLayout } from "./app/layouts/AdminLayout";
+import AdminDashboardPage from "./features/admin/pages/AdminDashboardPage";
+import AdminListingsPage from "./features/admin/pages/AdminListingsPage";
+import AdminUsersPage from "./features/admin/pages/AdminUsersPage";
 
 function App() {
 return ( <AuthProvider> <Routes>
@@ -144,6 +149,20 @@ return ( <AuthProvider> <Routes>
         </ProtectedRoute>
       }
     />
+
+    {/* ─── Admin routes ─────────────────────────── */}
+    <Route
+      path="admin"
+      element={
+        <AdminRoute>
+          <AdminLayout />
+        </AdminRoute>
+      }
+    >
+      <Route index element={<AdminDashboardPage />} />
+      <Route path="listings" element={<AdminListingsPage />} />
+      <Route path="users" element={<AdminUsersPage />} />
+    </Route>
 
     {/* Unknown routes */}
     <Route path="*" element={<Navigate to="/" replace />} />

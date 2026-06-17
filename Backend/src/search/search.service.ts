@@ -4,7 +4,7 @@ import { SearchListingDto } from '../listings/dto/search-listing.dto';
 
 @Injectable()
 export class SearchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   private calculateDistanceKm(
     lat1: number,
@@ -21,9 +21,9 @@ export class SearchService {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2)) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
@@ -32,7 +32,7 @@ export class SearchService {
 
   private buildWhere(dto: SearchListingDto) {
     const where: any = {
-      status: 'ACTIVE',
+      status: { in: ['ACTIVE', 'APPROVED'] },
       isDeleted: false,
     };
 
@@ -310,7 +310,7 @@ export class SearchService {
     const searchTerm = query.trim();
     const listings = await this.prisma.listing.findMany({
       where: {
-        status: 'ACTIVE',
+        status: { in: ['ACTIVE', 'APPROVED'] },
         isDeleted: false,
         OR: [
           { title: { contains: searchTerm } },
@@ -340,7 +340,7 @@ export class SearchService {
       const fallbackResults = await this.prisma.$queryRaw`
         SELECT id, title, city, governorate, country, googleFormattedAddress
         FROM listings
-        WHERE status = 'ACTIVE'
+        WHERE status IN ('ACTIVE', 'APPROVED')
           AND isDeleted = 0
           AND (
             SOUNDEX(title) = SOUNDEX(${searchTerm})

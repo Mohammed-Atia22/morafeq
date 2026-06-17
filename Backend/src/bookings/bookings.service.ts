@@ -46,7 +46,7 @@ export class BookingsService {
       where: {
         id: dto.listingId,
         isDeleted: false,
-        status: ListingStatus.APPROVED,
+        status: { in: [ListingStatus.APPROVED, ListingStatus.ACTIVE] },
       },
     });
 

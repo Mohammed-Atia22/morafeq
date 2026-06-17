@@ -173,7 +173,7 @@ export class ListingsService {
     const skip = (page - 1) * limit;
 
     const where: any = {
-      status: ListingStatus.ACTIVE,
+      status: { in: [ListingStatus.APPROVED, ListingStatus.ACTIVE] },
       isDeleted: false,
     };
 
@@ -720,16 +720,16 @@ async submit(id: number, hostId: number) {
   return this.prisma.listing.update({
     where: { id },
     data: {
-      status:      ListingStatus.ACTIVE,
+      status:      ListingStatus.PENDING_APPROVAL,
       submittedAt: new Date(),
-      approvedAt: new Date(),
+      approvedAt:  null,
     },
     select: {
       id:          true,
       title:       true,
       status:      true,
       submittedAt: true,
-      approvedAt: true,
+      approvedAt:  true,
     },
   });
 }

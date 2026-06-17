@@ -98,7 +98,7 @@ export class UsersService {
         trustScore: true,
         isVerified: true,
         _count: {
-          select: { listings: true, reviews: true },
+          select: { listings: true, reviewsReceived: true },
         },
       },
     });
