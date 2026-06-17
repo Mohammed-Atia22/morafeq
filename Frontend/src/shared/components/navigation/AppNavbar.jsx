@@ -45,7 +45,9 @@ export function AppNavbar() {
     ? "lg:pr-[260px]"
     : pathname.startsWith("/expatriate")
       ? "lg:pr-[220px]"
-      : "";
+      : pathname.startsWith("/admin")
+        ? "lg:pr-[240px]"
+        : "";
 
   if (publicNavbarPaths.has(pathname)) {
     return (

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
+import { listingsApi } from "../../../listings/services/listingsApi";
 import { CheckIcon, EyeIcon, TrashIcon } from "../common/OwnerIcons";
 import {
   genderPreferenceOptions,
@@ -25,6 +27,7 @@ export function ListingCard({
 }) {
   const [form, setForm] = useState(() => listingToForm(listing));
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const meta = statusMeta[listing.status] || statusMeta.DRAFT;
   const image = listing.photos?.[0]?.url || fallbackImage;
   const reviewCount = listing._count?.reviews || 0;
@@ -34,6 +37,21 @@ export function ListingCard({
   useEffect(() => {
     setForm(listingToForm(listing));
   }, [listing]);
+
+  const handlePublish = async () => {
+    try {
+      setPublishing(true);
+      await listingsApi.publishListing(listing.id);
+      toast.success("تم إرسال العقار للمراجعة بنجاح");
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } catch (err) {
+      toast.error(err.message || "فشلت عملية الإرسال للمراجعة");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const updateField = (name, value) => {
     setForm((current) => ({ ...current, [name]: value }));
@@ -386,6 +404,13 @@ export function ListingCard({
               </p>
             </div>
 
+            {(listing.status === "REJECTED" || listing.status === "SUSPENDED") && listing.rejectionReason && (
+              <div className="mt-3 rounded-xl bg-red-50 p-3 text-right text-xs font-bold text-red-600 border border-red-100">
+                <span>سبب الرفض/التعليق: </span>
+                <span className="font-semibold text-red-700">{listing.rejectionReason}</span>
+              </div>
+            )}
+
             <div className="mt-3 flex flex-wrap items-center gap-4 text-xs font-bold text-slate-500">
               <span className="inline-flex items-center gap-1">
                 <EyeIcon className="h-4 w-4" />
@@ -405,12 +430,26 @@ export function ListingCard({
               >
                 تعديل
               </button>
-              <button
-                type="button"
-                className="h-10 rounded-xl border border-slate-200 text-sm font-black text-slate-500"
-              >
-                معاينات
-              </button>
+              
+              {["DRAFT", "REJECTED"].includes(listing.status) ? (
+                <button
+                  type="button"
+                  onClick={handlePublish}
+                  disabled={publishing}
+                  className="h-10 rounded-xl bg-blue-600 text-sm font-black text-white transition hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {publishing ? "جاري الإرسال..." : "تقديم للمراجعة"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="h-10 rounded-xl border border-slate-200 text-sm font-black text-slate-500 disabled:opacity-50"
+                  disabled
+                >
+                  {listing.status === "PENDING_APPROVAL" ? "قيد المراجعة" : "معاينات"}
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={onDelete}

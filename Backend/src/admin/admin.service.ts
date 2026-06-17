@@ -23,7 +23,14 @@ export class AdminService {
 
     const where = {
       isDeleted: false,
-      ...(query.status ? { status: query.status } : {}),
+      ...(query.status
+        ? {
+            status:
+              query.status === ListingStatus.APPROVED
+                ? { in: [ListingStatus.APPROVED, ListingStatus.ACTIVE] }
+                : query.status,
+          }
+        : {}),
     };
 
     const [listings, total] = await Promise.all([
@@ -114,7 +121,10 @@ export class AdminService {
       throw new NotFoundException('Listing not found');
     }
 
-    if (listing.status !== ListingStatus.PENDING_APPROVAL) {
+    if (
+      listing.status !== ListingStatus.PENDING_APPROVAL &&
+      listing.status !== ListingStatus.SUSPENDED
+    ) {
       throw new BadRequestException(
         `Cannot approve a listing with status: ${listing.status}`,
       );
@@ -146,7 +156,12 @@ export class AdminService {
       throw new NotFoundException('Listing not found');
     }
 
-    if (listing.status !== ListingStatus.PENDING_APPROVAL) {
+    if (
+      listing.status !== ListingStatus.PENDING_APPROVAL &&
+      listing.status !== ListingStatus.SUSPENDED &&
+      listing.status !== ListingStatus.APPROVED &&
+      listing.status !== ListingStatus.ACTIVE
+    ) {
       throw new BadRequestException(
         `Cannot reject a listing with status: ${listing.status}`,
       );
@@ -207,7 +222,17 @@ export class AdminService {
           isVerified:         true,
           isActive:           true,
           onboardingCompleted: true,
+          verificationStatus:  true,
           createdAt:          true,
+          verification: {
+            select: {
+              id:              true,
+              idFrontUrl:      true,
+              idBackUrl:       true,
+              selfieUrl:       true,
+              rejectionReason: true,
+            },
+          },
           _count: {
             select: { listings: true, bookings: true },
           },
@@ -291,7 +316,7 @@ export class AdminService {
       this.prisma.user.count(),
       this.prisma.listing.count({ where: { isDeleted: false } }),
       this.prisma.listing.count({ where: { status: ListingStatus.PENDING_APPROVAL, isDeleted: false } }),
-      this.prisma.listing.count({ where: { status: ListingStatus.APPROVED, isDeleted: false } }),
+      this.prisma.listing.count({ where: { status: { in: [ListingStatus.APPROVED, ListingStatus.ACTIVE] }, isDeleted: false } }),
       this.prisma.booking.count(),
       this.prisma.booking.count({ where: { status: 'CONFIRMED' } }),
     ]);
