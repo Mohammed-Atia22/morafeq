@@ -3,61 +3,62 @@ import roomTwo from "../../../../images/rooms (2).jpg";
 import roomThree from "../../../../images/rooms (3).jpg";
 
 export const statusTabs = [
-  { key: "all", label: "الكل" },
-  { key: "available", label: "متاحة" },
-  { key: "rented", label: "مؤجرة" },
-  { key: "pending", label: "قيد المعاينة" },
+  { key: "all", label: "All" },
+  { key: "draft", label: "Draft" },
+  { key: "active", label: "Active" },
+  { key: "rented", label: "Rented" },
+  { key: "archived", label: "Archived" },
 ];
 
 export const statusMeta = {
   ACTIVE: {
-    label: "متاحة",
+    label: "Active",
     dot: "bg-emerald-500",
     text: "text-emerald-600",
-    filter: "available",
+    filter: "active",
     accent: "emerald",
   },
   APPROVED: {
-    label: "متاحة",
+    label: "Active",
     dot: "bg-emerald-500",
     text: "text-emerald-600",
-    filter: "available",
+    filter: "active",
     accent: "emerald",
   },
   INACTIVE: {
-    label: "مؤجرة",
+    label: "Rented",
     dot: "bg-violet-500",
     text: "text-violet-600",
     filter: "rented",
     accent: "violet",
   },
   DRAFT: {
-    label: "مسودة",
+    label: "Draft",
     dot: "bg-slate-400",
     text: "text-slate-500",
-    filter: "pending",
-    accent: "amber",
+    filter: "draft",
+    accent: "slate",
   },
   PENDING_APPROVAL: {
-    label: "قيد المعاينة",
+    label: "Draft",
     dot: "bg-amber-400",
     text: "text-amber-600",
-    filter: "pending",
+    filter: "draft",
     accent: "amber",
   },
   REJECTED: {
-    label: "مرفوضة",
+    label: "Archived",
     dot: "bg-red-500",
     text: "text-red-600",
-    filter: "pending",
-    accent: "amber",
+    filter: "archived",
+    accent: "red",
   },
   SUSPENDED: {
-    label: "موقوفة",
+    label: "Archived",
     dot: "bg-red-500",
     text: "text-red-600",
-    filter: "pending",
-    accent: "amber",
+    filter: "archived",
+    accent: "red",
   },
 };
 

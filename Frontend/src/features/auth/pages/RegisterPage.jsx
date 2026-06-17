@@ -12,6 +12,9 @@ import toast from "react-hot-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
 
+const nameRegex =
+  /^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+)*$/u;
+
 const schema = zod
   .object({
     firstName: zod
@@ -19,14 +22,22 @@ const schema = zod
       .trim()
       .nonempty("الاسم الأول مطلوب")
       .min(2, "على الأقل حرفان")
-      .max(30, "الاسم الأول لا يزيد عن 30 حرف"),
+      .max(30, "الاسم الأول لا يزيد عن 30 حرف")
+      .regex(
+    nameRegex,
+    "الاسم الأول يجب أن يحتوي على حروف فقط",
+  ),
 
     lastName: zod
       .string()
       .trim()
       .nonempty("اسم العائلة مطلوب")
       .min(2, "على الأقل حرفان")
-      .max(30, "اسم العائلة لا يزيد عن 30 حرف"),
+      .max(30, "اسم العائلة لا يزيد عن 30 حرف")
+       .regex(
+    nameRegex,
+    "اسم العائلة يجب أن يحتوي على حروف فقط",
+  ),
 
     email: zod
       .string()

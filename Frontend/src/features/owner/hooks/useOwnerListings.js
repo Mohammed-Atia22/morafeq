@@ -49,8 +49,11 @@ export function useOwnerListings({ onUnauthorized } = {}) {
   }, [onUnauthorized]);
 
   const stats = useMemo(() => {
-    const available = listings.filter((listing) =>
+    const active = listings.filter((listing) =>
       ["ACTIVE", "APPROVED"].includes(listing.status),
+    ).length;
+    const draft = listings.filter((listing) =>
+      ["DRAFT", "PENDING_APPROVAL"].includes(listing.status),
     ).length;
     const rented = listings.filter(
       (listing) => listing.status === "INACTIVE",
@@ -61,10 +64,11 @@ export function useOwnerListings({ onUnauthorized } = {}) {
     );
 
     return [
-      { label: "الإجمالي", value: listings.length },
-      { label: "مؤجرة", value: rented },
-      { label: "متاحة", value: available },
-      { label: "الدخل", value: income.toLocaleString("en-US") },
+      { label: "Total", value: listings.length },
+      { label: "Draft", value: draft },
+      { label: "Active", value: active },
+      { label: "Rented", value: rented },
+      { label: "Income", value: income.toLocaleString("en-US") },
     ];
   }, [listings]);
 

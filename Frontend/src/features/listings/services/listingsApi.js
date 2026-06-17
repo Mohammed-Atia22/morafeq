@@ -13,6 +13,10 @@ export const listingsApi = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+  publishListing: (id) =>
+    apiRequest(`/listings/${id}/submit`, {
+      method: "PATCH",
+    }),
   deleteListing: (id) =>
     apiRequest(`/listings/${id}`, {
       method: "DELETE",

@@ -21,6 +21,31 @@ export function useProfile() {
   const [error, setError]             = useState(null);
   const [successMsg, setSuccessMsg]   = useState(null);
 
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await usersApi.getMe();
+      setProfile(data);
+      setForm({
+        firstName:        data.firstName        ?? "",
+        lastName:         data.lastName         ?? "",
+        bio:              data.bio              ?? "",
+        phone:            data.phone            ?? "",
+        phoneCountry:     data.phoneCountry     ?? "",
+        phoneCountryCode: data.phoneCountryCode ?? "",
+        gender:           data.gender           ?? "",
+      });
+      return data;
+    } catch (err) {
+      setError(err.message || "ÙØ´Ù„ ÙÙŠ ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // ─── Fetch profile on mount ───────────────
   useEffect(() => {
     let cancelled = false;
@@ -150,6 +175,7 @@ export function useProfile() {
     saveProfile,
     uploadAvatar,
     changePassword,
+    loadProfile,
     clearMessages: () => { setError(null); setSuccessMsg(null); },
   };
 }

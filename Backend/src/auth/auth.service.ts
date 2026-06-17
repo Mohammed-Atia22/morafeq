@@ -25,7 +25,7 @@ import * as bcrypt from 'bcryptjs';
 import * as CryptoJS from 'crypto-js';
 import { sendEmail } from 'src/common/emails/sendEmail';
 import { OtpRepository } from 'src/repository/otp.repository';
-import { OTPTypes, UserRole } from '@prisma/client';
+import { OTPTypes, UserRole, VerificationStatus } from '@prisma/client';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 @Injectable()
@@ -406,14 +406,34 @@ export class AuthService {
         role: true,
         gender: true,
         isVerified: true,
+        verificationStatus: true,
+        trustScore: true,
         onboardingCompleted: true,
         createdAt: true,
         passwordHash: true,
+        verification: {
+          select: {
+            status: true,
+            rejectionReason: true,
+          },
+        },
       },
     });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+
+    const currentVerificationStatus =
+      user.verification?.status ?? user.verificationStatus;
+
+    if (currentVerificationStatus !== user.verificationStatus) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { verificationStatus: currentVerificationStatus },
+      });
+
+      user.verificationStatus = currentVerificationStatus;
     }
 
     // decrypt phone for display

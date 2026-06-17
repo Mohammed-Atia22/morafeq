@@ -6,6 +6,7 @@ import { Step1Location } from "./Step1Location";
 import { Step2Details } from "./Step2Details";
 import { Step3Rules } from "./Step3Rules";
 import { useAuth } from "../../auth/hooks/useAuth";
+import { DraftSavedVerificationModal } from "./DraftSavedVerificationModal";
 
 const AMENITY_OPTIONS = [
   { key: "wifi", label: "Wi-Fi" },
@@ -17,7 +18,7 @@ const AMENITY_OPTIONS = [
 ];
 
 export function AddListingForm({ embedded = false, onCreated }) {
-  const { user, completeGoogleLogin } = useAuth();
+  const { user, completeGoogleLogin, refreshUser } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
 
   const [mapResult, setMapResult] = useState(null);
@@ -28,6 +29,8 @@ export function AddListingForm({ embedded = false, onCreated }) {
 
   const [isFindingLocation, setIsFindingLocation] = useState(false);
   const [isSubmittingListing, setIsSubmittingListing] = useState(false);
+  const [showDraftSavedModal, setShowDraftSavedModal] = useState(false);
+  const [savedDraftResult, setSavedDraftResult] = useState(null);
 
   const {
     register,
@@ -279,7 +282,9 @@ export function AddListingForm({ embedded = false, onCreated }) {
       setIsSubmittingListing(true);
       clearErrors("root");
 
-      if (user?.role !== "HOST" && user?.role !== "ADMIN") {
+      const currentUser = (await refreshUser?.()) ?? user;
+
+      if (currentUser?.role !== "HOST" && currentUser?.role !== "ADMIN") {
         const hostSession = await apiRequest("/users/me/become-host", {
           method: "POST",
         });
@@ -398,11 +403,24 @@ export function AddListingForm({ embedded = false, onCreated }) {
           message: optionalWarnings.join(". "),
         });
         alert("Listing created, but some optional details were not saved yet");
-      } else {
-        alert("Listing created successfully");
+        onCreated?.(result);
+        return;
       }
-      console.log("Created listing:", result);
-      onCreated?.(result);
+
+      const latestUser = (await refreshUser?.()) ?? currentUser;
+
+      if (latestUser?.verificationStatus === "APPROVED") {
+        await listingsApi.publishListing(listingId);
+        alert("Listing published successfully");
+        onCreated?.({
+          ...result,
+          listing: { ...result.listing, status: "ACTIVE" },
+        });
+        return;
+      }
+
+      setSavedDraftResult(result);
+      setShowDraftSavedModal(true);
     } catch (error) {
       console.error(error);
 
@@ -604,6 +622,13 @@ export function AddListingForm({ embedded = false, onCreated }) {
           </form>
         </div>
       </div>
+      <DraftSavedVerificationModal
+        open={showDraftSavedModal}
+        onContinueLater={() => {
+          setShowDraftSavedModal(false);
+          onCreated?.(savedDraftResult);
+        }}
+      />
     </div>
   );
 }

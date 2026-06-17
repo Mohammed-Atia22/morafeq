@@ -123,6 +123,14 @@ export function AuthProvider({ children }) {
     loadCurrentUser();
   }, [token]);
 
+  const refreshUser = useCallback(async () => {
+    if (!token) return null;
+
+    const currentUser = await authApi.me();
+    setUser(currentUser);
+    return currentUser;
+  }, [token]);
+
   const login = useCallback(
     async (payload) => {
       const data = await authApi.login(payload);
@@ -204,6 +212,7 @@ export function AuthProvider({ children }) {
       login,
       confirmOtp,
       completeGoogleLogin,
+      refreshUser,
       logout,
     }),
     [
@@ -213,6 +222,7 @@ export function AuthProvider({ children }) {
       login,
       confirmOtp,
       completeGoogleLogin,
+      refreshUser,
       logout,
     ],
   );
