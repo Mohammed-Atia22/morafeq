@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { VerificationBadge } from "../../../verification/components/VerificationBadge";
 
 const ROOM_TYPE_LABELS = {
   ENTIRE_PLACE: "شقة كاملة",
@@ -65,6 +66,13 @@ export function ListingCard({ listing }) {
         {/* Type badge */}
         <span className="absolute right-2 top-2 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow backdrop-blur">
           {roomLabel}
+        </span>
+
+        <span className="absolute right-2 bottom-2">
+          <VerificationBadge
+            status={listing.host?.verificationStatus}
+            compact
+          />
         </span>
 
         {/* Distance badge */}

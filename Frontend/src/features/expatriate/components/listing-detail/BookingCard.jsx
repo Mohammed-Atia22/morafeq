@@ -1,15 +1,49 @@
 import { useState } from "react";
+import { useAuth } from "../../../auth/hooks/useAuth";
+import { bookingsApi } from "../../../bookings/services/bookingsApi";
+import { VerificationRequiredModal } from "../../../verification/components/VerificationRequiredModal";
 
 export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", listingId }) {
+  const { user, refreshUser } = useAuth();
   const [checkIn, setCheckIn] = useState("");
   const [months, setMonths] = useState(1);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingMessage, setBookingMessage] = useState(null);
+  const [bookingError, setBookingError] = useState(null);
 
   const total = Number(monthlyRent) * months;
   const deposit = Number(depositAmount ?? 0);
 
   const currencyLabel = currency === "EGP" ? "ج.م" : currency;
 
+  const handleBooking = async () => {
+    const currentUser = (await refreshUser?.()) ?? user;
+
+    if (currentUser?.verificationStatus !== "APPROVED") {
+      setShowVerificationModal(true);
+      return;
+    }
+
+    setBookingLoading(true);
+    setBookingMessage(null);
+    setBookingError(null);
+
+    try {
+      await bookingsApi.createBooking({
+        listingId,
+        preferredMoveInDate: checkIn || undefined,
+      });
+      setBookingMessage("Booking request sent successfully.");
+    } catch (error) {
+      setBookingError(error.message || "Failed to send booking request.");
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
   return (
+    <>
     <div
       dir="rtl"
       className="sticky top-6 rounded-2xl bg-white p-5 shadow-md ring-1 ring-slate-100"
@@ -95,15 +129,35 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
         </button>
         <button
           type="button"
-          className="w-full rounded-xl bg-[#1752F0] px-4 py-3 text-sm font-black text-white shadow transition hover:bg-[#1240c4]"
+          onClick={handleBooking}
+          disabled={bookingLoading}
+          className="w-full rounded-xl bg-[#1752F0] px-4 py-3 text-sm font-black text-white shadow transition hover:bg-[#1240c4] disabled:opacity-60"
         >
           احجز الآن
         </button>
       </div>
 
+      {(bookingMessage || bookingError) && (
+        <div
+          className={[
+            "mt-3 rounded-xl px-3 py-2 text-center text-xs font-semibold",
+            bookingMessage
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-red-50 text-red-600",
+          ].join(" ")}
+        >
+          {bookingMessage || bookingError}
+        </div>
+      )}
+
       <p className="mt-3 text-center text-[10px] text-slate-400">
         لن يتم خصم أي مبلغ الآن — سيتم التأكيد مع المالك أولاً
       </p>
     </div>
+    <VerificationRequiredModal
+      open={showVerificationModal}
+      onClose={() => setShowVerificationModal(false)}
+    />
+    </>
   );
 }

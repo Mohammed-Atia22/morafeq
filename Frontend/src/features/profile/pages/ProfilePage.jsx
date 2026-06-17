@@ -4,6 +4,9 @@ import { AvatarUploader } from "../components/AvatarUploader";
 import { ProfileInfoForm } from "../components/ProfileInfoForm";
 import { ChangePasswordForm } from "../components/ChangePasswordForm";
 import { ProfileCompleteness } from "../components/ProfileCompleteness";
+import { useVerification } from "../../verification/hooks/useVerification";
+import { VerificationBadge } from "../../verification/components/VerificationBadge";
+import { VerificationPanel } from "../../verification/components/VerificationPanel";
 
 // ─── Skeleton ─────────────────────────────────
 function ProfileSkeleton() {
@@ -59,8 +62,22 @@ export function ProfilePage() {
     saveProfile,
     uploadAvatar,
     changePassword,
+    loadProfile,
     clearMessages,
   } = useProfile();
+  const {
+    verification,
+    loading: verificationLoading,
+    submitting: verificationSubmitting,
+    error: verificationError,
+    successMsg: verificationSuccessMsg,
+    submitDocuments,
+    clearMessages: clearVerificationMessages,
+  } = useVerification({
+    onSubmitted: () => {
+      loadProfile();
+    },
+  });
 
   // Auto-clear success message after 4 seconds
   useEffect(() => {
@@ -87,6 +104,19 @@ export function ProfilePage() {
 
       {/* Completeness */}
       <ProfileCompleteness profile={profile} completeness={completeness} />
+
+      <VerificationPanel
+        verification={{
+          ...verification,
+          status: profile?.verificationStatus ?? verification?.status,
+        }}
+        loading={verificationLoading}
+        submitting={verificationSubmitting}
+        error={verificationError}
+        successMsg={verificationSuccessMsg}
+        onSubmit={submitDocuments}
+        onClearMessages={clearVerificationMessages}
+      />
 
       {/* Avatar card */}
       <div className="rounded-2xl bg-white px-6 py-5 shadow-sm ring-1 ring-slate-100">
@@ -130,22 +160,7 @@ export function ProfilePage() {
                 {profile?.email}
               </p>
             </div>
-            {profile?.isVerified && (
-              <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className="h-3 w-3"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                موثّق
-              </span>
-            )}
+            <VerificationBadge status={profile?.verificationStatus} compact />
           </div>
 
           {/* Role */}

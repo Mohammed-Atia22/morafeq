@@ -18,6 +18,7 @@ import { LocationInsightsModule } from './location-insights/location-insights.mo
 import { AdminModule } from './admin/admin.module';
 import { ChatModule } from './chat/chat.module';
 import { ConfigModule } from '@nestjs/config';
+import { VerificationModule } from './verification/verification.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ConfigModule } from '@nestjs/config';
     LocationInsightsModule,
     AdminModule,
     ChatModule,
+    VerificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

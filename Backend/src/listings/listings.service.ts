@@ -7,7 +7,12 @@ import {
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
 import { PrismaService } from './../prisma/prisma.service';
-import { ListingStatus, UserRole, BlockReason } from '@prisma/client';
+import {
+  ListingStatus,
+  UserRole,
+  BlockReason,
+  VerificationStatus,
+} from '@prisma/client';
 import { AreasService } from '../areas/areas.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { SearchListingDto } from './dto/search-listing.dto';
@@ -31,7 +36,6 @@ export class ListingsService {
         id: true,
         role: true,
         isActive: true,
-        isVerified: true,
       },
     });
 
@@ -41,10 +45,6 @@ export class ListingsService {
 
     if (!host.isActive) {
       throw new ForbiddenException('This account is deactivated');
-    }
-
-    if (!host.isVerified) {
-      throw new ForbiddenException('Please verify your account first');
     }
 
     if (host.role !== UserRole.HOST) {
@@ -118,6 +118,8 @@ export class ListingsService {
             firstName: true,
             lastName: true,
             avatarUrl: true,
+            verificationStatus: true,
+            trustScore: true,
           },
         },
         category: true,
@@ -264,6 +266,8 @@ export class ListingsService {
           firstName: true,
           lastName: true,
           avatarUrl: true,
+          verificationStatus: true,
+          trustScore: true,
         },
       },
       area: true,
@@ -425,6 +429,8 @@ export class ListingsService {
             lastName: true,
             avatarUrl: true,
             createdAt: true,
+            verificationStatus: true,
+            trustScore: true,
             _count: { select: { listings: true } },
           },
         },
@@ -479,6 +485,13 @@ export class ListingsService {
 
   async update(id: number, hostId: number, dto: UpdateListingDto) {
     await this.verifyOwnership(id, hostId);
+
+    if (
+      dto.status === ListingStatus.ACTIVE ||
+      dto.status === ListingStatus.APPROVED
+    ) {
+      await this.ensureHostCanPublish(hostId);
+    }
 
     const currentListing = await this.prisma.listing.findUnique({
       where: { id },
@@ -675,17 +688,15 @@ export class ListingsService {
 
 async submit(id: number, hostId: number) {
   const listing = await this.verifyOwnership(id, hostId);
+  await this.ensureHostCanPublish(hostId);
 
   // must have at least one photo before submitting
-  if (listing.status === ListingStatus.APPROVED) {
+  if (
+    listing.status === ListingStatus.ACTIVE ||
+    listing.status === ListingStatus.APPROVED
+  ) {
     throw new BadRequestException(
-      'This listing is already approved and live',
-    );
-  }
-
-  if (listing.status === ListingStatus.PENDING_APPROVAL) {
-    throw new BadRequestException(
-      'This listing is already submitted and waiting for admin review',
+      'This listing is already active',
     );
   }
 
@@ -709,14 +720,16 @@ async submit(id: number, hostId: number) {
   return this.prisma.listing.update({
     where: { id },
     data: {
-      status:      ListingStatus.PENDING_APPROVAL,
+      status:      ListingStatus.ACTIVE,
       submittedAt: new Date(),
+      approvedAt: new Date(),
     },
     select: {
       id:          true,
       title:       true,
       status:      true,
       submittedAt: true,
+      approvedAt: true,
     },
   });
 }
@@ -909,6 +922,27 @@ async submit(id: number, hostId: number) {
 }
 
   // ─── Soft delete ───────────────────────────
+
+  private async ensureHostCanPublish(hostId: number) {
+    const host = await this.prisma.user.findUnique({
+      where: { id: hostId },
+      select: {
+        verificationStatus: true,
+        verification: {
+          select: { status: true },
+        },
+      },
+    });
+
+    const hostVerificationStatus =
+      host?.verification?.status ?? host?.verificationStatus;
+
+    if (hostVerificationStatus !== VerificationStatus.APPROVED) {
+      throw new ForbiddenException(
+        'You need to verify your identity before publishing a listing',
+      );
+    }
+  }
 
   async remove(id: number, hostId: number) {
     await this.verifyOwnership(id, hostId);

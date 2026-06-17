@@ -48,6 +48,13 @@ const statusOptions = [
   { value: "SUSPENDED", label: "موقوفة" },
 ];
 
+const publishStatusOptions = [
+  { value: "DRAFT", label: "Draft" },
+  { value: "ACTIVE", label: "Active" },
+  { value: "INACTIVE", label: "Rented" },
+  { value: "SUSPENDED", label: "Archived" },
+];
+
 const AMENITY_OPTIONS = [
   { key: "wifi", label: "Wi-Fi" },
   { key: "kitchen", label: "Kitchen" },
@@ -382,7 +389,7 @@ export default function EditListingPage() {
                 type="select"
                 value={form.status}
                 onChange={(value) => updateField("status", value)}
-                options={statusOptions}
+                options={publishStatusOptions}
               />
               <EditField
                 label="أقل مدة إقامة بالشهور"

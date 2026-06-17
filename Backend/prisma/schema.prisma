@@ -23,12 +23,15 @@ model User {
   gender              genderTypes    @default(male)
   bio                 String?        @db.Text
   isVerified          Boolean        @default(false)
+  verificationStatus  VerificationStatus @default(NOT_STARTED)
+  trustScore          Int            @default(0) @db.UnsignedInt
   isActive            Boolean        @default(true)
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
   bookings            Booking[]
   listings            Listing[]
   reviews             Review[]
+  verification        Verification?
   otps                OTP[]
   guestConversations  Conversation[] @relation("GuestConversations")
   hostConversations   Conversation[] @relation("HostConversations")
@@ -38,6 +41,22 @@ model User {
   @@index([phoneCountry])
   @@index([phoneCountryCode])
   @@map("users")
+}
+
+model Verification {
+  id              Int                @id @default(autoincrement()) @db.UnsignedInt
+  userId          Int                @unique @db.UnsignedInt
+  idFrontUrl      String             @db.VarChar(500)
+  idBackUrl       String             @db.VarChar(500)
+  selfieUrl       String             @db.VarChar(500)
+  status          VerificationStatus @default(PENDING)
+  rejectionReason String?            @db.Text
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("verifications")
 }
 
 model Category {
@@ -445,4 +464,11 @@ enum OTPTypes {
 enum genderTypes {
   male
   female
+}
+
+enum VerificationStatus {
+  NOT_STARTED
+  PENDING
+  APPROVED
+  REJECTED
 }

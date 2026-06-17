@@ -1,3 +1,5 @@
+import { VerificationBadge } from "../../../verification/components/VerificationBadge";
+
 export function HostCard({ host }) {
   if (!host) return null;
 
@@ -32,7 +34,10 @@ export function HostCard({ host }) {
           )}
 
           <div>
-            <p className="text-sm font-bold text-[#0f172a]">{fullName}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-bold text-[#0f172a]">{fullName}</p>
+              <VerificationBadge status={host.verificationStatus} compact />
+            </div>
             <div className="mt-0.5 flex flex-col gap-0.5">
               {host._count?.listings != null && (
                 <p className="text-xs text-slate-400">

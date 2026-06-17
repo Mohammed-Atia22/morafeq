@@ -8,7 +8,7 @@ import { UploadsService } from '../uploads/uploads.service';
 import { AuthService } from '../auth/auth.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { UserRole } from '@prisma/client';
+import { UserRole, VerificationStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as CryptoJS from 'crypto-js';
 
@@ -38,16 +38,36 @@ export class UsersService {
         gender: true, // ← added
         role: true,
         isVerified: true,
+        verificationStatus: true,
+        trustScore: true,
         onboardingCompleted: true, // ← added
         createdAt: true,
         passwordHash: true, // ← for checking if user has password
         _count: {
           select: { listings: true },
         },
+        verification: {
+          select: {
+            status: true,
+            rejectionReason: true,
+          },
+        },
       },
     });
 
     if (!user) throw new NotFoundException('User not found');
+
+    const currentVerificationStatus =
+      user.verification?.status ?? user.verificationStatus;
+
+    if (currentVerificationStatus !== user.verificationStatus) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { verificationStatus: currentVerificationStatus },
+      });
+
+      user.verificationStatus = currentVerificationStatus;
+    }
 
     if (user.phone) {
   const bytes = CryptoJS.AES.decrypt(
@@ -74,6 +94,9 @@ export class UsersService {
         avatarUrl: true,
         bio: true,
         createdAt: true,
+        verificationStatus: true,
+        trustScore: true,
+        isVerified: true,
         _count: {
           select: { listings: true, reviews: true },
         },
@@ -111,6 +134,8 @@ export class UsersService {
         gender: true,
         bio: true,
         role: true,
+        verificationStatus: true,
+        trustScore: true,
       },
     });
 
@@ -204,6 +229,8 @@ export class UsersService {
         firstName: true,
         lastName: true,
         role: true,
+        verificationStatus: true,
+        trustScore: true,
       },
     });
 
