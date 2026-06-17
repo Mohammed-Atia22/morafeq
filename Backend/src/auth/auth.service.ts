@@ -234,7 +234,7 @@ export class AuthService {
 
     if (!otpExist) {
       throw new ForbiddenException(
-        'OTP does not exist. Please request a new one.',
+        'انتهت صلاحية رمز التحقق لمرة واحدة. يرجى طلب رمز جديد.',
       );
     }
 
@@ -242,7 +242,7 @@ export class AuthService {
     if (new Date() > otpExist.expiresAt) {
       await this.prisma.oTP.delete({ where: { id: otpExist.id } });
       throw new ForbiddenException(
-        'OTP has expired. Please request a new one.',
+        'انتهت صلاحية رمز التحقق لمرة واحدة. يرجى طلب رمز جديد.',
       );
     }
 
@@ -250,7 +250,7 @@ export class AuthService {
     const otpCompare = await bcrypt.compare(otp, otpExist.otp);
 
     if (!otpCompare) {
-      throw new ForbiddenException('OTP is incorrect');
+      throw new ForbiddenException('رمز التحقق غير صحيح');
     }
 
     // 5. verify user

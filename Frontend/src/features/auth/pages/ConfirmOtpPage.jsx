@@ -90,15 +90,10 @@ export function ConfirmOtpPage() {
       >
         <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
           <AuthMessage>{serverError}</AuthMessage>
+          <AuthMessage>{errors.email?.message}</AuthMessage>
           <AuthMessage type="success">{success}</AuthMessage>
 
-          <FormField label="البريد الإلكتروني" error={errors.email}>
-            <input
-              className={inputClass}
-              type="email"
-              {...register("email", { required: "البريد الإلكتروني مطلوب" })}
-            />
-          </FormField>
+          <input type="hidden" {...register("email")} />
 
           <FormField label="رمز التحقق" error={errors.otp}>
             <input

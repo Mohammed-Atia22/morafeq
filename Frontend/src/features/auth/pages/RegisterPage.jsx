@@ -116,7 +116,7 @@ export function RegisterPage() {
 
       await authApi.register(payload);
       toast.success("تم التسجيل بنجاح");
-      navigate("/confirm-otp");
+      navigate(`/confirm-otp?email=${encodeURIComponent(values.email)}`);
     } catch (error) {
       console.log(error.response?.data || error.message);
       setServerError(error.response?.data?.message || error.message);
