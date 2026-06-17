@@ -30,19 +30,13 @@ model User {
   updatedAt           DateTime           @updatedAt
   bookings            Booking[]
   listings            Listing[]
-  reviewsWritten      Review[]       @relation("ReviewsWritten")
-  reviewsReceived     Review[]       @relation("ReviewsReceived")
+  reviewsWritten      Review[]           @relation("ReviewsWritten")
+  reviewsReceived     Review[]           @relation("ReviewsReceived")
   otps                OTP[]
-<<<<<<< HEAD
   guestConversations  Conversation[]     @relation("GuestConversations")
   hostConversations   Conversation[]     @relation("HostConversations")
   sentMessages        Message[]          @relation("MessageSender")
-=======
-  guestConversations  Conversation[] @relation("GuestConversations")
-  hostConversations   Conversation[] @relation("HostConversations")
-  sentMessages        Message[]      @relation("MessageSender")
-   verification        Verification?
->>>>>>> 5f78d0f2c40f4e9534e884ee30a53beeaf86ba78
+  verification        Verification?
 
   @@index([email])
   @@index([phoneCountry])
@@ -293,27 +287,27 @@ model Booking {
 }
 
 model Payment {
-  id                    Int           @id @default(autoincrement()) @db.UnsignedInt
-  bookingId             Int           @unique @db.UnsignedInt
+  id        Int @id @default(autoincrement()) @db.UnsignedInt
+  bookingId Int @unique @db.UnsignedInt
 
   // Paymob specific fields
-  paymobOrderId         String?       @unique @db.VarChar(255)
-  paymobTransactionId   String?       @unique @db.VarChar(255)
+  paymobOrderId       String? @unique @db.VarChar(255)
+  paymobTransactionId String? @unique @db.VarChar(255)
 
-  amount                Int           @db.UnsignedInt  // in piastres (EGP cents)
-  platformFee           Int           @default(0) @db.UnsignedInt
-  hostPayoutAmount      Int           @default(0) @db.UnsignedInt
-  currency              String        @default("EGP") @db.VarChar(3)
+  amount           Int    @db.UnsignedInt // in piastres (EGP cents)
+  platformFee      Int    @default(0) @db.UnsignedInt
+  hostPayoutAmount Int    @default(0) @db.UnsignedInt
+  currency         String @default("EGP") @db.VarChar(3)
 
-  status                PaymentStatus @default(PENDING)
+  status PaymentStatus @default(PENDING)
 
-  paymentMethod         String?       @db.VarChar(50)  // card, fawry, wallet
-  refundReason          String?       @db.Text
+  paymentMethod String? @db.VarChar(50) // card, fawry, wallet
+  refundReason  String? @db.Text
 
-  paidAt                DateTime?
-  refundedAt            DateTime?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  paidAt     DateTime?
+  refundedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   booking Booking @relation(fields: [bookingId], references: [id])
 
@@ -327,8 +321,8 @@ model Review {
   id         Int        @id @default(autoincrement()) @db.UnsignedInt
   bookingId  Int        @db.UnsignedInt
   reviewerId Int        @db.UnsignedInt
-  listingId  Int?       @db.UnsignedInt  // nullable — host-to-guest has no listing
-  reviewedId Int        @db.UnsignedInt  // who is being reviewed
+  listingId  Int?       @db.UnsignedInt // nullable — host-to-guest has no listing
+  reviewedId Int        @db.UnsignedInt // who is being reviewed
   type       ReviewType
 
   rating Int @db.UnsignedInt
@@ -345,9 +339,9 @@ model Review {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  booking  Booking @relation(fields: [bookingId], references: [id])
-  reviewer User    @relation("ReviewsWritten", fields: [reviewerId], references: [id])
-  reviewed User    @relation("ReviewsReceived", fields: [reviewedId], references: [id])
+  booking  Booking  @relation(fields: [bookingId], references: [id])
+  reviewer User     @relation("ReviewsWritten", fields: [reviewerId], references: [id])
+  reviewed User     @relation("ReviewsReceived", fields: [reviewedId], references: [id])
   listing  Listing? @relation(fields: [listingId], references: [id])
 
   // one review per booking per type — no duplicates
