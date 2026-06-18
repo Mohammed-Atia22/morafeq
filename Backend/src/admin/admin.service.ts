@@ -4,11 +4,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ListingStatus } from '@prisma/client';
+import { BookingStatus,ListingStatus } from '@prisma/client';
 import { ApproveListingDto } from './dto/approve-listing.dto';
 import { RejectListingDto } from './dto/reject-listing.dto';
 import { AdminQueryListingsDto } from './dto/query-listings.dto';
 import { AdminUpdateUserDto } from './dto/update-user.dto';
+
 
 @Injectable()
 export class AdminService {
@@ -318,7 +319,16 @@ export class AdminService {
       this.prisma.listing.count({ where: { status: ListingStatus.PENDING_APPROVAL, isDeleted: false } }),
       this.prisma.listing.count({ where: { status: { in: [ListingStatus.APPROVED, ListingStatus.ACTIVE] }, isDeleted: false } }),
       this.prisma.booking.count(),
-      this.prisma.booking.count({ where: { status: 'CONFIRMED' } }),
+      this.prisma.booking.count({
+  where: {
+    status: {
+      in: [
+        BookingStatus.CHECK_IN_PENDING,
+        BookingStatus.COMPLETED,
+      ],
+    },
+  },
+}),
     ]);
 
     return {

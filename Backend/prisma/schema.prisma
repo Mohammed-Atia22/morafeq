@@ -255,6 +255,7 @@ model Booking {
 
   preferredMoveInDate DateTime? @db.Date
   guestMessage        String?   @db.Text
+  agreedAmount        Int?      @db.UnsignedInt
 
   status BookingStatus @default(PENDING_HOST_APPROVAL)
 
@@ -262,11 +263,17 @@ model Booking {
   rejectionReason    String? @db.Text
   cancellationReason String? @db.Text
 
-  acceptedAt  DateTime?
-  confirmedAt DateTime?
-  rejectedAt  DateTime?
-  cancelledAt DateTime?
-  completedAt DateTime?
+  disputeReason      String? @db.VarChar(100)
+  disputeDescription String? @db.Text
+  disputeResolution  String? @db.Text
+
+  acceptedAt        DateTime?
+  confirmedAt       DateTime?
+  rejectedAt        DateTime?
+  cancelledAt       DateTime?
+  completedAt       DateTime?
+  disputedAt        DateTime?
+  disputeResolvedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -305,6 +312,8 @@ model Payment {
   refundReason  String? @db.Text
 
   paidAt     DateTime?
+  heldAt     DateTime?
+  releasedAt DateTime?
   refundedAt DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -445,19 +454,22 @@ enum RoomType {
 enum BookingStatus {
   PENDING_HOST_APPROVAL
   PENDING_PAYMENT
-  CONFIRMED
+  CHECK_IN_PENDING
+  DISPUTED
+  COMPLETED
   REJECTED
   CANCELLED_BY_GUEST
   CANCELLED_BY_HOST
-  COMPLETED
+  REFUNDED
 }
 
 enum PaymentStatus {
   PENDING
-  CAPTURED
+  HELD
+  RELEASED
+  FAILED
   REFUNDED
   PARTIALLY_REFUNDED
-  FAILED
 }
 
 enum BlockReason {

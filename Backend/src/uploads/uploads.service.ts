@@ -61,7 +61,7 @@ export class UploadsService {
         formData,
         {
           headers: formData.getHeaders(),
-          timeout: 15000, // 15 seconds timeout
+          timeout: 60000, // 15 seconds timeout
         },
       );
 

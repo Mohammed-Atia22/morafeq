@@ -8,15 +8,19 @@ import {
 import {
   BookingStatus,
   ListingStatus,
+   PaymentStatus,
   VerificationStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { ReportBookingProblemDto } from './dto/report-booking-problem.dto';
 import {
   BookingResponseAction,
   RespondBookingDto,
 } from './dto/respond-booking.dto';
+
+
 
 @Injectable()
 export class BookingsService {
@@ -65,8 +69,9 @@ export class BookingsService {
         status: {
           in: [
             BookingStatus.PENDING_HOST_APPROVAL,
-            BookingStatus.PENDING_PAYMENT,
-            BookingStatus.CONFIRMED,
+    BookingStatus.PENDING_PAYMENT,
+    BookingStatus.CHECK_IN_PENDING,
+    BookingStatus.DISPUTED,
           ],
         },
       },
@@ -78,17 +83,27 @@ export class BookingsService {
       );
     }
 
-    const confirmedBooking = await this.prisma.booking.findFirst({
-      where: {
-        listingId: dto.listingId,
-        status: BookingStatus.CONFIRMED,
-      },
-    });
+    const activeBooking = await this.prisma.booking.findFirst({
+  where: {
+    listingId: dto.listingId,
+    status: {
+      in: [
+        BookingStatus.PENDING_PAYMENT,
+        BookingStatus.CHECK_IN_PENDING,
+        BookingStatus.DISPUTED,
+        BookingStatus.COMPLETED,
+      ],
+    },
+  },
+});
 
-    if (confirmedBooking) {
-      throw new ConflictException('This listing is already booked');
-    }
+if (activeBooking) {
+  throw new ConflictException(
+    'This listing is already reserved or booked',
+  );
+}
 
+  
     return this.prisma.booking.create({
       data: {
         guestId,
@@ -128,6 +143,7 @@ export class BookingsService {
         where: { id: bookingId },
         data: {
           status: BookingStatus.PENDING_PAYMENT,
+          agreedAmount: booking.listing.monthlyRent,
           hostResponseNote: dto.note,
           acceptedAt: new Date(),
         },
@@ -228,50 +244,206 @@ export class BookingsService {
     });
   }
 
-  async complete(bookingId: number, hostId: number) {
-    const booking = await this.prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: { listing: true },
-    });
+  // async complete(bookingId: number, hostId: number) {
+  //   const booking = await this.prisma.booking.findUnique({
+  //     where: { id: bookingId },
+  //     include: { listing: true },
+  //   });
 
-    if (!booking) throw new NotFoundException('Booking not found');
+  //   if (!booking) throw new NotFoundException('Booking not found');
 
-    if (booking.listing.hostId !== hostId) {
-      throw new ForbiddenException('Only the host can mark a booking as completed');
-    }
+  //   if (booking.listing.hostId !== hostId) {
+  //     throw new ForbiddenException('Only the host can mark a booking as completed');
+  //   }
 
-    if (booking.status !== BookingStatus.CONFIRMED) {
-      throw new BadRequestException('Only confirmed bookings can be completed');
-    }
+  //   if (booking.status !== BookingStatus.CONFIRMED) {
+  //     throw new BadRequestException('Only confirmed bookings can be completed');
+  //   }
 
-    return this.prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: BookingStatus.COMPLETED,
-        completedAt: new Date(),
+  //   return this.prisma.booking.update({
+  //     where: { id: bookingId },
+  //     data: {
+  //       status: BookingStatus.COMPLETED,
+  //       completedAt: new Date(),
+  //     },
+  //     include: this.bookingIncludes(),
+  //   });
+  // }
+
+
+  async confirmReceipt(
+  bookingId: number,
+  guestId: number,
+) {
+  const booking =
+    await this.prisma.booking.findUnique({
+      where: {
+        id: bookingId,
       },
-      include: this.bookingIncludes(),
+      include: {
+        payment: true,
+      },
     });
+
+  if (!booking) {
+    throw new NotFoundException(
+      'Booking not found',
+    );
   }
 
-  async getHostStats(hostId: number) {
-    const [pending, confirmed, completed, total] = await Promise.all([
-      this.prisma.booking.count({
-        where: {
-          listing: { hostId },
-          status: BookingStatus.PENDING_HOST_APPROVAL,
-        },
-      }),
-      this.prisma.booking.count({
-        where: { listing: { hostId }, status: BookingStatus.CONFIRMED },
-      }),
-      this.prisma.booking.count({
-        where: { listing: { hostId }, status: BookingStatus.COMPLETED },
-      }),
-      this.prisma.booking.count({ where: { listing: { hostId } } }),
-    ]);
+  if (booking.guestId !== guestId) {
+    throw new ForbiddenException(
+      'Only the guest can confirm receiving the property',
+    );
+  }
 
-    return { pending, confirmed, completed, total };
+  if (
+    booking.status !==
+    BookingStatus.CHECK_IN_PENDING
+  ) {
+    throw new BadRequestException(
+      `Cannot confirm receipt with booking status: ${booking.status}`,
+    );
+  }
+
+  if (
+    !booking.payment ||
+    booking.payment.status !== PaymentStatus.HELD
+  ) {
+    throw new BadRequestException(
+      'No held payment found for this booking',
+    );
+  }
+
+  return this.prisma.$transaction(
+    async (tx) => {
+      // أولًا: تحرير المبلغ لصاحب السكن
+      await tx.payment.update({
+        where: {
+          bookingId,
+        },
+        data: {
+          status: PaymentStatus.RELEASED,
+          releasedAt: new Date(),
+        },
+      });
+
+      // ثانيًا: إكمال الحجز
+      return tx.booking.update({
+        where: {
+          id: bookingId,
+        },
+        data: {
+          status: BookingStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+        include: this.bookingIncludes(),
+      });
+    },
+  );
+}
+
+
+
+async reportProblem(
+  bookingId: number,
+  guestId: number,
+  dto: ReportBookingProblemDto,
+) {
+  const booking =
+    await this.prisma.booking.findUnique({
+      where: {
+        id: bookingId,
+      },
+      include: {
+        payment: true,
+      },
+    });
+
+  if (!booking) {
+    throw new NotFoundException(
+      'Booking not found',
+    );
+  }
+
+  if (booking.guestId !== guestId) {
+    throw new ForbiddenException(
+      'Only the guest can report a problem',
+    );
+  }
+
+  if (
+    booking.status !==
+    BookingStatus.CHECK_IN_PENDING
+  ) {
+    throw new BadRequestException(
+      'A problem can only be reported while waiting for check-in',
+    );
+  }
+
+  if (
+    !booking.payment ||
+    booking.payment.status !== PaymentStatus.HELD
+  ) {
+    throw new BadRequestException(
+      'No held payment found for this booking',
+    );
+  }
+
+  // لا نغير Payment:
+  // تظل HELD إلى أن يقرر الأدمن
+  return this.prisma.booking.update({
+    where: {
+      id: bookingId,
+    },
+    data: {
+      status: BookingStatus.DISPUTED,
+
+      disputeReason: dto.reason,
+      disputeDescription: dto.description,
+      disputedAt: new Date(),
+    },
+    include: this.bookingIncludes(),
+  });
+}
+
+  async getHostStats(hostId: number) {
+    const [pending, awaitingCheckIn, completed, total] =
+  await Promise.all([
+    this.prisma.booking.count({
+      where: {
+        listing: { hostId },
+        status: BookingStatus.PENDING_HOST_APPROVAL,
+      },
+    }),
+
+    this.prisma.booking.count({
+      where: {
+        listing: { hostId },
+        status: BookingStatus.CHECK_IN_PENDING,
+      },
+    }),
+
+    this.prisma.booking.count({
+      where: {
+        listing: { hostId },
+        status: BookingStatus.COMPLETED,
+      },
+    }),
+
+    this.prisma.booking.count({
+      where: {
+        listing: { hostId },
+      },
+    }),
+  ]);
+
+return {
+  pending,
+  awaitingCheckIn,
+  completed,
+  total,
+};
   }
 
   private bookingIncludes() {

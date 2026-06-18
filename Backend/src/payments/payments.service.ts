@@ -12,6 +12,7 @@ import { RefundPaymentDto } from './dto/refund-payment.dto';
 import { BookingStatus, PaymentStatus } from '@prisma/client';
 import axios from 'axios';
 import * as crypto from 'crypto';
+import { ReleasePaymentDto } from './dto/release-payment.dto';
 
 @Injectable()
 export class PaymentsService {
@@ -23,14 +24,15 @@ export class PaymentsService {
   private readonly platformFeePercent = 5; // 5% platform fee
 
   constructor(
-    private prisma:  PrismaService,
-    private config:  ConfigService,
+    private prisma: PrismaService,
+    private config: ConfigService,
   ) {
-    this.baseUrl      = this.config.get('PAYMOB_BASE_URL') ?? 'https://accept.paymob.com/api';
-    this.apiKey       = this.config.getOrThrow('PAYMOB_API_KEY');
+    this.baseUrl =
+      this.config.get('PAYMOB_BASE_URL') ?? 'https://accept.paymob.com/api';
+    this.apiKey = this.config.getOrThrow('PAYMOB_API_KEY');
     this.integrationId = this.config.getOrThrow('PAYMOB_INTEGRATION_ID');
-    this.iframeId     = this.config.getOrThrow('PAYMOB_IFRAME_ID');
-    this.hmacSecret   = this.config.getOrThrow('PAYMOB_HMAC_SECRET');
+    this.iframeId = this.config.getOrThrow('PAYMOB_IFRAME_ID');
+    this.hmacSecret = this.config.getOrThrow('PAYMOB_HMAC_SECRET');
   }
 
   // ─── Step 1: Get Paymob auth token ─────────
@@ -57,12 +59,12 @@ export class PaymentsService {
   ): Promise<string> {
     try {
       const res = await axios.post(`${this.baseUrl}/ecommerce/orders`, {
-        auth_token:      authToken,
+        auth_token: authToken,
         delivery_needed: false,
-        amount_cents:    amountCents,
-        currency:        'EGP',
+        amount_cents: amountCents,
+        currency: 'EGP',
         merchant_order_id: paymobOrderData.merchantOrderId,
-        items:           [],
+        items: [],
       });
       return String(res.data.id);
     } catch {
@@ -81,24 +83,29 @@ export class PaymentsService {
     billingData: any,
   ): Promise<string> {
     try {
-      const res = await axios.post(
-        `${this.baseUrl}/acceptance/payment_keys`,
-        {
-          auth_token:     authToken,
-          amount_cents:   amountCents,
-          expiration:     3600, // 1 hour
-          order_id:       orderId,
-          currency:       'EGP',
-          integration_id: this.integrationId,
-          billing_data:   billingData,
-        },
-      );
+      const res = await axios.post(`${this.baseUrl}/acceptance/payment_keys`, {
+        auth_token: authToken,
+        amount_cents: amountCents,
+        expiration: 3600, // 1 hour
+        order_id: Number(orderId),
+        currency: 'EGP',
+        integration_id: Number(this.integrationId),
+        billing_data: billingData,
+      });
       return res.data.token;
-    } catch {
-      throw new InternalServerErrorException(
-        'Failed to get payment key from provider',
-      );
-    }
+    } catch (error: any) {
+  console.error('Paymob payment key error:', {
+    status: error.response?.status,
+    data: error.response?.data,
+    message: error.message,
+  });
+
+  throw new InternalServerErrorException(
+    error.response?.data?.message ||
+      error.response?.data?.detail ||
+      'Failed to get payment key from provider',
+  );
+}
   }
 
   // ─── Create payment (full flow) ────────────
@@ -106,10 +113,10 @@ export class PaymentsService {
   async createPayment(guestId: number, dto: CreatePaymentDto) {
     // 1. find booking
     const booking = await this.prisma.booking.findUnique({
-      where:   { id: dto.bookingId },
+      where: { id: dto.bookingId },
       include: {
         listing: true,
-        guest:   true,
+        guest: true,
       },
     });
 
@@ -134,34 +141,74 @@ export class PaymentsService {
       where: { bookingId: dto.bookingId },
     });
 
-    if (existingPayment && existingPayment.status === PaymentStatus.CAPTURED) {
+    const alreadyPaidStatuses: PaymentStatus[] = [
+      PaymentStatus.HELD,
+      PaymentStatus.RELEASED,
+      PaymentStatus.REFUNDED,
+      PaymentStatus.PARTIALLY_REFUNDED,
+    ];
+
+    if (
+      existingPayment &&
+      alreadyPaidStatuses.includes(existingPayment.status)
+    ) {
       throw new BadRequestException('This booking has already been paid');
     }
 
     // 5. calculate amounts
-    const amountCents   = booking.listing.monthlyRent;
-    const platformFee   = Math.round(amountCents * this.platformFeePercent / 100);
-    const hostPayout    = amountCents - platformFee;
+
+    if (
+  booking.agreedAmount === null ||
+  booking.agreedAmount === undefined ||
+  booking.agreedAmount <= 0
+) {
+  throw new BadRequestException(
+    'The booking does not have a valid agreed amount',
+  );
+}
+    const amountCents = booking.agreedAmount! * 100;
+    const platformFee = Math.round(
+      (amountCents * this.platformFeePercent) / 100,
+    );
+    const hostPayout = amountCents - platformFee;
 
     // 6. run Paymob 3-step flow
     const authToken = await this.getAuthToken();
 
-    const paymobOrderId = await this.createOrder(
-      authToken,
-      amountCents,
-      { merchantOrderId: `booking_${dto.bookingId}` },
-    );
+    const paymobOrderId = await this.createOrder(authToken, amountCents, {
+      merchantOrderId: `booking_${dto.bookingId}_${Date.now()}`,
+    });
+
+    // const billingData = {
+    //   first_name: booking.guest.firstName,
+    //   last_name: booking.guest.lastName,
+    //   email: booking.guest.email,
+    //   phone_number: 'NA',
+    //   street: booking.listing.streetName ?? 'NA',
+    //   city: booking.listing.city ?? 'NA',
+    //   country: 'EG',
+    //   state: booking.listing.governorate ?? 'NA',
+    // };
+
 
     const billingData = {
-      first_name:   booking.guest.firstName,
-      last_name:    booking.guest.lastName,
-      email:        booking.guest.email,
-      phone_number: 'NA',
-      street:       booking.listing.streetName ?? 'NA',
-      city:         booking.listing.city       ?? 'NA',
-      country:      'EG',
-      state:        booking.listing.governorate ?? 'NA',
-    };
+  apartment: booking.listing.apartmentNumber ?? 'NA',
+  email: booking.guest.email,
+  floor: booking.listing.floorNumber ?? 'NA',
+  first_name: booking.guest.firstName || 'Guest',
+  street: booking.listing.streetName || 'NA',
+  building: booking.listing.buildingNumber ?? 'NA',
+
+  // رقم تجريبي مؤقت أثناء development
+  phone_number: '01000000000',
+
+  shipping_method: 'NA',
+  postal_code: 'NA',
+  city: booking.listing.city || 'NA',
+  country: 'EG',
+  last_name: booking.guest.lastName || 'Guest',
+  state: booking.listing.governorate || 'NA',
+};
 
     const paymentToken = await this.getPaymentKey(
       authToken,
@@ -174,27 +221,41 @@ export class PaymentsService {
     await this.prisma.payment.upsert({
       where: { bookingId: dto.bookingId },
       create: {
-        bookingId:       dto.bookingId,
+        bookingId: dto.bookingId,
         paymobOrderId,
-        amount:          amountCents,
+        amount: amountCents,
         platformFee,
         hostPayoutAmount: hostPayout,
-        currency:        'EGP',
-        status:          PaymentStatus.PENDING,
-      },
-      update: {
-        paymobOrderId,
+        currency: 'EGP',
         status: PaymentStatus.PENDING,
       },
+      update: {
+  paymobOrderId,
+  paymobTransactionId: null,
+
+  amount: amountCents,
+  platformFee,
+  hostPayoutAmount: hostPayout,
+  currency: 'EGP',
+
+  status: PaymentStatus.PENDING,
+
+  paymentMethod: null,
+  paidAt: null,
+  heldAt: null,
+  releasedAt: null,
+  refundedAt: null,
+  refundReason: null,
+},
     });
 
     // 8. return iframe URL for frontend
     return {
-      iframeUrl:    `https://accept.paymob.com/api/acceptance/iframes/${this.iframeId}?payment_token=${paymentToken}`,
+      iframeUrl: `https://accept.paymob.com/api/acceptance/iframes/${this.iframeId}?payment_token=${paymentToken}`,
       amountCents,
       platformFee,
       hostPayout,
-      bookingId:    dto.bookingId,
+      bookingId: dto.bookingId,
     };
   }
 
@@ -209,7 +270,6 @@ export class PaymentsService {
     }
 
     const transaction = body.obj;
-    const success     = transaction.success;
     const paymobOrderId = String(transaction.order?.id);
     const transactionId = String(transaction.id);
     const paymentMethod = transaction.source_data?.type ?? 'unknown';
@@ -224,36 +284,83 @@ export class PaymentsService {
       return { received: true };
     }
 
-    if (success === true) {
+    if (
+  payment.status === PaymentStatus.HELD ||
+  payment.status === PaymentStatus.RELEASED ||
+  payment.status === PaymentStatus.REFUNDED ||
+  payment.status === PaymentStatus.PARTIALLY_REFUNDED
+) {
+  return {
+    received: true,
+    status: 'already_processed',
+  };
+}
+
+const receivedAmount = Number(transaction.amount_cents);
+const receivedCurrency = String(
+  transaction.currency ?? '',
+).toUpperCase();
+
+if (
+  !Number.isFinite(receivedAmount) ||
+  receivedAmount !== payment.amount
+) {
+  throw new BadRequestException('Payment amount mismatch');
+}
+
+if (
+  receivedCurrency !== payment.currency.toUpperCase()
+) {
+  throw new BadRequestException('Payment currency mismatch');
+}
+
+// لو Paymob بتقول إن العملية لسه Pending
+// ما نحولهاش إلى FAILED أو HELD
+if (transaction.pending === true) {
+  return {
+    received: true,
+    status: 'pending',
+  };
+}
+
+const paymentSucceeded = transaction.success === true;
+
+    if (paymentSucceeded) {
       // 3. payment succeeded — confirm booking
       await this.prisma.$transaction([
         // update payment record
         this.prisma.payment.update({
           where: { paymobOrderId },
-          data:  {
-            status:             PaymentStatus.CAPTURED,
+          data: {
+            status: PaymentStatus.HELD,
+            heldAt: new Date(),
             paymobTransactionId: transactionId,
             paymentMethod,
-            paidAt:             new Date(),
+            paidAt: new Date(),
           },
         }),
         // confirm the booking
         this.prisma.booking.update({
           where: { id: payment.bookingId },
-          data:  {
-            status:      BookingStatus.CONFIRMED,
+          data: {
+            status: BookingStatus.CHECK_IN_PENDING,
             confirmedAt: new Date(),
           },
         }),
       ]);
 
-      return { received: true, status: 'confirmed' };
+      return {
+  received: true,
+  status: 'held',
+  paymentStatus: PaymentStatus.HELD,
+  bookingStatus: BookingStatus.CHECK_IN_PENDING,
+};
     } else {
       // 4. payment failed
       await this.prisma.payment.update({
         where: { paymobOrderId },
-        data:  {
-          status:             PaymentStatus.FAILED,
+        data: {
+          status: PaymentStatus.FAILED,
           paymobTransactionId: transactionId,
         },
       });
@@ -307,14 +414,14 @@ export class PaymentsService {
 
   async getPaymentByBooking(bookingId: number, userId: number) {
     const booking = await this.prisma.booking.findUnique({
-      where:   { id: bookingId },
+      where: { id: bookingId },
       include: { listing: true },
     });
 
     if (!booking) throw new NotFoundException('Booking not found');
 
     const isGuest = booking.guestId === userId;
-    const isHost  = booking.listing.hostId === userId;
+    const isHost = booking.listing.hostId === userId;
 
     if (!isGuest && !isHost) {
       throw new ForbiddenException(
@@ -326,7 +433,8 @@ export class PaymentsService {
       where: { bookingId },
     });
 
-    if (!payment) throw new NotFoundException('No payment found for this booking');
+    if (!payment)
+      throw new NotFoundException('No payment found for this booking');
 
     return payment;
   }
@@ -342,13 +450,13 @@ export class PaymentsService {
       include: {
         booking: {
           select: {
-            id:       true,
-            status:   true,
+            id: true,
+            status: true,
             listing: {
               select: {
-                id:    true,
+                id: true,
                 title: true,
-                city:  true,
+                city: true,
                 photos: { where: { isCover: true }, take: 1 },
               },
             },
@@ -361,70 +469,153 @@ export class PaymentsService {
   // ─── Get host earnings ──────────────────────
 
   async getHostEarnings(hostId: number) {
-    const payments = await this.prisma.payment.findMany({
+  const [heldPayments, releasedPayments] = await Promise.all([
+    // فلوس مدفوعة لكنها معلقة
+    this.prisma.payment.findMany({
       where: {
-        status:  PaymentStatus.CAPTURED,
+        status: PaymentStatus.HELD,
         booking: {
-          listing: { hostId },
+          listing: {
+            hostId,
+          },
         },
       },
       include: {
         booking: {
           select: {
-            id:       true,
-            status:   true,
+            id: true,
+            status: true,
             listing: {
-              select: { id: true, title: true },
+              select: {
+                id: true,
+                title: true,
+                photos: {
+                  where: {
+                    isCover: true,
+                  },
+                  take: 1,
+                },
+              },
             },
           },
         },
       },
-      orderBy: { paidAt: 'desc' },
-    });
+      orderBy: {
+        paidAt: 'desc',
+      },
+    }),
 
-    const totalEarnings = payments.reduce(
-      (sum, p) => sum + p.hostPayoutAmount,
+    // فلوس أصبحت متاحة لصاحب السكن
+    this.prisma.payment.findMany({
+      where: {
+        status: PaymentStatus.RELEASED,
+        booking: {
+          listing: {
+            hostId,
+          },
+        },
+      },
+      include: {
+        booking: {
+          select: {
+            id: true,
+            status: true,
+            listing: {
+              select: {
+                id: true,
+                title: true,
+                photos: {
+                  where: {
+                    isCover: true,
+                  },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        releasedAt: 'desc',
+      },
+    }),
+  ]);
+
+  const pendingBalanceCents = heldPayments.reduce(
+    (sum, payment) =>
+      sum + payment.hostPayoutAmount,
+    0,
+  );
+
+  const availableBalanceCents =
+    releasedPayments.reduce(
+      (sum, payment) =>
+        sum + payment.hostPayoutAmount,
       0,
     );
 
-    return {
-      payments,
-      summary: {
-        totalEarnings,
-        totalTransactions: payments.length,
-        currency:          'EGP',
-      },
-    };
-  }
+  return {
+    pendingPayments: heldPayments,
+    releasedPayments,
+
+    summary: {
+      pendingBalanceCents,
+      availableBalanceCents,
+
+      // القيم دي بالجنيه عشان الـ frontend يعرضها
+      pendingBalance: pendingBalanceCents / 100,
+      availableBalance: availableBalanceCents / 100,
+
+      pendingTransactions: heldPayments.length,
+      releasedTransactions: releasedPayments.length,
+
+      currency: 'EGP',
+    },
+  };
+}
 
   // ─── Admin: refund payment ──────────────────
 
-  async refundPayment(
-    paymentId: number,
-    dto: RefundPaymentDto,
-  ) {
+  async refundPayment(paymentId: number, dto: RefundPaymentDto) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
     });
 
     if (!payment) throw new NotFoundException('Payment not found');
 
-    if (payment.status !== PaymentStatus.CAPTURED) {
-      throw new BadRequestException(
-        'Only captured payments can be refunded',
-      );
-    }
+    if (payment.status !== PaymentStatus.HELD) {
+  throw new BadRequestException(
+    'Only held payments can be refunded',
+  );
+}
 
-    const refundAmount = dto.amountCents ?? payment.amount;
+if (!payment.paymobTransactionId) {
+  throw new BadRequestException(
+    'Payment transaction ID is missing',
+  );
+}
+
+const refundAmount =
+  dto.amountCents ?? payment.amount;
+
+if (
+  refundAmount <= 0 ||
+  refundAmount > payment.amount
+) {
+  throw new BadRequestException(
+    'Invalid refund amount',
+  );
+}
+
 
     // call Paymob refund API
     try {
       const authToken = await this.getAuthToken();
 
       await axios.post(`${this.baseUrl}/acceptance/void_refund/refund`, {
-        auth_token:      authToken,
-        transaction_id:  payment.paymobTransactionId,
-        amount_cents:    refundAmount,
+        auth_token: authToken,
+        transaction_id: payment.paymobTransactionId,
+        amount_cents: refundAmount,
       });
     } catch {
       throw new InternalServerErrorException(
@@ -433,17 +624,112 @@ export class PaymentsService {
     }
 
     // update payment record
-    const updatedPayment = await this.prisma.payment.update({
-      where: { id: paymentId },
-      data:  {
-        status:      refundAmount === payment.amount
+    return this.prisma.$transaction(async (tx) => {
+  const isFullRefund =
+    refundAmount === payment.amount;
+
+  const updatedPayment =
+    await tx.payment.update({
+      where: {
+        id: paymentId,
+      },
+      data: {
+        status: isFullRefund
           ? PaymentStatus.REFUNDED
           : PaymentStatus.PARTIALLY_REFUNDED,
+
         refundReason: dto.reason,
-        refundedAt:  new Date(),
+        refundedAt: new Date(),
       },
     });
 
-    return updatedPayment;
+  if (isFullRefund) {
+    await tx.booking.update({
+      where: {
+        id: payment.bookingId,
+      },
+      data: {
+        status: BookingStatus.REFUNDED,
+
+        disputeResolvedAt: new Date(),
+        disputeResolution:
+          dto.reason ||
+          'Full refund issued to guest',
+      },
+    });
   }
+
+  return updatedPayment;
+});
+  }
+
+
+
+  async releasePaymentByAdmin(
+  paymentId: number,
+  dto: ReleasePaymentDto,
+) {
+  const payment =
+    await this.prisma.payment.findUnique({
+      where: {
+        id: paymentId,
+      },
+      include: {
+        booking: true,
+      },
+    });
+
+  if (!payment) {
+    throw new NotFoundException(
+      'Payment not found',
+    );
+  }
+
+  if (payment.status !== PaymentStatus.HELD) {
+    throw new BadRequestException(
+      'Only held payments can be released',
+    );
+  }
+
+  if (
+    payment.booking.status !==
+    BookingStatus.DISPUTED
+  ) {
+    throw new BadRequestException(
+      'Admin release is only allowed for disputed bookings',
+    );
+  }
+
+  return this.prisma.$transaction(
+    async (tx) => {
+      const updatedPayment =
+        await tx.payment.update({
+          where: {
+            id: paymentId,
+          },
+          data: {
+            status: PaymentStatus.RELEASED,
+            releasedAt: new Date(),
+          },
+        });
+
+      await tx.booking.update({
+        where: {
+          id: payment.bookingId,
+        },
+        data: {
+          status: BookingStatus.COMPLETED,
+          completedAt: new Date(),
+
+          disputeResolvedAt: new Date(),
+          disputeResolution:
+            dto.note ||
+            'Dispute resolved in favor of the host',
+        },
+      });
+
+      return updatedPayment;
+    },
+  );
+}
 }
