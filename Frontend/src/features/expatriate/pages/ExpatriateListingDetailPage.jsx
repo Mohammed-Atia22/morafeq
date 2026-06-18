@@ -73,6 +73,7 @@ export function ExpatriateListingDetailPage() {
               depositAmount={listing.depositAmount}
               currency={listing.currency}
               listingId={listing.id}
+              listingStatus={listing.status}
             />
           </aside>
 
@@ -80,6 +81,12 @@ export function ExpatriateListingDetailPage() {
           <div className="flex-1 min-w-0 space-y-4">
             {/* Photos */}
             <PhotoGallery photos={listing.photos ?? []} />
+
+            {listing.status === "RESERVED" && (
+              <div className="rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm font-bold text-blue-800">
+                هذا العقار محجوز حاليا بانتظار إتمام الدفع، لذلك لا يظهر في نتائج البحث العامة.
+              </div>
+            )}
 
             {/* Info: title, location, price, stats, description */}
             <ListingInfo listing={listing} />

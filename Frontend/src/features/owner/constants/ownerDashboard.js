@@ -25,6 +25,13 @@ export const statusMeta = {
     filter: "active",
     accent: "emerald",
   },
+  RESERVED: {
+    label: "محجوز بانتظار الدفع",
+    dot: "bg-blue-500",
+    text: "text-blue-600",
+    filter: "rented",
+    accent: "blue",
+  },
   INACTIVE: {
     label: "Rented",
     dot: "bg-violet-500",

@@ -1,6 +1,25 @@
 import { useEffect, useState } from "react";
 import { useOwnerRequests } from "../hooks/useOwnerRequests";
 
+const getReservationExpiry = (booking) => {
+  const approvedAt = booking?.approvedAt || booking?.acceptedAt;
+  if (!approvedAt) return null;
+  return new Date(new Date(approvedAt).getTime() + 24 * 60 * 60 * 1000);
+};
+
+const formatRemainingTime = (expiresAt, now) => {
+  if (!expiresAt) return null;
+  const remainingMs = expiresAt.getTime() - now;
+  if (remainingMs <= 0) return "انتهت المهلة";
+
+  const totalMinutes = Math.ceil(remainingMs / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours <= 0) return `${minutes} دقيقة`;
+  return `${hours} ساعة و ${minutes} دقيقة`;
+};
+
 export function OwnerRentalRequestsPage() {
   const {
     requests,
@@ -15,10 +34,16 @@ export function OwnerRentalRequestsPage() {
   const [actionType, setActionType] = useState(null); // "ACCEPT" or "REJECT"
   const [responseNote, setResponseNote] = useState("");
   const [noteError, setNoteError] = useState("");
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const openActionModal = (request, type) => {
     setSelectedRequest(request);
@@ -57,7 +82,7 @@ export function OwnerRentalRequestsPage() {
         className: "bg-amber-50 text-amber-700 border border-amber-200",
       },
       PENDING_PAYMENT: {
-        text: "تم القبول - بانتظار الدفع من المستأجر",
+        text: "محجوز (بانتظار الدفع)",
         className: "bg-blue-50 text-blue-700 border border-blue-200",
       },
       CHECK_IN_PENDING: {
@@ -82,6 +107,10 @@ export function OwnerRentalRequestsPage() {
       },
       CANCELLED_BY_HOST: {
         text: "ملغي من قبلك",
+        className: "bg-slate-50 text-slate-600 border border-slate-200",
+      },
+      CANCELED: {
+        text: "انتهت مهلة الدفع وتم الإلغاء",
         className: "bg-slate-50 text-slate-600 border border-slate-200",
       },
       REFUNDED: {
@@ -140,6 +169,8 @@ export function OwnerRentalRequestsPage() {
           {requests.map((request) => {
             const coverPhoto = request.listing?.photos?.[0]?.url || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=300&h=200&fit=crop";
             const statusStyle = getStatusLabel(request.status);
+            const expiresAt = getReservationExpiry(request);
+            const remainingTime = formatRemainingTime(expiresAt, now);
 
             return (
               <div
@@ -205,6 +236,17 @@ export function OwnerRentalRequestsPage() {
                     <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs">
                       <span className="font-extrabold block mb-1">ملاحظتك السابقة:</span>
                       <p className="font-semibold text-slate-600">{request.hostResponseNote}</p>
+                    </div>
+                  )}
+
+                  {request.status === "PENDING_PAYMENT" && (
+                    <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-center text-xs font-bold text-blue-800">
+                      العقار محجوز الآن ولا يظهر في نتائج البحث العامة حتى يدفع المستأجر أو تنتهي المهلة.
+                      {remainingTime && (
+                        <span className="mt-1 block font-black">
+                          الوقت المتبقي للدفع: {remainingTime}
+                        </span>
+                      )}
                     </div>
                   )}
 

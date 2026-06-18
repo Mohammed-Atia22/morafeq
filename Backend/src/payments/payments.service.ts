@@ -136,6 +136,49 @@ export class PaymentsService {
       );
     }
 
+    if (
+      booking.approvedAt &&
+      Date.now() - booking.approvedAt.getTime() > 24 * 60 * 60 * 1000
+    ) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.booking.update({
+          where: { id: booking.id },
+          data: {
+            status: BookingStatus.CANCELED,
+            cancellationReason:
+              'تم إلغاء الحجز تلقائيا لأن الدفع لم يكتمل خلال 24 ساعة.',
+            cancelledAt: new Date(),
+          },
+        });
+
+        const activeReservation = await tx.booking.findFirst({
+          where: {
+            listingId: booking.listingId,
+            id: { not: booking.id },
+            status: {
+              in: [
+                BookingStatus.PENDING_PAYMENT,
+                BookingStatus.CHECK_IN_PENDING,
+                BookingStatus.DISPUTED,
+                BookingStatus.COMPLETED,
+              ],
+            },
+          },
+        });
+
+        if (!activeReservation) {
+          await tx.listing.update({
+            where: { id: booking.listingId },
+            data: { status: 'ACTIVE' },
+          });
+        }
+      });
+
+      throw new BadRequestException(
+        'انتهت مهلة الدفع وتم إلغاء الحجز. يمكنك إرسال طلب حجز جديد إذا أصبح العقار متاحا.',
+      );
+    }
+
     // 4. check no payment already exists
     const existingPayment = await this.prisma.payment.findUnique({
       where: { bookingId: dto.bookingId },
@@ -326,6 +369,19 @@ if (transaction.pending === true) {
 const paymentSucceeded = transaction.success === true;
 
     if (paymentSucceeded) {
+      const payableBooking = await this.prisma.booking.findUnique({
+        where: { id: payment.bookingId },
+        select: { status: true },
+      });
+
+      if (payableBooking?.status !== BookingStatus.PENDING_PAYMENT) {
+        return {
+          received: true,
+          status: 'booking_not_payable',
+          bookingStatus: payableBooking?.status,
+        };
+      }
+
       // 3. payment succeeded — confirm booking
       await this.prisma.$transaction([
         // update payment record

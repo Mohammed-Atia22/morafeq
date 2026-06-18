@@ -3,6 +3,25 @@ import { useBooking } from "../../bookings/hooks/useBooking";
 import { usePayment } from "../../payments/hooks/usePayment";
 import toast from "react-hot-toast";
 
+const getReservationExpiry = (booking) => {
+  const approvedAt = booking?.approvedAt || booking?.acceptedAt;
+  if (!approvedAt) return null;
+  return new Date(new Date(approvedAt).getTime() + 24 * 60 * 60 * 1000);
+};
+
+const formatRemainingTime = (expiresAt, now) => {
+  if (!expiresAt) return null;
+  const remainingMs = expiresAt.getTime() - now;
+  if (remainingMs <= 0) return "انتهت المهلة";
+
+  const totalMinutes = Math.ceil(remainingMs / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours <= 0) return `${minutes} دقيقة`;
+  return `${hours} ساعة و ${minutes} دقيقة`;
+};
+
 export function ExpatriateBookingsPage() {
   const {
     bookings,
@@ -31,10 +50,16 @@ export function ExpatriateBookingsPage() {
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handlePayment = async (bookingId) => {
     try {
@@ -118,6 +143,10 @@ export function ExpatriateBookingsPage() {
         text: "ملغي من المالك",
         className: "bg-slate-50 text-slate-600 border border-slate-200",
       },
+      CANCELED: {
+        text: "انتهت مهلة الدفع وتم الإلغاء",
+        className: "bg-slate-50 text-slate-600 border border-slate-200",
+      },
       REFUNDED: {
         text: "تم استرجاع المبلغ",
         className: "bg-purple-50 text-purple-700 border border-purple-200",
@@ -174,6 +203,8 @@ export function ExpatriateBookingsPage() {
           {bookings.map((booking) => {
             const badge = getStatusBadge(booking.status);
             const coverPhoto = booking.listing?.photos?.[0]?.url || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=300&h=200&fit=crop";
+            const expiresAt = getReservationExpiry(booking);
+            const remainingTime = formatRemainingTime(expiresAt, now);
 
             return (
               <div
@@ -240,6 +271,17 @@ export function ExpatriateBookingsPage() {
                     <div className="mt-3 rounded-lg bg-purple-50/50 p-2.5 text-xs text-purple-700 border border-purple-100/50">
                       <span className="font-black">قرار الإدارة: </span>
                       {booking.disputeResolution}
+                    </div>
+                  )}
+
+                  {booking.status === "PENDING_PAYMENT" && (
+                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-center text-xs font-bold text-amber-800">
+                      لديك 24 ساعة لإكمال الدفع قبل إلغاء الحجز تلقائيا.
+                      {remainingTime && (
+                        <span className="mt-1 block font-black">
+                          الوقت المتبقي: {remainingTime}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

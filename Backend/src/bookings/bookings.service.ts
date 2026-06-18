@@ -3,7 +3,10 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
 } from '@nestjs/common';
 import {
   BookingStatus,
@@ -23,8 +26,31 @@ import {
 
 
 @Injectable()
-export class BookingsService {
+export class BookingsService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(BookingsService.name);
+  private expirationTimer?: NodeJS.Timeout;
+  private readonly reservationWindowMs = 24 * 60 * 60 * 1000;
+  private readonly expirationCheckMs = 5 * 60 * 1000;
+
   constructor(private prisma: PrismaService) {}
+
+  onModuleInit() {
+    this.expireUnpaidApprovedBookings().catch((error) =>
+      this.logger.error('Failed to expire unpaid bookings on startup', error),
+    );
+
+    this.expirationTimer = setInterval(() => {
+      this.expireUnpaidApprovedBookings().catch((error) =>
+        this.logger.error('Failed to expire unpaid bookings', error),
+      );
+    }, this.expirationCheckMs);
+  }
+
+  onModuleDestroy() {
+    if (this.expirationTimer) {
+      clearInterval(this.expirationTimer);
+    }
+  }
 
   async create(guestId: number, dto: CreateBookingDto) {
     const guest = await this.prisma.user.findUnique({
@@ -139,15 +165,70 @@ if (activeBooking) {
     }
 
     if (dto.action === BookingResponseAction.ACCEPT) {
-      return this.prisma.booking.update({
-        where: { id: bookingId },
-        data: {
-          status: BookingStatus.PENDING_PAYMENT,
-          agreedAmount: booking.listing.monthlyRent,
-          hostResponseNote: dto.note,
-          acceptedAt: new Date(),
+      const blockingBooking = await this.prisma.booking.findFirst({
+        where: {
+          listingId: booking.listingId,
+          id: { not: bookingId },
+          status: {
+            in: [
+              BookingStatus.PENDING_PAYMENT,
+              BookingStatus.CHECK_IN_PENDING,
+              BookingStatus.DISPUTED,
+              BookingStatus.COMPLETED,
+            ],
+          },
         },
-        include: this.bookingIncludes(),
+      });
+
+      if (blockingBooking || booking.listing.status === ListingStatus.RESERVED) {
+        throw new ConflictException(
+          'هذا العقار محجوز حاليا ولا يمكن قبول طلب آخر عليه',
+        );
+      }
+
+      return this.prisma.$transaction(async (tx) => {
+        const now = new Date();
+
+        const updatedBooking = await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            status: BookingStatus.PENDING_PAYMENT,
+            agreedAmount: booking.listing.monthlyRent,
+            hostResponseNote: dto.note,
+            acceptedAt: now,
+            approvedAt: now,
+          },
+          include: this.bookingIncludes(),
+        });
+
+        await tx.listing.update({
+          where: { id: booking.listingId },
+          data: { status: ListingStatus.RESERVED },
+        });
+
+        await tx.booking.updateMany({
+          where: {
+            listingId: booking.listingId,
+            id: { not: bookingId },
+            status: BookingStatus.PENDING_HOST_APPROVAL,
+          },
+          data: {
+            status: BookingStatus.REJECTED,
+            rejectionReason:
+              'تم رفض الطلب تلقائيا لأن العقار أصبح محجوزا بانتظار الدفع.',
+            rejectedAt: now,
+          },
+        });
+
+        await this.createBookingMessage(
+          tx,
+          booking.guestId,
+          booking.listing.hostId,
+          booking.listingId,
+          'تمت الموافقة على طلب الحجز الخاص بك. يرجى إكمال الدفع خلال 24 ساعة، وإلا سيتم إلغاء الحجز تلقائيا.',
+        );
+
+        return updatedBooking;
       });
     }
 
@@ -181,6 +262,7 @@ if (activeBooking) {
 
     const nonCancellableStatuses: BookingStatus[] = [
       BookingStatus.COMPLETED,
+      BookingStatus.CANCELED,
       BookingStatus.CANCELLED_BY_GUEST,
       BookingStatus.CANCELLED_BY_HOST,
       BookingStatus.REJECTED,
@@ -192,17 +274,91 @@ if (activeBooking) {
       );
     }
 
-    return this.prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: isGuest
-          ? BookingStatus.CANCELLED_BY_GUEST
-          : BookingStatus.CANCELLED_BY_HOST,
-        cancellationReason: dto.reason,
-        cancelledAt: new Date(),
-      },
-      include: this.bookingIncludes(),
+    return this.prisma.$transaction(async (tx) => {
+      const updatedBooking = await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: isGuest
+            ? BookingStatus.CANCELLED_BY_GUEST
+            : BookingStatus.CANCELLED_BY_HOST,
+          cancellationReason: dto.reason,
+          cancelledAt: new Date(),
+        },
+        include: this.bookingIncludes(),
+      });
+
+      if (booking.status === BookingStatus.PENDING_PAYMENT) {
+        await this.unlockListingIfNoActiveReservation(tx, booking.listingId);
+      }
+
+      return updatedBooking;
     });
+  }
+
+  async expireUnpaidApprovedBookings() {
+    const expiresBefore = new Date(Date.now() - this.reservationWindowMs);
+
+    const expiredBookings = await this.prisma.booking.findMany({
+      where: {
+        status: BookingStatus.PENDING_PAYMENT,
+        approvedAt: { lte: expiresBefore },
+        OR: [
+          { payment: null },
+          { payment: { status: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] } } },
+        ],
+      },
+      include: {
+        listing: {
+          select: {
+            id: true,
+            hostId: true,
+          },
+        },
+      },
+    });
+
+    for (const booking of expiredBookings) {
+      await this.prisma.$transaction(async (tx) => {
+        const updateResult = await tx.booking.updateMany({
+          where: {
+            id: booking.id,
+            status: BookingStatus.PENDING_PAYMENT,
+            OR: [
+              { payment: null },
+              {
+                payment: {
+                  status: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] },
+                },
+              },
+            ],
+          },
+          data: {
+            status: BookingStatus.CANCELED,
+            cancellationReason:
+              'تم إلغاء الحجز تلقائيا لأن الدفع لم يكتمل خلال 24 ساعة.',
+            cancelledAt: new Date(),
+          },
+        });
+
+        if (updateResult.count === 0) {
+          return;
+        }
+
+        await this.unlockListingIfNoActiveReservation(tx, booking.listingId);
+
+        await this.createBookingMessage(
+          tx,
+          booking.guestId,
+          booking.listing.hostId,
+          booking.listingId,
+          'تم إلغاء حجزك لأن الدفع لم يكتمل خلال 24 ساعة.',
+        );
+      });
+    }
+
+    if (expiredBookings.length > 0) {
+      this.logger.log(`Expired ${expiredBookings.length} unpaid booking(s)`);
+    }
   }
 
   async findOne(bookingId: number, userId: number) {
@@ -452,6 +608,7 @@ return {
         select: {
           id: true,
           title: true,
+          status: true,
           monthlyRent: true,
           city: true,
           governorate: true,
@@ -482,5 +639,60 @@ return {
       },
       payment: true,
     };
+  }
+
+  private async unlockListingIfNoActiveReservation(tx: any, listingId: number) {
+    const activeReservation = await tx.booking.findFirst({
+      where: {
+        listingId,
+        status: {
+          in: [
+            BookingStatus.PENDING_PAYMENT,
+            BookingStatus.CHECK_IN_PENDING,
+            BookingStatus.DISPUTED,
+            BookingStatus.COMPLETED,
+          ],
+        },
+      },
+    });
+
+    if (!activeReservation) {
+      await tx.listing.update({
+        where: { id: listingId },
+        data: { status: ListingStatus.ACTIVE },
+      });
+    }
+  }
+
+  private async createBookingMessage(
+    tx: any,
+    guestId: number,
+    hostId: number,
+    listingId: number,
+    content: string,
+  ) {
+    const conversation = await tx.conversation.upsert({
+      where: {
+        guestId_hostId_listingId: {
+          guestId,
+          hostId,
+          listingId,
+        },
+      },
+      create: {
+        guestId,
+        hostId,
+        listingId,
+      },
+      update: {},
+    });
+
+    await tx.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderId: hostId,
+        content,
+      },
+    });
   }
 }

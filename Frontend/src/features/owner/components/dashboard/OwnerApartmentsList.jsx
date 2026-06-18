@@ -49,8 +49,23 @@ export function OwnerApartmentsList({
                       .join(" - ") || "غير محدد"}
                   </p>
                   <div className="mt-2 flex items-center justify-end gap-2 text-xs font-bold text-slate-500">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span>{listing.status === "INACTIVE" ? "مؤجرة" : "متاحة"}</span>
+                    <span
+                      className={[
+                        "h-2 w-2 rounded-full",
+                        listing.status === "RESERVED"
+                          ? "bg-blue-500"
+                          : listing.status === "INACTIVE"
+                            ? "bg-violet-500"
+                            : "bg-emerald-500",
+                      ].join(" ")}
+                    />
+                    <span>
+                      {listing.status === "RESERVED"
+                        ? "محجوز بانتظار الدفع"
+                        : listing.status === "INACTIVE"
+                          ? "مؤجرة"
+                          : "متاحة"}
+                    </span>
                     <span>•</span>
                     <span>{listing.viewsCount || 0} مشاهدة</span>
                   </div>

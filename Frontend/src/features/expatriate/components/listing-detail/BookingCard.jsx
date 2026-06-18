@@ -4,11 +4,31 @@ import { useBooking } from "../../../bookings/hooks/useBooking";
 import { usePayment } from "../../../payments/hooks/usePayment";
 import { VerificationRequiredModal } from "../../../verification/components/VerificationRequiredModal";
 
-export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", listingId }) {
+const getReservationExpiry = (booking) => {
+  const approvedAt = booking?.approvedAt || booking?.acceptedAt;
+  if (!approvedAt) return null;
+  return new Date(new Date(approvedAt).getTime() + 24 * 60 * 60 * 1000);
+};
+
+const formatRemainingTime = (expiresAt, now) => {
+  if (!expiresAt) return null;
+  const remainingMs = expiresAt.getTime() - now;
+  if (remainingMs <= 0) return "انتهت المهلة";
+
+  const totalMinutes = Math.ceil(remainingMs / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours <= 0) return `${minutes} دقيقة`;
+  return `${hours} ساعة و ${minutes} دقيقة`;
+};
+
+export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", listingId, listingStatus }) {
   const { user, refreshUser } = useAuth();
   const [checkIn, setCheckIn] = useState("");
   const [guestMessage, setGuestMessage] = useState("");
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [now, setNow] = useState(Date.now());
 
   // Problem Modal state
   const [showProblemModal, setShowProblemModal] = useState(false);
@@ -39,11 +59,16 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
     fetchBookings();
   }, [fetchBookings]);
 
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Find the active booking for this listing
   const currentBooking = bookings.find(
     (b) =>
       b.listingId === Number(listingId) &&
-      !["CANCELLED_BY_GUEST", "CANCELLED_BY_HOST"].includes(b.status)
+      !["CANCELLED_BY_GUEST", "CANCELLED_BY_HOST", "CANCELED"].includes(b.status)
   );
 
   const total = Number(monthlyRent);
@@ -109,6 +134,26 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
   // Render buttons and badges depending on currentBooking state
   const renderBookingState = () => {
     if (!currentBooking) {
+      if (listingStatus === "RESERVED") {
+        return (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-center text-blue-800">
+              <p className="text-sm font-extrabold">هذا العقار محجوز حاليا</p>
+              <p className="mt-1 text-xs font-semibold text-blue-600">
+                العقار بانتظار إتمام الدفع من مستأجر آخر. إذا انتهت المهلة بدون دفع سيصبح متاحا مرة أخرى.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled
+              className="w-full rounded-xl bg-slate-100 py-3 text-sm font-black text-slate-400 cursor-not-allowed"
+            >
+              غير متاح للحجز الآن
+            </button>
+          </div>
+        );
+      }
+
       // Normal state: Book Now
       return (
         <div className="space-y-3">
@@ -189,6 +234,9 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
         );
 
       case "PENDING_PAYMENT":
+        const expiresAt = getReservationExpiry(currentBooking);
+        const remainingTime = formatRemainingTime(expiresAt, now);
+
         return (
           <div className="space-y-3">
             <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 text-blue-800 text-center">
@@ -197,6 +245,14 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
                 <p className="mt-1 text-xs text-blue-600 font-semibold">
                   ملاحظة المالك: {hostResponseNote}
                 </p>
+              )}
+            </div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-center text-xs font-bold text-amber-800">
+              لديك 24 ساعة لإكمال الدفع قبل إلغاء الحجز تلقائيا.
+              {remainingTime && (
+                <span className="mt-1 block text-sm font-black">
+                  الوقت المتبقي: {remainingTime}
+                </span>
               )}
             </div>
             <button
