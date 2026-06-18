@@ -7,6 +7,10 @@ import { AuthMessage } from "../components/AuthMessage";
 import { FormField, inputClass } from "../components/FormField";
 import { authApi } from "../services/authApi";
 
+const keepDigitsOnly = (event) => {
+  event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "");
+};
+
 export function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -39,20 +43,20 @@ export function ResetPasswordPage() {
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <AuthMessage>{serverError}</AuthMessage>
 
-          <FormField label="البريد الإلكتروني" error={errors.email}>
-            <input
-              className={inputClass}
-              type="email"
-              {...register("email", { required: "البريد الإلكتروني مطلوب" })}
-            />
-          </FormField>
+          <input
+            type="hidden"
+            {...register("email", { required: "البريد الإلكتروني مطلوب" })}
+          />
 
           <FormField label="رمز التحقق" error={errors.otp}>
             <input
               className={`${inputClass} text-center text-lg tracking-[0.4em]`}
+              type="text"
               inputMode="numeric"
+              pattern="[0-9]*"
               maxLength={6}
               placeholder="000000"
+              onInput={keepDigitsOnly}
               {...register("otp", {
                 required: "رمز التحقق مطلوب",
                 pattern: {

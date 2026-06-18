@@ -52,14 +52,14 @@ export class AuthService {
 
     // Verified account cannot register again
     if (existingUser?.isVerified) {
-      throw new ConflictException('This email is already registered');
+      throw new ConflictException('هذا البريد الإلكتروني مسجل بالفعل');
     }
 
     // 2. Validate and normalize phone
     const phoneNumber = parsePhoneNumberFromString(phone.trim());
 
     if (!phoneNumber || !phoneNumber.isValid()) {
-      throw new BadRequestException('Invalid phone number');
+      throw new BadRequestException('رقم الهاتف غير صحيح');
     }
 
     const normalizedPhone = phoneNumber.number;
@@ -98,7 +98,7 @@ export class AuthService {
 
     if (existingPhone) {
       throw new ConflictException(
-        'This phone number is already registered',
+        'رقم الهاتف مسجل بالفعل',
       );
     }
 
@@ -199,7 +199,7 @@ export class AuthService {
     }
 
     throw new InternalServerErrorException(
-      'Registration failed',
+      'فشل إنشاء الحساب. حاول مرة أخرى.',
     );
   }
 }

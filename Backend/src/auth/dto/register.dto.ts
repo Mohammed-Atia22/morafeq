@@ -105,16 +105,16 @@ import { genderTypes } from '@prisma/client';
 import { CustomPasswordDecorator } from '../decorators/customPassword.decorator';
 
 export class RegisterDto {
-  @IsEmail({}, { message: 'Please provide a valid email' })
+  @IsEmail({}, { message: 'أدخل بريد إلكتروني صحيح' })
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
   email!: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'Password is required' })
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
-  @MaxLength(50, { message: 'Password must not exceed 50 characters' })
+  @IsNotEmpty({ message: 'كلمة المرور مطلوبة' })
+  @MinLength(8, { message: 'كلمة المرور يجب ألا تقل عن 8 أحرف' })
+  @MaxLength(50, { message: 'كلمة المرور يجب ألا تزيد عن 50 حرف' })
   @IsStrongPassword(
     {
       minLength: 8,
@@ -125,29 +125,29 @@ export class RegisterDto {
     },
     {
       message:
-        'Password must contain uppercase, lowercase, number, and symbol',
+        'استخدم حرف كبير وصغير ورقم ورمز',
     },
   )
   password!: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'Confirm password is required' })
-  @CustomPasswordDecorator({ message: 'Passwords do not match' })
+  @IsNotEmpty({ message: 'تأكيد كلمة المرور مطلوب' })
+  @CustomPasswordDecorator({ message: 'كلمتا المرور غير متطابقتين' })
   confirmPassword!: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'First name is required' })
+  @IsNotEmpty({ message: 'الاسم الأول مطلوب' })
   @MinLength(2, {
-    message: 'First name must be at least 2 characters',
+    message: 'الاسم الأول يجب ألا يقل عن حرفين',
   })
   @MaxLength(100, {
-    message: 'First name must not exceed 100 characters',
+    message: 'الاسم الأول يجب ألا يزيد عن 100 حرف',
   })
   @Matches(
     /^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+)*$/u,
     {
       message:
-        'First name must contain letters only and may include spaces, hyphens, or apostrophes',
+        'الاسم الأول يجب أن يحتوي على حروف فقط',
     },
   )
   @Transform(({ value }) =>
@@ -156,18 +156,18 @@ export class RegisterDto {
   firstName!: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'Last name is required' })
+  @IsNotEmpty({ message: 'اسم العائلة مطلوب' })
   @MinLength(2, {
-    message: 'Last name must be at least 2 characters',
+    message: 'اسم العائلة يجب ألا يقل عن حرفين',
   })
   @MaxLength(100, {
-    message: 'Last name must not exceed 100 characters',
+    message: 'اسم العائلة يجب ألا يزيد عن 100 حرف',
   })
   @Matches(
     /^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+)*$/u,
     {
       message:
-        'Last name must contain letters only and may include spaces, hyphens, or apostrophes',
+        'اسم العائلة يجب أن يحتوي على حروف فقط',
     },
   )
   @Transform(({ value }) =>
@@ -175,14 +175,14 @@ export class RegisterDto {
   )
   lastName!: string;
 
-  @IsEnum(genderTypes, { message: 'Gender must be male or female' })
+  @IsEnum(genderTypes, { message: 'اختر النوع' })
   gender!: genderTypes;
 
   @IsString()
-  @IsNotEmpty({ message: 'Phone is required' })
-  @MaxLength(20, { message: 'Phone must not exceed 20 characters' })
+  @IsNotEmpty({ message: 'رقم الهاتف مطلوب' })
+  @MaxLength(20, { message: 'رقم الهاتف يجب ألا يزيد عن 20 رقم' })
   @Matches(/^\+[1-9]\d{7,14}$/, {
-    message: 'Phone must be in international format, e.g. +201001234567',
+    message: 'رقم الهاتف يجب أن يكون بصيغة دولية صحيحة',
   })
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim() : value,
