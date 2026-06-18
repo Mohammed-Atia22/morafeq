@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useBooking } from "../../bookings/hooks/useBooking";
 import { usePayment } from "../../payments/hooks/usePayment";
 import toast from "react-hot-toast";
@@ -23,6 +24,7 @@ const formatRemainingTime = (expiresAt, now) => {
 };
 
 export function ExpatriateBookingsPage() {
+  const navigate = useNavigate();
   const {
     bookings,
     loading: bookingsLoading,
@@ -72,6 +74,11 @@ export function ExpatriateBookingsPage() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const openListingDetails = (listingId) => {
+    if (!listingId) return;
+    navigate(`/expatriate/listings/${listingId}`);
   };
 
   const handleClosePayment = () => {
@@ -209,7 +216,16 @@ export function ExpatriateBookingsPage() {
             return (
               <div
                 key={booking.id}
-                className="flex flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition"
+                role="button"
+                tabIndex={0}
+                onClick={() => openListingDetails(booking.listing?.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openListingDetails(booking.listing?.id);
+                  }
+                }}
+                className="flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               >
                 {/* Photo Header */}
                 <div className="relative h-44 w-full bg-slate-100">
@@ -287,7 +303,11 @@ export function ExpatriateBookingsPage() {
                 </div>
 
                 {/* Card Action footer */}
-                <div className="bg-slate-50 px-5 py-3 border-t border-slate-100 flex flex-col gap-2">
+                <div
+                  className="bg-slate-50 px-5 py-3 border-t border-slate-100 flex flex-col gap-2"
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
                   {booking.status === "PENDING_PAYMENT" && (
                     <button
                       onClick={() => handlePayment(booking.id)}
