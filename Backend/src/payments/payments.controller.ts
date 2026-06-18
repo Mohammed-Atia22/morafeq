@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReleasePaymentDto } from './dto/release-payment.dto';
 
 @Controller('payments')
 export class PaymentsController {
@@ -90,4 +91,17 @@ export class PaymentsController {
   ) {
     return this.paymentsService.refundPayment(id, dto);
   }
+
+  @Patch(':id/release')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN')
+releasePayment(
+  @Param('id', ParseIntPipe) paymentId: number,
+  @Body() dto: ReleasePaymentDto,
+) {
+  return this.paymentsService.releasePaymentByAdmin(
+    paymentId,
+    dto,
+  );
+}
 }

@@ -20,6 +20,7 @@ import { BookingsService } from './bookings.service';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { RespondBookingDto } from './dto/respond-booking.dto';
+import { ReportBookingProblemDto } from './dto/report-booking-problem.dto';
 
 @Controller('bookings')
 @UseGuards(JwtAuthGuard)
@@ -84,14 +85,31 @@ export class BookingsController {
     return this.bookingsService.cancel(id, user.id, dto);
   }
 
-  @Patch(':id/complete')
-  @Roles('HOST', 'ADMIN')
-  @UseGuards(RolesGuard)
-  @HttpCode(HttpStatus.OK)
-  complete(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: any,
-  ) {
-    return this.bookingsService.complete(id, user.id);
-  }
+  @Patch(':id/confirm-receipt')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('GUEST')
+confirmReceipt(
+  @Param('id', ParseIntPipe) bookingId: number,
+  @CurrentUser() user: any,
+) {
+  return this.bookingsService.confirmReceipt(
+    bookingId,
+    user.id,
+  );
+}
+
+@Post(':id/report-problem')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('GUEST')
+reportProblem(
+  @Param('id', ParseIntPipe) bookingId: number,
+  @CurrentUser() user: any,
+  @Body() dto: ReportBookingProblemDto,
+) {
+  return this.bookingsService.reportProblem(
+    bookingId,
+    user.id,
+    dto,
+  );
+}
 }
