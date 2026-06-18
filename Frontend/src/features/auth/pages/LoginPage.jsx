@@ -11,6 +11,9 @@ import { getRoleHomePath } from "../utils/roleRedirect";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
 
+const LOGIN_ERROR_MESSAGE =
+  "يرجى التحقق من كلمة المرور والبريد الإلكتروني والمحاولة مرة أخرى.";
+
 const schema = zod.object({
   email: zod
     .string()
@@ -53,7 +56,7 @@ export function LoginPage() {
         navigate(getRoleHomePath(data.user.role), { replace: true });
       }
     } catch (error) {
-      setServerError(error.message);
+      setServerError(LOGIN_ERROR_MESSAGE);
     }
   };
 

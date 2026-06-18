@@ -12,6 +12,10 @@ import toast from "react-hot-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
 
+const keepDigitsOnly = (event) => {
+  event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "");
+};
+
 const schema = zod.object({
   email: zod
     .string()
@@ -92,9 +96,12 @@ export function ConfirmOtpPage() {
           <FormField label="رمز التحقق" error={errors.otp}>
             <input
               className={`${inputClass} text-center text-lg tracking-[0.4em]`}
+              type="text"
               inputMode="numeric"
+              pattern="[0-9]*"
               maxLength={6}
               placeholder="000000"
+              onInput={keepDigitsOnly}
               {...register("otp")}
             />
           </FormField>

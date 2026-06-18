@@ -619,7 +619,6 @@ export function AddListingForm({ embedded = false, onCreated }) {
                 fieldStyles={fieldStyles}
                 register={register}
                 errors={errors}
-                getValues={getValues}
                 selectedLocation={selectedLocation}
                 setCurrentStep={setCurrentStep}
                 isSubmittingListing={isSubmittingListing}

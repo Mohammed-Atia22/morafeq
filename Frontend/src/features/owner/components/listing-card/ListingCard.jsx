@@ -368,7 +368,7 @@ export function ListingCard({
               onChange={(value) => updateField("googleFormattedAddress", value)}
             />
             <EditField
-              label="Google Place ID"
+              label="معرف مكان جوجل"
               value={form.googlePlaceId}
               onChange={(value) => updateField("googlePlaceId", value)}
             />
@@ -399,7 +399,7 @@ export function ListingCard({
               </h2>
               <p className="mt-1 text-sm font-semibold text-slate-500">
                 {listing.city || listing.governorate || "غير محدد"} ·{" "}
-                {Number(listing.monthlyRent || 0).toLocaleString("en-US")}{" "}
+                {Number(listing.monthlyRent || 0).toLocaleString("ar-EG")}{" "}
                 ج.م/شهر
               </p>
             </div>

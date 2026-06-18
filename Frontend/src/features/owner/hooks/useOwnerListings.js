@@ -64,11 +64,11 @@ export function useOwnerListings({ onUnauthorized } = {}) {
     );
 
     return [
-      { label: "Total", value: listings.length },
-      { label: "Draft", value: draft },
-      { label: "Active", value: active },
-      { label: "Rented", value: rented },
-      { label: "Income", value: income.toLocaleString("en-US") },
+      { label: "الإجمالي", value: listings.length },
+      { label: "مسودة", value: draft },
+      { label: "نشط", value: active },
+      { label: "مؤجر", value: rented },
+      { label: "الدخل", value: income.toLocaleString("ar-EG") },
     ];
   }, [listings]);
 

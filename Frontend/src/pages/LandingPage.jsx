@@ -1,11 +1,9 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { expatriateListingsApi } from "../features/expatriate/services/expatriateListingsApi";
 import heroBackground from "../../images/for the background.jpg";
 import ownerImage from "../../images/chosse onwer.png";
 import studentImage from "../../images/std.png";
-import roomOne from "../../images/rooms (1).jpg";
-import roomTwo from "../../images/rooms (2).jpg";
-import roomThree from "../../images/rooms (3).jpg";
-import roomFour from "../../images/rooms (4).jpg";
 import personOne from "../../images/person 1.jpg";
 import personTwo from "../../images/person 2.jpg";
 import personThree from "../../images/person 3.jpg";
@@ -22,49 +20,6 @@ const stats = [
   { value: "15,000+", label: "طالب لقى سكنه مع مرافق", icon: UsersIcon },
   { value: "5,000+", label: "عقار موثق وصالح", icon: HomeIcon },
   { value: "24 / 7", label: "دعم وخدمة على مدار الساعة", icon: HeadsetIcon },
-];
-
-const listings = [
-  {
-    title: "استوديو مفروش بالكامل",
-    location: "مدينة نصر - القاهرة",
-    price: "2,700 / م.ج",
-    meta: ["استوديو", "1 حمام", "25 م"],
-    rating: "4.7",
-    reviews: "(32)",
-    badge: "قريب من الجامعة",
-    image: roomOne,
-  },
-  {
-    title: "غرفة في شقة مشتركة",
-    location: "المهندسين - الجيزة",
-    price: "1,800 / م.ج",
-    meta: ["غرفة", "1 حمام", "30 م"],
-    rating: "4.6",
-    reviews: "(21)",
-    badge: "مميز",
-    image: roomTwo,
-  },
-  {
-    title: "شقة مفروشة بالكامل",
-    location: "الزمالك - القاهرة",
-    price: "3,200 / م.ج",
-    meta: ["2 غرفة", "1 حمام", "90 م"],
-    rating: "4.8",
-    reviews: "(56)",
-    badge: "قريب من الجامعة",
-    image: roomThree,
-  },
-  {
-    title: "غرفة خاصة بحمام خاص",
-    location: "6 أكتوبر - الجيزة",
-    price: "2,200 / م.ج",
-    meta: ["1 غرفة", "1 حمام", "30 م"],
-    rating: "4.5",
-    reviews: "(18)",
-    badge: "جديد",
-    image: roomFour,
-  },
 ];
 
 const testimonials = [
@@ -97,6 +52,47 @@ const footerFeatures = [
 ];
 
 export function LandingPage() {
+  const [featuredListings, setFeaturedListings] = useState([]);
+  const [featuredLoading, setFeaturedLoading] = useState(true);
+  const [featuredError, setFeaturedError] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadFeaturedListings = async () => {
+      setFeaturedLoading(true);
+      setFeaturedError("");
+
+      try {
+        const result = await expatriateListingsApi.search({
+          limit: 4,
+          sortBy: "newest",
+        });
+
+        if (isMounted) {
+          setFeaturedListings(result.data ?? []);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setFeaturedError(
+            error.message || "تعذر تحميل الشقق المميزة في الوقت الحالي.",
+          );
+          setFeaturedListings([]);
+        }
+      } finally {
+        if (isMounted) {
+          setFeaturedLoading(false);
+        }
+      }
+    };
+
+    loadFeaturedListings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <main className="bg-[#f7f9fc] text-[#111827]">
       <section className="relative isolate overflow-hidden bg-[#0b3569] pt-[76px] text-white">
@@ -234,11 +230,23 @@ export function LandingPage() {
             </h2>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {listings.map((listing) => (
-              <PropertyCard key={listing.title} listing={listing} />
-            ))}
-          </div>
+          {featuredLoading ? (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <PropertyCardSkeleton key={index} />
+              ))}
+            </div>
+          ) : featuredError ? (
+            <ListingsState message={featuredError} />
+          ) : featuredListings.length > 0 ? (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {featuredListings.map((listing) => (
+                <PropertyCard key={listing.id} listing={listing} />
+              ))}
+            </div>
+          ) : (
+            <ListingsState message="لا توجد شقق متاحة للعرض حالياً." />
+          )}
         </div>
       </section>
 
@@ -417,15 +425,63 @@ function RoleCard({ title, text, button, to, color, image }) {
   );
 }
 
+const roomTypeLabels = {
+  ENTIRE_PLACE: "شقة كاملة",
+  PRIVATE_ROOM: "غرفة خاصة",
+  SHARED_ROOM: "غرفة مشتركة",
+};
+
+const propertyTypeLabels = {
+  APARTMENT: "شقة",
+  VILLA: "فيلا",
+  STUDIO: "ستوديو",
+  ROOM: "غرفة",
+  DORM: "سكن طلابي",
+};
+
+function formatListingPrice(value) {
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount)) {
+    return "السعر غير محدد";
+  }
+
+  return `${amount.toLocaleString("ar-EG")} ج.م`;
+}
+
 function PropertyCard({ listing }) {
+  const coverPhoto = listing.photos?.[0]?.url;
+  const roomLabel =
+    roomTypeLabels[listing.roomType] ||
+    propertyTypeLabels[listing.propertyType] ||
+    "وحدة";
+  const location = [listing.area?.name, listing.city, listing.governorate]
+    .filter(Boolean)
+    .join(" - ");
+  const meta = [
+    roomLabel,
+    listing.bathrooms ? `${listing.bathrooms} حمام` : null,
+    listing.bedrooms ? `${listing.bedrooms} غرفة` : null,
+  ].filter(Boolean);
+  const reviewCount = listing._count?.reviews ?? 0;
+  const rating = listing.averageRating
+    ? Number(listing.averageRating).toFixed(1)
+    : "—";
+
   return (
     <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md">
       <div className="relative h-44 overflow-hidden">
-        <img
-          src={listing.image}
-          alt={listing.title}
-          className="h-full w-full object-cover"
-        />
+        {coverPhoto ? (
+          <img
+            src={coverPhoto}
+            alt={listing.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="grid h-full w-full place-items-center bg-slate-100 text-slate-300">
+            <ApartmentIcon className="h-14 w-14" />
+          </div>
+        )}
         <button
           className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-white text-slate-500 shadow"
           aria-label="إضافة للمفضلة"
@@ -433,7 +489,7 @@ function PropertyCard({ listing }) {
           <HeartIcon className="h-6 w-6" />
         </button>
         <span className="absolute right-3 top-3 rounded-md bg-[#5c7bf2] px-3 py-1 text-xs font-black text-white">
-          {listing.badge}
+          {roomLabel}
         </span>
       </div>
       <div className="p-4">
@@ -442,29 +498,66 @@ function PropertyCard({ listing }) {
             {listing.title}
           </h3>
           <p className="whitespace-nowrap text-lg font-black text-[#075fd6]">
-            {listing.price}
+            {formatListingPrice(listing.monthlyRent)}
           </p>
         </div>
-        <p className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-slate-500">
-          <PinIcon className="h-4 w-4" />
-          {listing.location}
-        </p>
+        {location && (
+          <p className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-slate-500">
+            <PinIcon className="h-4 w-4" />
+            {location}
+          </p>
+        )}
         <div className="mt-4 flex items-center justify-between text-sm font-semibold text-slate-600">
-          {listing.meta.map((meta) => (
+          {meta.map((meta) => (
             <span key={meta}>{meta}</span>
           ))}
         </div>
         <div className="mt-4 flex items-center justify-between">
-          <button className="rounded-md border border-[#aac6e9] px-5 py-2 text-sm font-black text-[#0750a8]">
+          <Link
+            to={`/expatriate/listings/${listing.id}`}
+            className="rounded-md border border-[#aac6e9] px-5 py-2 text-sm font-black text-[#0750a8]"
+          >
             عرض التفاصيل
-          </button>
+          </Link>
           <span className="inline-flex items-center gap-1 text-sm font-black text-slate-600">
-            {listing.reviews} {listing.rating}
+            ({reviewCount}) {rating}
             <StarIcon className="h-4 w-4 text-[#ffad18]" />
           </span>
         </div>
       </div>
     </article>
+  );
+}
+
+function PropertyCardSkeleton() {
+  return (
+    <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md">
+      <div className="h-44 animate-pulse bg-slate-200" />
+      <div className="space-y-4 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="h-5 w-32 rounded bg-slate-200" />
+          <div className="h-6 w-20 rounded bg-slate-200" />
+        </div>
+        <div className="h-4 w-40 rounded bg-slate-200" />
+        <div className="flex justify-between">
+          <div className="h-4 w-14 rounded bg-slate-200" />
+          <div className="h-4 w-14 rounded bg-slate-200" />
+          <div className="h-4 w-14 rounded bg-slate-200" />
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="h-9 w-24 rounded-md bg-slate-200" />
+          <div className="h-4 w-16 rounded bg-slate-200" />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ListingsState({ message }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-5 py-10 text-center text-sm font-bold text-slate-500 shadow-sm">
+      {message}
+    </div>
   );
 }
 
