@@ -49,6 +49,9 @@ export const adminApi = {
       method: "PATCH",
     }),
 
+  getComplaints: () =>
+    apiRequest("/admin/complaints"),
+
   // Verifications
   approveVerification: (id) =>
     apiRequest(`/verification/${id}/approve`, {

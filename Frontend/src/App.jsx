@@ -40,6 +40,10 @@ import AdminDashboardPage from "./features/admin/pages/AdminDashboardPage";
 import AdminListingsPage from "./features/admin/pages/AdminListingsPage";
 import AdminUsersPage from "./features/admin/pages/AdminUsersPage";
 
+import { OwnerRentalRequestsPage } from "./features/owner/pages/OwnerRentalRequestsPage";
+import { ExpatriateBookingsPage } from "./features/expatriate/pages/ExpatriateBookingsPage";
+import { AdminComplaintsPage } from "./features/admin/pages/AdminComplaintsPage";
+
 function App() {
 return ( <AuthProvider> <Routes>
 {/* Public and authentication routes */}
@@ -104,6 +108,11 @@ return ( <AuthProvider> <Routes>
         path="listings/:id/edit"
         element={<EditListingPage />}
       />
+
+      <Route
+        path="rental-requests"
+        element={<OwnerRentalRequestsPage />}
+      />
     </Route>
 
     {/* Expatriate routes */}
@@ -138,6 +147,11 @@ return ( <AuthProvider> <Routes>
       />
 
       <Route path="profile" element={<ProfilePage />} />
+
+      <Route
+        path="bookings"
+        element={<ExpatriateBookingsPage />}
+      />
     </Route>
 
     {/* Shared profile route */}
@@ -162,6 +176,7 @@ return ( <AuthProvider> <Routes>
       <Route index element={<AdminDashboardPage />} />
       <Route path="listings" element={<AdminListingsPage />} />
       <Route path="users" element={<AdminUsersPage />} />
+      <Route path="complaints" element={<AdminComplaintsPage />} />
     </Route>
 
     {/* Unknown routes */}

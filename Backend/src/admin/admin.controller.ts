@@ -32,6 +32,11 @@ export class AdminController {
     return this.adminService.getDashboardStats();
   }
 
+  @Get('complaints')
+  getComplaints() {
+    return this.adminService.getComplaints();
+  }
+
   // ─── Listings ──────────────────────────────
 
   @Get('listings')

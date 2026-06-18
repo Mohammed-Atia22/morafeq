@@ -36,6 +36,14 @@ function LogoutIcon({ className }) {
   );
 }
 
+function ScaleIcon({ className }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7H1.5m16.5 0L15 6m0 0l3 9a5.002 5.002 0 01-6 0M15 6l-3 9m3-9h4.5M12 3v18M12 21h-3m3 0h3" />
+    </svg>
+  );
+}
+
 export function AdminSidebar({ user, logout }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -81,6 +89,10 @@ export function AdminSidebar({ user, logout }) {
         <NavLink to="/admin/users" className={({ isActive }) => itemClassName(isActive)}>
           <UsersIcon className="h-4 w-4 text-center" />
           <span>المستخدمين</span>
+        </NavLink>
+        <NavLink to="/admin/complaints" className={({ isActive }) => itemClassName(isActive)}>
+          <ScaleIcon className="h-4 w-4 text-center" />
+          <span>الشكاوى والنزاعات</span>
         </NavLink>
       </nav>
 

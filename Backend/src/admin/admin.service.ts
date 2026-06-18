@@ -15,6 +15,47 @@ import { AdminUpdateUserDto } from './dto/update-user.dto';
 export class AdminService {
   constructor(private prisma: PrismaService) {}
 
+  async getComplaints() {
+    return this.prisma.booking.findMany({
+      where: {
+        status: BookingStatus.DISPUTED,
+      },
+      include: {
+        guest: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            email: true,
+            phone: true,
+          },
+        },
+        listing: {
+          select: {
+            id: true,
+            title: true,
+            monthlyRent: true,
+            depositAmount: true,
+            city: true,
+            governorate: true,
+            host: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        },
+        payment: true,
+      },
+      orderBy: { disputedAt: 'desc' },
+    });
+  }
+
   // ─── Get listings by status ────────────────
 
   async getListings(query: AdminQueryListingsDto) {
