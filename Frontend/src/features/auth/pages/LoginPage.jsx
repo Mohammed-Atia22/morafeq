@@ -7,6 +7,7 @@ import { AuthMessage } from "../components/AuthMessage";
 import { FormField, inputClass } from "../components/FormField";
 import { GoogleButton } from "../components/GoogleButton";
 import { useAuth } from "../hooks/useAuth";
+import { getRoleHomePath } from "../utils/roleRedirect";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
 
@@ -48,11 +49,8 @@ export function LoginPage() {
       console.log(data);
       if (redirectPath) {
         navigate(redirectPath, { replace: true });
-      } else if(data.user.role == "HOST"){
-        navigate("/owner");
-      }else{
-        navigate("/");
-        
+      } else {
+        navigate(getRoleHomePath(data.user.role), { replace: true });
       }
     } catch (error) {
       setServerError(error.message);

@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/hooks/useAuth";
+import { getRoleHomePath } from "../../features/auth/utils/roleRedirect";
 
 export function ProtectedRoute({ children, allowedRoles }) {
   const { isAuthenticated, user } = useAuth();
@@ -28,10 +29,7 @@ export function ProtectedRoute({ children, allowedRoles }) {
     allowedRoles?.length &&
     !allowedRoles.includes(user.role)
   ) {
-    const redirectPath =
-      user.role === "HOST" ? "/owner" : "/expatriate";
-
-    return <Navigate to={redirectPath} replace />;
+    return <Navigate to={getRoleHomePath(user.role)} replace />;
   }
 
   return children;
