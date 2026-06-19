@@ -234,7 +234,7 @@ export function ExpatriateLocationInsightPage() {
             <div className="pointer-events-none absolute -left-10 -top-10 h-48 w-48 rounded-full bg-white/5" />
             <div className="pointer-events-none absolute -bottom-14 right-1/3 h-56 w-56 rounded-full bg-white/5" />
 
-            <div className="relative flex items-center justify-between gap-6">
+            <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur">
