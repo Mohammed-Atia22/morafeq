@@ -20,6 +20,7 @@ import { UpdateListingDto } from './dto/update-listing.dto';
 import { SearchListingDto } from './dto/search-listing.dto';
 import { SetAmenitiesDto } from './dto/set-amenities.dto';
 import { BlockDatesDto } from './dto/block-dates.dto';
+import { CreateRoomDto, UpdateRoomDto } from './dto/create-room.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -163,6 +164,64 @@ export class ListingsController {
     @Query('month') month: string,
   ) {
     return this.listingsService.getAvailability(id, month);
+  }
+
+  @Get(':id/rooms')
+  getRooms(@Param('id', ParseIntPipe) id: number) {
+    return this.listingsService.getRooms(id);
+  }
+
+  @Post(':id/rooms')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
+  createRoom(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+    @Body() dto: CreateRoomDto,
+  ) {
+    return this.listingsService.createRoom(id, user.id, dto);
+  }
+
+  @Patch(':id/rooms/:roomId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
+  updateRoom(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('roomId', ParseIntPipe) roomId: number,
+    @CurrentUser() user: any,
+    @Body() dto: UpdateRoomDto,
+  ) {
+    return this.listingsService.updateRoom(id, roomId, user.id, dto);
+  }
+
+  @Delete(':id/rooms/:roomId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
+  @HttpCode(HttpStatus.OK)
+  deleteRoom(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('roomId', ParseIntPipe) roomId: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.listingsService.deleteRoom(id, roomId, user.id);
+  }
+
+  @Post(':id/rooms/:roomId/images')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
+  @UseInterceptors(
+    FilesInterceptor('images', 10, {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  uploadRoomImages(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('roomId', ParseIntPipe) roomId: number,
+    @CurrentUser() user: any,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    return this.listingsService.uploadRoomImages(id, roomId, user.id, files);
   }
 
   // ─── Block dates ───────────────────────────

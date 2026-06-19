@@ -8,6 +8,11 @@ export function Step2Details({
   selectedPhotos,
   handlePhotoChange,
   removeSelectedPhoto,
+  roomCount = 0,
+  roomType = "PRIVATE_ROOM",
+  selectedRoomPhotos = {},
+  handleRoomPhotoChange,
+  removeSelectedRoomPhoto,
   amenityOptions,
   selectedAmenities,
   toggleAmenity,
@@ -365,6 +370,204 @@ export function Step2Details({
                   removeSelectedPhoto={removeSelectedPhoto}
                   required
                 />
+
+                {roomCount > 0 && roomType !== "ENTIRE_PLACE" && (
+                  <div
+                    style={{
+                      marginTop: "22px",
+                      padding: "18px",
+                      borderRadius: "16px",
+                      border: "1px solid #d8dde8",
+                      background: "#f8fafc",
+                    }}
+                  >
+                    <div style={{ marginBottom: "14px" }}>
+                      <h3
+                        style={{
+                          margin: 0,
+                          color: "#12213f",
+                          fontSize: "17px",
+                        }}
+                      >
+                        تفاصيل الغرف
+                      </h3>
+                      <p
+                        style={{
+                          margin: "6px 0 0",
+                          color: "#64748b",
+                          fontSize: "13px",
+                        }}
+                      >
+                        يتم إنشاء الغرف تلقائيا حسب عدد الغرف. أضف اسم كل غرفة وسعتها وصورها.
+                      </p>
+                    </div>
+
+                    <div style={{ display: "grid", gap: "14px" }}>
+                      {Array.from({ length: roomCount }).map((_, roomIndex) => {
+                        const photos = selectedRoomPhotos[roomIndex] || [];
+
+                        return (
+                          <div
+                            key={roomIndex}
+                            style={{
+                              padding: "14px",
+                              borderRadius: "14px",
+                              border: "1px solid #e2e8f0",
+                              background: "#fff",
+                            }}
+                          >
+                            <h4
+                              style={{
+                                margin: "0 0 12px",
+                                color: "#12213f",
+                                fontSize: "15px",
+                              }}
+                            >
+                              غرفة {roomIndex + 1}
+                            </h4>
+
+                            <input
+                              type="hidden"
+                              value={roomIndex + 1}
+                              {...register(`rooms.${roomIndex}.roomNumber`)}
+                            />
+
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                                gap: "12px",
+                              }}
+                            >
+                              <label
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "8px",
+                                  color: "#344050",
+                                }}
+                              >
+                                اسم الغرفة
+                                <input
+                                  style={fieldStyles}
+                                  placeholder={`مثال: غرفة ${roomIndex + 1}`}
+                                  {...register(`rooms.${roomIndex}.roomName`, {
+                                    required: "اسم الغرفة مطلوب",
+                                  })}
+                                />
+                                {errors.rooms?.[roomIndex]?.roomName && (
+                                  <span style={{ color: "#dc2626" }}>
+                                    {errors.rooms[roomIndex].roomName.message}
+                                  </span>
+                                )}
+                              </label>
+
+                              <label
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "8px",
+                                  color: "#344050",
+                                }}
+                              >
+                                السعة
+                                <input
+                                  style={fieldStyles}
+                                  placeholder="مثال: 2"
+                                  {...nonNegativeNumberProps}
+                                  {...register(`rooms.${roomIndex}.capacity`, {
+                                    required: "سعة الغرفة مطلوبة",
+                                    min: { value: 1, message: "السعة يجب أن تكون 1 على الأقل" },
+                                  })}
+                                />
+                                {errors.rooms?.[roomIndex]?.capacity && (
+                                  <span style={{ color: "#dc2626" }}>
+                                    {errors.rooms[roomIndex].capacity.message}
+                                  </span>
+                                )}
+                              </label>
+                            </div>
+
+                            <label
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "8px",
+                                color: "#344050",
+                                marginTop: "12px",
+                              }}
+                            >
+                              صور الغرفة
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(event) =>
+                                  handleRoomPhotoChange?.(roomIndex, event)
+                                }
+                                style={fieldStyles}
+                              />
+                            </label>
+
+                            {photos.length > 0 && (
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+                                  gap: "10px",
+                                  marginTop: "12px",
+                                }}
+                              >
+                                {photos.map((photo, photoIndex) => (
+                                  <div
+                                    key={`${photo.name}-${photo.lastModified}`}
+                                    style={{
+                                      border: "1px solid #e2e8f0",
+                                      borderRadius: "12px",
+                                      overflow: "hidden",
+                                      background: "#fff",
+                                    }}
+                                  >
+                                    <img
+                                      src={URL.createObjectURL(photo)}
+                                      alt={photo.name}
+                                      style={{
+                                        width: "100%",
+                                        height: "82px",
+                                        objectFit: "cover",
+                                        display: "block",
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        removeSelectedRoomPhoto?.(
+                                          roomIndex,
+                                          photoIndex,
+                                        )
+                                      }
+                                      style={{
+                                        width: "100%",
+                                        border: "none",
+                                        background: "#fee2e2",
+                                        color: "#b91c1c",
+                                        cursor: "pointer",
+                                        fontWeight: 700,
+                                        padding: "8px",
+                                      }}
+                                    >
+                                      حذف الصورة
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <AmenitiesSelector
                   amenityOptions={amenityOptions}

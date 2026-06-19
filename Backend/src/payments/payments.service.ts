@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
-import { BookingStatus, PaymentStatus } from '@prisma/client';
+import { BookingStatus, ListingStatus, PaymentStatus } from '@prisma/client';
 import axios from 'axios';
 import * as crypto from 'crypto';
 import { ReleasePaymentDto } from './dto/release-payment.dto';
@@ -17,6 +17,7 @@ import {
   calculateCapacity,
   CAPACITY_HOLDING_BOOKING_STATUSES,
   getPaymentExpiresAt,
+  areAllRoomsFull,
 } from '../bookings/booking-capacity';
 
 @Injectable()
@@ -156,26 +157,21 @@ export class PaymentsService {
           },
         });
 
-        const reservedPlaces = await tx.booking.count({
-          where: {
-            listingId: booking.listingId,
-            status: {
-              in: CAPACITY_HOLDING_BOOKING_STATUSES,
-            },
-          },
-        });
-
-        const capacity = calculateCapacity(
-          booking.listing.maxTenants,
-          reservedPlaces,
-        );
-
-        if (!capacity.isFull && booking.listing.status === 'RESERVED') {
-          await tx.listing.update({
-            where: { id: booking.listingId },
-            data: { status: 'ACTIVE' },
+        if (booking.roomId) {
+          const room = await tx.room.findUnique({
+            where: { id: booking.roomId },
+            select: { occupiedCount: true },
           });
+
+          if (room && room.occupiedCount > 0) {
+            await tx.room.update({
+              where: { id: booking.roomId },
+              data: { occupiedCount: { decrement: 1 } },
+            });
+          }
         }
+
+        await this.recalculateListingVisibility(tx, booking.listingId);
       });
 
       throw new BadRequestException(
@@ -354,8 +350,10 @@ const hostPayout =
   hostPayoutCents: hostPayout,
 
   rentAmount: rentAmountCents / 100,
+  depositAmount: securityDepositAmountCents / 100,
   securityDepositAmount:
     securityDepositAmountCents / 100,
+  platformFee: platformFee / 100,
   serviceFee: platformFee / 100,
   totalAmount: amountCents / 100,
   hostPayout: hostPayout / 100,
@@ -711,19 +709,22 @@ const paymentSucceeded = transaction.success === true;
   async refundPayment(paymentId: number, dto: RefundPaymentDto) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
+      include: {
+        booking: true,
+      },
     });
 
-    if (!payment) throw new NotFoundException('Payment not found');
+    if (!payment) throw new NotFoundException('لم يتم العثور على الدفعة');
 
     if (payment.status !== PaymentStatus.HELD) {
   throw new BadRequestException(
-    'Only held payments can be refunded',
+    'يمكن استرداد الدفعات المعلقة فقط',
   );
 }
 
 if (!payment.paymobTransactionId) {
   throw new BadRequestException(
-    'Payment transaction ID is missing',
+    'رقم معاملة الدفع غير موجود',
   );
 }
 
@@ -735,7 +736,7 @@ if (
   refundAmount > payment.amount
 ) {
   throw new BadRequestException(
-    'Invalid refund amount',
+    'قيمة الاسترداد غير صحيحة',
   );
 }
 
@@ -751,7 +752,7 @@ if (
       });
     } catch {
       throw new InternalServerErrorException(
-        'Failed to process refund with payment provider',
+        'تعذر تنفيذ الاسترداد من مزود الدفع',
       );
     }
 
@@ -776,6 +777,20 @@ if (
     });
 
   if (isFullRefund) {
+    if (payment.booking.roomId) {
+      const room = await tx.room.findUnique({
+        where: { id: payment.booking.roomId },
+        select: { occupiedCount: true },
+      });
+
+      if (room && room.occupiedCount > 0) {
+        await tx.room.update({
+          where: { id: payment.booking.roomId },
+          data: { occupiedCount: { decrement: 1 } },
+        });
+      }
+    }
+
     await tx.booking.update({
       where: {
         id: payment.bookingId,
@@ -786,13 +801,66 @@ if (
         disputeResolvedAt: new Date(),
         disputeResolution:
           dto.reason ||
-          'Full refund issued to guest',
+          'تم إصدار استرداد كامل للمستأجر.',
       },
     });
+
+    await this.recalculateListingVisibility(
+      tx,
+      payment.booking.listingId,
+    );
   }
 
   return updatedPayment;
 });
+  }
+
+  private async recalculateListingVisibility(
+    tx: any,
+    listingId: number,
+  ) {
+    const listing = await tx.listing.findUnique({
+      where: { id: listingId },
+      select: {
+        maxTenants: true,
+        status: true,
+        roomType: true,
+        rooms: {
+          select: {
+            capacity: true,
+            occupiedCount: true,
+          },
+        },
+      },
+    });
+
+    if (!listing) return;
+
+    const activeReservedPlaces = await tx.booking.count({
+      where: {
+        listingId,
+        status: { in: CAPACITY_HOLDING_BOOKING_STATUSES },
+      },
+    });
+    const capacityState = calculateCapacity(
+      listing.maxTenants,
+      activeReservedPlaces,
+    );
+    const shouldBeHidden = capacityState.isFull || areAllRoomsFull(listing);
+
+    if (shouldBeHidden && listing.status === ListingStatus.ACTIVE) {
+      await tx.listing.update({
+        where: { id: listingId },
+        data: { status: ListingStatus.RESERVED },
+      });
+    }
+
+    if (!shouldBeHidden && listing.status === ListingStatus.RESERVED) {
+      await tx.listing.update({
+        where: { id: listingId },
+        data: { status: ListingStatus.ACTIVE },
+      });
+    }
   }
 
 
@@ -811,48 +879,114 @@ if (
   });
 
   if (!payment) {
-    throw new NotFoundException('Payment not found');
+    throw new NotFoundException('لم يتم العثور على الدفعة');
   }
 
-  // لازم الفلوس تكون لسه معلقة
   if (payment.status !== PaymentStatus.HELD) {
     throw new BadRequestException(
-      'Only held payments can be settled',
+      'يمكن تسوية الدفعات المعلقة فقط',
     );
   }
 
-  // القرار ده مسموح فقط لو فيه نزاع
   if (payment.booking.status !== BookingStatus.DISPUTED) {
     throw new BadRequestException(
-      'This booking does not have an active dispute',
+      'لا يوجد نزاع نشط لهذا الحجز',
     );
   }
 
-  /*
-    صاحب السكن يأخذ مبلغ التأمين فقط.
-    المغترب يسترجع قيمة الإيجار.
-    رسوم المنصة لا ترجع في الحالة دي.
-  */
-
-  const hostCompensationAmount =
-    payment.securityDepositAmount;
-
-  const guestRefundAmount =
-    payment.rentAmount;
+  const hostCompensationAmount = payment.securityDepositAmount;
+  const guestRefundAmount = payment.rentAmount;
 
   if (hostCompensationAmount < 0 || guestRefundAmount <= 0) {
     throw new BadRequestException(
-      'Invalid dispute settlement amounts',
+      'قيم تسوية النزاع غير صحيحة',
     );
   }
+
+  const updatedBooking = await this.prisma.booking.update({
+    where: {
+      id: payment.bookingId,
+    },
+    data: {
+      status: BookingStatus.DISPUTE_RESOLVED_FOR_HOST,
+      disputeResolvedAt: new Date(),
+      disputeResolution:
+        dto.note ||
+        'تم حل النزاع لصالح المالك. يرجى اختيار متابعة الحجز أو الإلغاء.',
+    },
+  });
+
+  return {
+    message: 'تم حل النزاع لصالح المالك وبانتظار قرار المستأجر',
+
+    settlement: {
+      totalPaidCents: payment.amount,
+      guestRefundCents: guestRefundAmount,
+      hostCompensationCents: hostCompensationAmount,
+      platformFeeCents: payment.platformFee,
+      rentAmountCents: payment.rentAmount,
+      securityDepositAmountCents: payment.securityDepositAmount,
+
+      totalPaid: payment.amount / 100,
+      guestRefund: guestRefundAmount / 100,
+      hostCompensation: hostCompensationAmount / 100,
+      platformFee: payment.platformFee / 100,
+      rentAmount: payment.rentAmount / 100,
+      depositAmount: payment.securityDepositAmount / 100,
+
+      currency: payment.currency,
+    },
+
+    payment,
+    booking: updatedBooking,
+  };
+}
+
+async finalizeDisputeCancellationForGuest(
+  bookingId: number,
+  guestId: number,
+) {
+  const booking = await this.prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      payment: true,
+      listing: true,
+    },
+  });
+
+  if (!booking) {
+    throw new NotFoundException('Booking not found');
+  }
+
+  if (booking.guestId !== guestId) {
+    throw new ForbiddenException(
+      'You can only respond to your own dispute resolution',
+    );
+  }
+
+  if (booking.status !== BookingStatus.DISPUTE_RESOLVED_FOR_HOST) {
+    throw new BadRequestException(
+      'لا يوجد قرار نزاع بانتظار ردك على هذا الحجز',
+    );
+  }
+
+  const payment = booking.payment;
+
+  if (!payment || payment.status !== PaymentStatus.HELD) {
+    throw new BadRequestException(
+      'لا توجد دفعة معلقة مرتبطة بهذا الحجز',
+    );
+  }
+
+  const hostCompensationAmount = payment.securityDepositAmount;
+  const guestRefundAmount = payment.rentAmount;
 
   if (!payment.paymobTransactionId) {
     throw new BadRequestException(
-      'Payment transaction ID is missing',
+      'رقم معاملة الدفع غير موجود',
     );
   }
 
-  // نعمل Partial Refund لقيمة الإيجار فقط
   try {
     const authToken = await this.getAuthToken();
 
@@ -861,8 +995,6 @@ if (
       {
         auth_token: authToken,
         transaction_id: payment.paymobTransactionId,
-
-        // يرجع للمغترب قيمة الإيجار فقط
         amount_cents: guestRefundAmount,
       },
     );
@@ -874,28 +1006,21 @@ if (
     });
 
     throw new InternalServerErrorException(
-      'Failed to process guest partial refund',
+      'تعذر تنفيذ الاسترداد الجزئي للمستأجر',
     );
   }
 
   return this.prisma.$transaction(async (tx) => {
     const updatedPayment = await tx.payment.update({
       where: {
-        id: paymentId,
+        id: payment.id,
       },
       data: {
         status: PaymentStatus.PARTIALLY_REFUNDED,
-
-        // قيمة الإيجار التي رجعت للمغترب
         guestRefundAmount,
-
-        // التأمين المستحق لصاحب السكن
         hostCompensationAmount,
-
         refundReason:
-          dto.note ||
-          'Guest dispute rejected. Rent refunded and security deposit retained as host compensation.',
-
+          'تم إلغاء الحجز باختيار المستأجر بعد حل النزاع لصالح المالك.',
         refundedAt: new Date(),
         settledAt: new Date(),
       },
@@ -903,43 +1028,43 @@ if (
 
     const updatedBooking = await tx.booking.update({
       where: {
-        id: payment.bookingId,
+        id: bookingId,
       },
       data: {
         status: BookingStatus.CANCELLED_AFTER_DISPUTE,
-
         cancellationReason:
-          dto.note ||
-          'Booking cancelled after dispute resolution in favor of the host.',
-
+          'تم إلغاء الحجز باختيار المستأجر بعد حل النزاع لصالح المالك.',
         cancelledAt: new Date(),
-        disputeResolvedAt: new Date(),
-
-        disputeResolution:
-          dto.note ||
-          'Dispute resolved in favor of the host. The guest received the rent refund and the host received the security deposit as compensation.',
       },
     });
 
+    if (booking.roomId) {
+      const room = await tx.room.findUnique({
+        where: { id: booking.roomId },
+        select: { occupiedCount: true },
+      });
+
+      if (room && room.occupiedCount > 0) {
+        await tx.room.update({
+          where: { id: booking.roomId },
+          data: { occupiedCount: { decrement: 1 } },
+        });
+      }
+    }
+
+    await this.recalculateListingVisibility(tx, booking.listingId);
+
     return {
-      message: 'Dispute resolved in favor of the host',
-
+      message: 'تم إلغاء الحجز واسترداد المبلغ المستحق',
       settlement: {
-        totalPaidCents: payment.amount,
-
-        guestRefundCents: guestRefundAmount,
-        hostCompensationCents: hostCompensationAmount,
-        platformFeeCents: payment.platformFee,
-
         totalPaid: payment.amount / 100,
         guestRefund: guestRefundAmount / 100,
-        hostCompensation:
-          hostCompensationAmount / 100,
+        hostCompensation: hostCompensationAmount / 100,
         platformFee: payment.platformFee / 100,
-
+        rentAmount: payment.rentAmount / 100,
+        depositAmount: payment.securityDepositAmount / 100,
         currency: payment.currency,
       },
-
       payment: updatedPayment,
       booking: updatedBooking,
     };

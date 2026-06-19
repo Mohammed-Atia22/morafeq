@@ -1,8 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../../auth/hooks/useAuth";
 import { useBooking } from "../../../bookings/hooks/useBooking";
 import { usePayment } from "../../../payments/hooks/usePayment";
 import { VerificationRequiredModal } from "../../../verification/components/VerificationRequiredModal";
+import { PaymentBreakdownCard } from "../../../payments/components/PaymentBreakdownCard";
+import {
+  buildBreakdownFromListing,
+  buildDisputeSettlementPreview,
+  normalizePaymentBreakdown,
+} from "../../../payments/utils/paymentBreakdown";
+import {
+  DisputeResolutionDialog,
+  DisputeCancellationSuccess,
+} from "../../../bookings/components/DisputeResolutionDialog";
 
 const getReservationExpiry = (booking) => {
   if (booking?.paymentExpiresAt) return new Date(booking.paymentExpiresAt);
@@ -24,17 +34,23 @@ const formatRemainingTime = (expiresAt, now) => {
   return `${hours} ساعة و ${minutes} دقيقة`;
 };
 
-export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", listingId, listingStatus }) {
+export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", listingId, listingStatus, rooms = [] }) {
   const { user, refreshUser } = useAuth();
   const [checkIn, setCheckIn] = useState("");
   const [guestMessage, setGuestMessage] = useState("");
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [selectedRoomId, setSelectedRoomId] = useState(null);
+  const [roomSelectionError, setRoomSelectionError] = useState("");
 
   // Problem Modal state
   const [showProblemModal, setShowProblemModal] = useState(false);
   const [problemReason, setProblemReason] = useState("");
   const [problemDescription, setProblemDescription] = useState("");
+  const [paymentBreakdown, setPaymentBreakdown] = useState(null);
+  const [showDisputeDialog, setShowDisputeDialog] = useState(false);
+  const [showCancellationSuccess, setShowCancellationSuccess] = useState(false);
+  const [cancellationSettlement, setCancellationSettlement] = useState(null);
 
   // Reusable hooks
   const {
@@ -44,6 +60,8 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
     createBooking,
     confirmReceipt,
     reportProblem,
+    continueAfterDispute,
+    cancelAfterDispute,
   } = useBooking();
 
   const {
@@ -65,15 +83,35 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
     return () => clearInterval(timer);
   }, []);
 
+  const listingBreakdown = useMemo(
+    () => buildBreakdownFromListing({ monthlyRent, depositAmount }),
+    [monthlyRent, depositAmount],
+  );
+
   // Find the active booking for this listing
   const currentBooking = bookings.find(
     (b) =>
       b.listingId === Number(listingId) &&
-      !["CANCELLED_BY_GUEST", "CANCELLED_BY_HOST", "CANCELED", "EXPIRED"].includes(b.status)
+      ![
+        "CANCELLED_BY_GUEST",
+        "CANCELLED_BY_HOST",
+        "CANCELED",
+        "EXPIRED",
+        "CANCELLED_AFTER_DISPUTE",
+      ].includes(b.status)
   );
 
-  const total = Number(monthlyRent);
-  const deposit = Number(depositAmount ?? 0);
+  const invoiceBreakdown =
+    paymentBreakdown ||
+    normalizePaymentBreakdown(currentBooking?.payment) ||
+    listingBreakdown;
+
+  useEffect(() => {
+    if (currentBooking?.status === "DISPUTE_RESOLVED_FOR_HOST") {
+      setShowDisputeDialog(true);
+    }
+  }, [currentBooking?.id, currentBooking?.status]);
+
   const currencyLabel = currency === "EGP" ? "ج.م" : currency;
 
   // Handle booking creation
@@ -85,22 +123,35 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
       return;
     }
 
+    if (rooms.length > 0 && !selectedRoomId) {
+      setRoomSelectionError("يرجى اختيار الغرفة المناسبة قبل إرسال طلب الحجز");
+      return;
+    }
+
     try {
-      await createBooking(Number(listingId), checkIn || undefined, guestMessage || undefined);
+      await createBooking(
+        Number(listingId),
+        checkIn || undefined,
+        guestMessage || undefined,
+        selectedRoomId || undefined,
+      );
       setCheckIn("");
       setGuestMessage("");
+      setSelectedRoomId(null);
+      setRoomSelectionError("");
     } catch (err) {
       console.error(err);
     }
   };
 
-  // Handle payment triggers
   const handlePayment = async () => {
     if (!currentBooking) return;
     try {
       const session = await createPaymentSession(currentBooking.id);
+      if (session?.amounts) {
+        setPaymentBreakdown(normalizePaymentBreakdown(session));
+      }
       if (session?.iframeUrl) {
-        // Start polling backend status every 3 seconds to auto-close modal on payment success
         startPolling(currentBooking.id, () => {
           fetchBookings();
         });
@@ -157,7 +208,74 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
 
       // Normal state: Book Now
       return (
-        <div className="space-y-3">
+          <div className="space-y-3">
+          {rooms.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-black text-slate-700">اختر الغرفة المناسبة</p>
+              <div className="grid gap-2">
+                {rooms.map((room) => {
+                  const remaining = Math.max(
+                    0,
+                    Number(room.capacity || 0) - Number(room.occupiedCount || 0),
+                  );
+                  const isFull = remaining <= 0;
+                  const image = room.images?.[0]?.imageUrl;
+
+                  return (
+                    <button
+                      key={room.id}
+                      type="button"
+                      disabled={isFull}
+                      onClick={() => {
+                        if (isFull) {
+                          setRoomSelectionError("هذه الغرفة ممتلئة، يرجى اختيار غرفة أخرى.");
+                          return;
+                        }
+                        setSelectedRoomId(room.id);
+                        setRoomSelectionError("");
+                      }}
+                      className={[
+                        "flex items-center gap-3 rounded-xl border p-2 text-right transition",
+                        selectedRoomId === room.id
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-slate-200 bg-white hover:border-blue-200",
+                        isFull ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+                      ].join(" ")}
+                    >
+                      {image && (
+                        <img
+                          src={image}
+                          alt={room.roomName}
+                          className="h-12 w-12 rounded-lg object-cover"
+                        />
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-black text-slate-800">
+                          {room.roomName}
+                        </span>
+                        <span className="block text-[11px] font-bold text-slate-500">
+                          {isFull
+                            ? "ممتلئة"
+                            : `الأماكن المتبقية: ${remaining.toLocaleString("ar-EG")} من ${Number(room.capacity || 0).toLocaleString("ar-EG")}`}
+                        </span>
+                      </span>
+                      {isFull && (
+                        <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-black text-red-600">
+                          ممتلئة
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {roomSelectionError && (
+                <p className="text-[11px] font-bold text-red-600">
+                  {roomSelectionError}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="block text-xs font-bold text-slate-600">تاريخ الدخول</label>
             <input
@@ -314,6 +432,25 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
           </div>
         );
 
+      case "DISPUTE_RESOLVED_FOR_HOST":
+        return (
+          <div className="space-y-3">
+            <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 text-amber-900 text-center">
+              <p className="text-sm font-extrabold">تم حل النزاع — يلزم اتخاذ قرار</p>
+              <p className="mt-1 text-xs font-semibold">
+                يرجى اختيار متابعة الحجز أو إلغائه واسترداد المبلغ المستحق.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDisputeDialog(true)}
+              className="w-full rounded-xl bg-[#1752F0] py-3 text-sm font-black text-white shadow hover:bg-[#1240c4] transition cursor-pointer"
+            >
+              عرض تفاصيل القرار
+            </button>
+          </div>
+        );
+
       case "COMPLETED":
         return (
           <div className="space-y-3">
@@ -374,24 +511,11 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
         <div className="my-4 border-t border-slate-100" />
 
         {/* Price breakdown */}
-        <div className="mb-4 space-y-2 rounded-xl bg-slate-50 px-4 py-3 text-sm">
-          <div className="flex justify-between text-slate-600">
-            <span>إيجار الشهر الأول</span>
-            <span className="font-semibold">{total.toLocaleString("ar-EG")} {currencyLabel}</span>
-          </div>
-          {deposit > 0 && (
-            <div className="flex justify-between text-slate-600">
-              <span>تأمين مسترد</span>
-              <span className="font-semibold">{deposit.toLocaleString("ar-EG")} {currencyLabel}</span>
-            </div>
-          )}
-          <div className="flex justify-between border-t border-slate-200 pt-2 font-black text-[#0f172a]">
-            <span>الإجمالي المطلوب دفعه</span>
-            <span className="text-[#1752F0]">
-              {(total + deposit).toLocaleString("ar-EG")} {currencyLabel}
-            </span>
-          </div>
-        </div>
+        <PaymentBreakdownCard
+          breakdown={invoiceBreakdown}
+          title="تفاصيل الفاتورة"
+          className="mb-4"
+        />
 
         {/* Dynamic Booking UI Actions */}
         {renderBookingState()}
@@ -486,6 +610,43 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
 
       {/* Verification modal */}
       <VerificationRequiredModal open={showVerificationModal} onClose={() => setShowVerificationModal(false)} />
+
+      <DisputeResolutionDialog
+        open={showDisputeDialog && currentBooking?.status === "DISPUTE_RESOLVED_FOR_HOST"}
+        booking={currentBooking}
+        payment={currentBooking?.payment}
+        loading={bookingLoading}
+        onContinue={async () => {
+          await continueAfterDispute(currentBooking.id);
+          setShowDisputeDialog(false);
+          fetchBookings();
+        }}
+        onCancelRequest={async () => {
+          const result = await cancelAfterDispute(currentBooking.id);
+          const settlement = buildDisputeSettlementPreview(currentBooking?.payment) || {
+            totalAmount: result?.settlement?.totalPaid,
+            expectedRefund: result?.settlement?.guestRefund,
+            hostCompensation: result?.settlement?.hostCompensation,
+            retainedPlatformFee: result?.settlement?.platformFee,
+            currency: result?.settlement?.currency || "EGP",
+          };
+          setCancellationSettlement(settlement);
+          setShowDisputeDialog(false);
+          setShowCancellationSuccess(true);
+          fetchBookings();
+        }}
+        onClose={() => setShowDisputeDialog(false)}
+      />
+
+      <DisputeCancellationSuccess
+        open={showCancellationSuccess}
+        settlement={cancellationSettlement}
+        onClose={() => {
+          setShowCancellationSuccess(false);
+          setCancellationSettlement(null);
+          fetchBookings();
+        }}
+      />
     </>
   );
 }

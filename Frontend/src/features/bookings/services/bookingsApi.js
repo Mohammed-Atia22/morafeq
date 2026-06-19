@@ -38,4 +38,9 @@ export const bookingsApi = {
       method: "POST",
       body: JSON.stringify({ reason, description }),
     }),
+
+  continueAfterDispute: (id) =>
+    apiRequest(`/bookings/${id}/dispute/continue`, {
+      method: "PATCH",
+    }),
 };

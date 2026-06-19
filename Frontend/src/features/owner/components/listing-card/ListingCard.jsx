@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { listingsApi } from "../../../listings/services/listingsApi";
+import { RatingSummary } from "../../../reviews/components/RatingSummary";
 import { CheckIcon, EyeIcon, TrashIcon } from "../common/OwnerIcons";
 import {
   genderPreferenceOptions,
@@ -420,7 +421,11 @@ export function ListingCard({
                 <EyeIcon className="h-4 w-4" />
                 {listing.viewsCount || 0}
               </span>
-              <span>{reviewCount ? `★ ${reviewCount}` : "لا تقييمات"}</span>
+              <RatingSummary
+                averageRating={listing.averageRating ?? 0}
+                reviewCount={reviewCount}
+                size="xs"
+              />
               <span>{bookingCount} طلب</span>
               <span>{roomsCount} غرفة</span>
               <span>{listing.bathrooms || 0} حمام</span>
@@ -428,6 +433,20 @@ export function ListingCard({
               <span>المحجوز {reservedPlaces.toLocaleString("ar-EG")}</span>
               <span>المتبقي {availablePlaces.toLocaleString("ar-EG")}</span>
             </div>
+
+            {listing.roomType !== "ENTIRE_PLACE" && listing.rooms?.length > 0 && (
+              <div className="mt-3 grid gap-2 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-600">
+                {listing.rooms.map((room) => (
+                  <div key={room.id} className="flex items-center justify-between">
+                    <span>{room.roomName}</span>
+                    <span>
+                      {Number(room.occupiedCount || 0).toLocaleString("ar-EG")} /{" "}
+                      {Number(room.capacity || 0).toLocaleString("ar-EG")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="mt-4 grid grid-cols-[1fr_1fr_auto] gap-2">
               <button

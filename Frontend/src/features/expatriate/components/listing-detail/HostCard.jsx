@@ -5,10 +5,13 @@ import toast from "react-hot-toast";
 
 import { chatApi } from "../../../chat/services/chatApi";
 import { VerificationBadge } from "../../../verification/components/VerificationBadge";
+import { RatingSummary } from "../../../reviews/components/RatingSummary";
+import { useHostReviews } from "../../../reviews/hooks/useHostReviews";
 
 export function HostCard({ host, listingId }) {
   const navigate = useNavigate();
   const [isStartingChat, setIsStartingChat] = useState(false);
+  const { meta: hostReviewMeta, loading: hostReviewsLoading } = useHostReviews(host?.id);
 
   if (!host) return null;
 
@@ -25,7 +28,9 @@ export function HostCard({ host, listingId }) {
   const initials =
     host.firstName?.charAt(0)?.toUpperCase() ?? "م";
 
-  const handleContactOwner = async () => {
+  const handleContactOwner = async (event) => {
+    event.stopPropagation();
+
     if (!listingId) {
       toast.error("بيانات العقار غير مكتملة");
       return;
@@ -49,6 +54,10 @@ export function HostCard({ host, listingId }) {
     }
   };
 
+  const handleOpenProfile = () => {
+    navigate(`/expatriate/hosts/${host.id}`);
+  };
+
   return (
     <div
       dir="rtl"
@@ -58,8 +67,12 @@ export function HostCard({ host, listingId }) {
         صاحب الشقة
       </h2>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={handleOpenProfile}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl text-right transition hover:bg-slate-50 p-1 -m-1"
+        >
           {host.avatarUrl ? (
             <img
               src={host.avatarUrl}
@@ -72,7 +85,7 @@ export function HostCard({ host, listingId }) {
             </div>
           )}
 
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-bold text-[#0f172a]">
                 {fullName}
@@ -82,6 +95,18 @@ export function HostCard({ host, listingId }) {
                 status={host.verificationStatus}
                 compact
               />
+            </div>
+
+            <div className="mt-1">
+              {hostReviewsLoading ? (
+                <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
+              ) : (
+                <RatingSummary
+                  averageRating={hostReviewMeta.averageRating ?? 0}
+                  reviewCount={hostReviewMeta.total ?? 0}
+                  size="sm"
+                />
+              )}
             </div>
 
             <div className="mt-0.5 flex flex-col gap-0.5">
@@ -98,17 +123,17 @@ export function HostCard({ host, listingId }) {
               )}
             </div>
           </div>
-        </div>
+        </button>
 
         <button
           type="button"
           onClick={handleContactOwner}
           disabled={isStartingChat}
-          className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 transition hover:border-[#1752F0] hover:text-[#1752F0] disabled:cursor-not-allowed disabled:opacity-60"
+          className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 transition hover:border-[#1752F0] hover:text-[#1752F0] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isStartingChat ? "جاري الفتح..." : "تواصل"}
         </button>
       </div>
     </div>
-  )
+  );
 }

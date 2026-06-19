@@ -13,6 +13,17 @@ export const paymentsApi = {
   getPaymentByBooking: (bookingId) =>
     apiRequest(`/payments/booking/${bookingId}`),
 
+  cancelAfterDispute: (bookingId) =>
+    apiRequest(`/payments/booking/${bookingId}/dispute-cancel`, {
+      method: "PATCH",
+    }),
+
+  resolveDisputeForHost: (paymentId, note) =>
+    apiRequest(`/payments/${paymentId}/resolve-for-host`, {
+      method: "PATCH",
+      body: JSON.stringify({ note }),
+    }),
+
   refundPayment: (paymentId, reason) =>
     apiRequest(`/payments/${paymentId}/refund`, {
       method: "PATCH",

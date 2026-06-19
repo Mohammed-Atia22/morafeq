@@ -4,7 +4,7 @@ import { PhotoGallery } from "../components/listing-detail/PhotoGallery";
 import { ListingInfo } from "../components/listing-detail/ListingInfo";
 import { HostCard } from "../components/listing-detail/HostCard";
 import { AmenitiesSection } from "../components/listing-detail/AmenitiesSection";
-import { ReviewsSection } from "../components/listing-detail/ReviewsSection";
+import { ListingReviewsSection } from "../../reviews/components/ListingReviewsSection";
 import { BookingCard } from "../components/listing-detail/BookingCard";
 import { LocationInsightButton } from "../components/listing-detail/LocationInsightButton";
 
@@ -74,6 +74,9 @@ export function ExpatriateListingDetailPage() {
               currency={listing.currency}
               listingId={listing.id}
               listingStatus={listing.status}
+              rooms={
+                listing.roomType !== "ENTIRE_PLACE" ? listing.rooms ?? [] : []
+              }
             />
           </aside>
 
@@ -92,10 +95,7 @@ export function ExpatriateListingDetailPage() {
             <ListingInfo listing={listing} />
 
             {/* Host */}
-            <HostCard
-  host={listing.host}
-  listingId={listing.id}
-/>
+            <HostCard host={listing.host} listingId={listing.id} />
 
             {/* Amenities */}
             <AmenitiesSection amenities={listing.amenities ?? []} />
@@ -104,11 +104,7 @@ export function ExpatriateListingDetailPage() {
             <LocationInsightButton listingId={listing.id} />
 
             {/* Reviews */}
-            <ReviewsSection
-              reviews={listing.reviews ?? []}
-              averageRating={listing.averageRating ?? 0}
-              reviewCount={listing._count?.reviews ?? 0}
-            />
+            <ListingReviewsSection listingId={listing.id} />
           </div>
         </div>
       )}

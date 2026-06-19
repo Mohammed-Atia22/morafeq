@@ -81,6 +81,15 @@ export function OwnerApartmentsList({
                     <span>•</span>
                     <span>المتبقية: {availablePlaces.toLocaleString("ar-EG")}</span>
                   </div>
+                  {listing.roomType !== "ENTIRE_PLACE" && listing.rooms?.length > 0 && (
+                    <div className="mt-2 flex flex-wrap justify-end gap-2 text-[11px] font-bold text-slate-500">
+                      {listing.rooms.map((room) => (
+                        <span key={room.id} className="rounded-full bg-slate-100 px-2 py-1">
+                          {room.roomName}: {Number(room.occupiedCount || 0).toLocaleString("ar-EG")} / {Number(room.capacity || 0).toLocaleString("ar-EG")}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-black text-[#1f5bd7]">

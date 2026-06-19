@@ -152,6 +152,7 @@ model Listing {
   categoryId Int?      @db.UnsignedInt
 
   photos             ListingPhoto[]
+  rooms              Room[]
   amenities          ListingAmenity[]
   availabilityBlocks AvailabilityBlock[]
   bookings           Booking[]
@@ -256,6 +257,8 @@ model Booking {
   preferredMoveInDate DateTime? @db.Date
   guestMessage        String?   @db.Text
   agreedAmount        Int?      @db.UnsignedInt
+  roomId              Int?      @db.UnsignedInt
+  selectedRoomName    String?   @db.VarChar(100)
 
   status BookingStatus @default(PENDING_HOST_APPROVAL)
 
@@ -282,6 +285,7 @@ model Booking {
   // Relations
   guest     User     @relation(fields: [guestId], references: [id])
   listing   Listing  @relation(fields: [listingId], references: [id])
+  room      Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
 
   review Review[]
 
@@ -290,8 +294,40 @@ model Booking {
 
   @@index([guestId])
   @@index([listingId])
+  @@index([roomId])
   @@index([status])
   @@map("bookings")
+}
+
+model Room {
+  id            Int      @id @default(autoincrement()) @db.UnsignedInt
+  apartmentId   Int      @db.UnsignedInt
+  roomNumber    Int      @db.UnsignedInt
+  roomName      String   @db.VarChar(100)
+  capacity      Int      @db.UnsignedInt
+  occupiedCount Int      @default(0) @db.UnsignedInt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  apartment Listing     @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  images    RoomImage[]
+  bookings  Booking[]
+
+  @@unique([apartmentId, roomNumber])
+  @@index([apartmentId])
+  @@map("rooms")
+}
+
+model RoomImage {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  roomId    Int      @db.UnsignedInt
+  imageUrl  String   @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@map("room_images")
 }
 
 model Payment {
@@ -481,6 +517,7 @@ enum BookingStatus {
   PENDING_PAYMENT
   CHECK_IN_PENDING
   DISPUTED
+  DISPUTE_RESOLVED_FOR_HOST
   COMPLETED
   REJECTED
   CANCELED

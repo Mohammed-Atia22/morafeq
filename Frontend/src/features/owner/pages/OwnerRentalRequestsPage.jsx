@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useOwnerRequests } from "../hooks/useOwnerRequests";
+import { BookingReviewActions } from "../../reviews/components/BookingReviewActions";
 
 const getReservationExpiry = (booking) => {
   if (booking?.paymentExpiresAt) return new Date(booking.paymentExpiresAt);
@@ -176,6 +178,7 @@ export function OwnerRentalRequestsPage() {
             const statusStyle = getStatusLabel(request.status);
             const expiresAt = getReservationExpiry(request);
             const remainingTime = formatRemainingTime(expiresAt, now);
+            const selectedRoomName = request.selectedRoomName || request.room?.roomName;
 
             return (
               <div
@@ -207,17 +210,30 @@ export function OwnerRentalRequestsPage() {
                   {/* Expatriate Info */}
                   <div className="rounded-xl bg-slate-50 p-3 mb-4">
                     <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">معلومات المستأجر</h3>
-                    <div className="flex items-center gap-3">
-                      <div className="grid h-9 w-9 place-items-center rounded-full bg-blue-100 text-xs font-black text-blue-700">
-                        {request.guest?.firstName?.[0] || "م"}
-                      </div>
+                    <Link
+                      to={`/owner/guests/${request.guest?.id}`}
+                      className="flex items-center gap-3 rounded-lg p-1 transition hover:bg-white"
+                    >
+                      {request.guest?.avatarUrl ? (
+                        <img
+                          src={request.guest.avatarUrl}
+                          alt={`${request.guest?.firstName ?? ""} ${request.guest?.lastName ?? ""}`.trim()}
+                          className="h-9 w-9 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="grid h-9 w-9 place-items-center rounded-full bg-blue-100 text-xs font-black text-blue-700">
+                          {request.guest?.firstName?.[0] || "م"}
+                        </div>
+                      )}
                       <div>
                         <div className="text-xs font-extrabold text-slate-800">
                           {request.guest?.firstName} {request.guest?.lastName}
                         </div>
-                        <div className="text-[10px] text-slate-400 font-semibold">{request.guest?.email}</div>
+                        <div className="text-[10px] font-bold text-[#1752F0]">
+                          عرض الملف الشخصي
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                     {request.guest?.verificationStatus === "APPROVED" ? (
                       <span className="mt-2 inline-flex items-center gap-1 rounded bg-green-50 px-1.5 py-0.5 text-[9px] font-bold text-green-600 border border-green-100">
                         هوية موثقة
@@ -230,6 +246,12 @@ export function OwnerRentalRequestsPage() {
                   </div>
 
                   {/* Guest optional message */}
+                  {selectedRoomName && (
+                    <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs font-bold text-blue-800">
+                      الغرفة المختارة: {selectedRoomName}
+                    </div>
+                  )}
+
                   {request.guestMessage && (
                     <div className="mb-4 rounded-xl border border-slate-100 bg-[#E8F0FF]/30 p-3 text-xs text-[#0b62d8]">
                       <span className="font-extrabold block mb-1">رسالة المستأجر:</span>
@@ -246,7 +268,7 @@ export function OwnerRentalRequestsPage() {
 
                   {request.status === "PENDING_PAYMENT" && (
                     <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-center text-xs font-bold text-blue-800">
-                      العقار محجوز الآن ولا يظهر في نتائج البحث العامة حتى يدفع المستأجر أو تنتهي المهلة.
+                      تم حجز مكان من السعة المتاحة حتى يدفع المستأجر أو تنتهي المهلة.
                       {remainingTime && (
                         <span className="mt-1 block font-black">
                           الوقت المتبقي للدفع: {remainingTime}
@@ -278,6 +300,15 @@ export function OwnerRentalRequestsPage() {
                     >
                       رفض الطلب
                     </button>
+                  </div>
+                ) : request.status === "COMPLETED" ? (
+                  <div className="border-t border-slate-100 bg-slate-50 p-4">
+                    <BookingReviewActions
+                      bookingId={request.id}
+                      bookingStatus={request.status}
+                      onReviewSubmitted={fetchRequests}
+                      compact
+                    />
                   </div>
                 ) : (
                   <div className="border-t border-slate-100 bg-slate-50 p-3 text-center text-xs font-semibold text-slate-400">

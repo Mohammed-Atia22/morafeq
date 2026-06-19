@@ -104,4 +104,17 @@ resolveDisputeForHost(
     dto,
   );
 }
+
+  @Patch('booking/:bookingId/dispute-cancel')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  cancelAfterDisputeResolution(
+    @Param('bookingId', ParseIntPipe) bookingId: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.paymentsService.finalizeDisputeCancellationForGuest(
+      bookingId,
+      user.id,
+    );
+  }
 }
