@@ -19,6 +19,8 @@ import { AdminModule } from './admin/admin.module';
 import { ChatModule } from './chat/chat.module';
 import { ConfigModule } from '@nestjs/config';
 import { VerificationModule } from './verification/verification.module';
+import { AiModule } from './ai/ai.module';
+
 
 @Module({
   imports: [
@@ -42,6 +44,7 @@ import { VerificationModule } from './verification/verification.module';
     AdminModule,
     ChatModule,
     VerificationModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],
