@@ -19,6 +19,7 @@ import { AdminModule } from './admin/admin.module';
 import { ChatModule } from './chat/chat.module';
 import { ConfigModule } from '@nestjs/config';
 import { VerificationModule } from './verification/verification.module';
+import { DisputeChatModule } from './dispute-chat/dispute-chat.module';
 import { AiModule } from './ai/ai.module';
 
 
@@ -44,7 +45,11 @@ import { AiModule } from './ai/ai.module';
     AdminModule,
     ChatModule,
     VerificationModule,
+<<<<<<< HEAD
+    DisputeChatModule,
+=======
     AiModule,
+>>>>>>> f3179c69312b7b382f1ee3be5785c213b94f0b83
   ],
   controllers: [AppController],
   providers: [AppService],

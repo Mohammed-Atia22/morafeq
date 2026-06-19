@@ -8,35 +8,37 @@ datasource db {
 }
 
 model User {
-  id                  Int                @id @default(autoincrement()) @db.UnsignedInt
-  email               String             @unique @db.VarChar(255)
-  passwordHash        String?            @db.VarChar(255)
-  firstName           String             @db.VarChar(100)
-  lastName            String             @db.VarChar(100)
-  avatarUrl           String?            @db.VarChar(500)
-  phone               String?            @db.Text
-  phoneCountry        String?            @db.VarChar(2)
-  phoneCountryCode    String?            @db.VarChar(5)
-  phoneHash           String?            @unique @db.VarChar(64)
-  role                UserRole           @default(GUEST)
-  onboardingCompleted Boolean            @default(false)
-  gender              genderTypes        @default(male)
-  bio                 String?            @db.Text
-  isVerified          Boolean            @default(false)
-  verificationStatus  VerificationStatus @default(NOT_STARTED)
-  trustScore          Int                @default(0) @db.UnsignedInt
-  isActive            Boolean            @default(true)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  bookings            Booking[]
-  listings            Listing[]
-  reviewsWritten      Review[]           @relation("ReviewsWritten")
-  reviewsReceived     Review[]           @relation("ReviewsReceived")
-  otps                OTP[]
-  guestConversations  Conversation[]     @relation("GuestConversations")
-  hostConversations   Conversation[]     @relation("HostConversations")
-  sentMessages        Message[]          @relation("MessageSender")
-  verification        Verification?
+  id                   Int                   @id @default(autoincrement()) @db.UnsignedInt
+  email                String                @unique @db.VarChar(255)
+  passwordHash         String?               @db.VarChar(255)
+  firstName            String                @db.VarChar(100)
+  lastName             String                @db.VarChar(100)
+  avatarUrl            String?               @db.VarChar(500)
+  phone                String?               @db.Text
+  phoneCountry         String?               @db.VarChar(2)
+  phoneCountryCode     String?               @db.VarChar(5)
+  phoneHash            String?               @unique @db.VarChar(64)
+  role                 UserRole              @default(GUEST)
+  onboardingCompleted  Boolean               @default(false)
+  gender               genderTypes           @default(male)
+  bio                  String?               @db.Text
+  isVerified           Boolean               @default(false)
+  verificationStatus   VerificationStatus    @default(NOT_STARTED)
+  trustScore           Int                   @default(0) @db.UnsignedInt
+  isActive             Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  bookings             Booking[]
+  listings             Listing[]
+  reviewsWritten       Review[]              @relation("ReviewsWritten")
+  reviewsReceived      Review[]              @relation("ReviewsReceived")
+  otps                 OTP[]
+  guestConversations   Conversation[]        @relation("GuestConversations")
+  hostConversations    Conversation[]        @relation("HostConversations")
+  sentMessages         Message[]             @relation("MessageSender")
+  verification         Verification?
+  disputeConversations DisputeConversation[] @relation("DisputeConversationParticipant")
+  disputeMessages      DisputeMessage[]      @relation("DisputeMessageSender")
 
   @@index([email])
   @@index([phoneCountry])
@@ -267,9 +269,10 @@ model Booking {
   rejectionReason    String? @db.Text
   cancellationReason String? @db.Text
 
-  disputeReason      String? @db.VarChar(100)
-  disputeDescription String? @db.Text
-  disputeResolution  String? @db.Text
+  disputeReason        String?               @db.VarChar(100)
+  disputeDescription   String?               @db.Text
+  disputeResolution    String?               @db.Text
+  disputeConversations DisputeConversation[]
 
   acceptedAt        DateTime?
   approvedAt        DateTime?
@@ -461,6 +464,50 @@ model Message {
   @@map("messages")
 }
 
+<<<<<<< HEAD
+model DisputeConversation {
+  id Int @id @default(autoincrement()) @db.UnsignedInt
+
+  bookingId       Int                    @db.UnsignedInt
+  participantId   Int                    @db.UnsignedInt
+  participantType DisputeParticipantType
+
+  isClosed Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking     Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  participant User    @relation("DisputeConversationParticipant", fields: [participantId], references: [id], onDelete: Cascade)
+
+  messages DisputeMessage[]
+
+  @@unique([bookingId, participantType])
+  @@index([bookingId])
+  @@index([participantId])
+  @@map("dispute_conversations")
+}
+
+model DisputeMessage {
+  id Int @id @default(autoincrement()) @db.UnsignedInt
+
+  conversationId Int @db.UnsignedInt
+  senderId       Int @db.UnsignedInt
+
+  content String @db.Text
+
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  conversation DisputeConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                @relation("DisputeMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("dispute_messages")
+=======
 model ListingVector {
   id        Int @id @default(autoincrement()) @db.UnsignedInt
   listingId Int @unique @db.UnsignedInt
@@ -479,6 +526,7 @@ model ListingVector {
   listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@map("listing_vectors")
+>>>>>>> f3179c69312b7b382f1ee3be5785c213b94f0b83
 }
 
 enum UserRole {
@@ -590,4 +638,9 @@ enum VerificationStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum DisputeParticipantType {
+  GUEST
+  HOST
 }
