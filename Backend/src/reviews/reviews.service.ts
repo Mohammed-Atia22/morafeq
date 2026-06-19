@@ -17,211 +17,372 @@ export class ReviewsService {
   // ─── Create review ─────────────────────────
 
   async create(reviewerId: number, dto: CreateReviewDto) {
-    // 1. find the booking with all relations
-    const booking = await this.prisma.booking.findUnique({
-      where:   { id: dto.bookingId },
-      include: {
-        listing: true,
-        guest:   true,
-      },
-    });
+  // 1. هات الحجز والعقار والمغترب
+  const booking = await this.prisma.booking.findUnique({
+    where: {
+      id: dto.bookingId,
+    },
+    include: {
+      listing: true,
+      guest: true,
+    },
+  });
 
-    if (!booking) {
-      throw new NotFoundException('Booking not found');
-    }
+  if (!booking) {
+    throw new NotFoundException('Booking not found');
+  }
 
-    // 2. booking must be COMPLETED
-    if (booking.status !== BookingStatus.COMPLETED) {
+  // 2. التقييم متاح فقط بعد إتمام الحجز
+  if (booking.status !== BookingStatus.COMPLETED) {
+    throw new BadRequestException(
+      'You can only review completed bookings',
+    );
+  }
+
+  const isGuest = booking.guestId === reviewerId;
+  const isHost = booking.listing.hostId === reviewerId;
+
+  // 3. تحديد من يحق له كتابة كل نوع تقييم
+  switch (dto.type) {
+    case ReviewType.GUEST_TO_LISTING:
+      if (!isGuest) {
+        throw new ForbiddenException(
+          'Only the guest can review the listing',
+        );
+      }
+      break;
+
+    case ReviewType.GUEST_TO_HOST:
+      if (!isGuest) {
+        throw new ForbiddenException(
+          'Only the guest can review the host',
+        );
+      }
+      break;
+
+    case ReviewType.HOST_TO_GUEST:
+      if (!isHost) {
+        throw new ForbiddenException(
+          'Only the host can review the guest',
+        );
+      }
+      break;
+
+    default:
       throw new BadRequestException(
-        'You can only review completed bookings',
+        'Invalid review type',
+      );
+  }
+
+  // 4. حماية إضافية لتقييم السكن
+  if (dto.type === ReviewType.GUEST_TO_LISTING) {
+    if (
+      dto.cleanliness === undefined ||
+      dto.location === undefined ||
+      dto.accuracy === undefined ||
+      dto.value === undefined
+    ) {
+      throw new BadRequestException(
+        'Listing review requires cleanliness, location, accuracy, and value ratings',
       );
     }
+  }
 
-    // 3. validate who can write which type
-    if (dto.type === ReviewType.GUEST_TO_HOST) {
-      // only the guest can write a guest-to-host review
-      if (booking.guestId !== reviewerId) {
-        throw new ForbiddenException(
-          'Only the guest of this booking can write a guest-to-host review',
-        );
-      }
-    } else if (dto.type === ReviewType.HOST_TO_GUEST) {
-      // only the host can write a host-to-guest review
-      if (booking.listing.hostId !== reviewerId) {
-        throw new ForbiddenException(
-          'Only the host of this listing can write a host-to-guest review',
-        );
-      }
-    }
-
-    // 4. check no review of this type already exists for this booking
-    const existingReview = await this.prisma.review.findUnique({
+  // 5. منع تكرار نفس نوع التقييم لنفس الحجز
+  const existingReview =
+    await this.prisma.review.findUnique({
       where: {
         bookingId_type: {
           bookingId: dto.bookingId,
-          type:      dto.type,
+          type: dto.type,
         },
       },
     });
 
-    if (existingReview) {
-      throw new ConflictException(
-        `You have already submitted a ${dto.type} review for this booking`,
-      );
-    }
-
-    // 5. determine who is being reviewed
-    const reviewedId =
-      dto.type === ReviewType.GUEST_TO_HOST
-        ? booking.listing.hostId   // guest reviews the host
-        : booking.guestId;         // host reviews the guest
-
-    // 6. listing is only linked for GUEST_TO_HOST reviews
-    const listingId =
-      dto.type === ReviewType.GUEST_TO_HOST
-        ? booking.listingId
-        : null;
-
-    // 7. create the review
-    const review = await this.prisma.review.create({
-      data: {
-        bookingId:   dto.bookingId,
-        reviewerId,
-        reviewedId,
-        listingId,
-        type:        dto.type,
-        rating:      dto.rating,
-        cleanliness: dto.type === ReviewType.GUEST_TO_HOST ? dto.cleanliness : null,
-        location:    dto.type === ReviewType.GUEST_TO_HOST ? dto.location    : null,
-        accuracy:    dto.type === ReviewType.GUEST_TO_HOST ? dto.accuracy    : null,
-        value:       dto.type === ReviewType.GUEST_TO_HOST ? dto.value       : null,
-        comment:     dto.comment,
-        isVisible:   true,
-      },
-      include: {
-        reviewer: {
-          select: { id: true, firstName: true, lastName: true, avatarUrl: true },
-        },
-        reviewed: {
-          select: { id: true, firstName: true, lastName: true, avatarUrl: true },
-        },
-        listing: {
-          select: { id: true, title: true },
-        },
-      },
-    });
-
-    return review;
+  if (existingReview) {
+    throw new ConflictException(
+      `A ${dto.type} review already exists for this booking`,
+    );
   }
+
+  /*
+    reviewedId:
+    - تقييم السكن: null، لأننا لا نقيّم مستخدمًا
+    - تقييم صاحب السكن: hostId
+    - تقييم المغترب: guestId
+  */
+  let reviewedId: number | null = null;
+
+  if (dto.type === ReviewType.GUEST_TO_HOST) {
+    reviewedId = booking.listing.hostId;
+  }
+
+  if (dto.type === ReviewType.HOST_TO_GUEST) {
+    reviewedId = booking.guestId;
+  }
+
+  // كل التقييمات مرتبطة بالعقار لمعرفة سياق الحجز
+  const listingId = booking.listingId;
+
+  // 6. إنشاء التقييم
+  return this.prisma.review.create({
+    data: {
+      bookingId: dto.bookingId,
+      reviewerId,
+      reviewedId,
+      listingId,
+      type: dto.type,
+
+      // التقييم العام من 1 إلى 5
+      rating: dto.rating,
+
+      // التقييمات الفرعية تخص السكن فقط
+      cleanliness:
+        dto.type === ReviewType.GUEST_TO_LISTING
+          ? dto.cleanliness
+          : null,
+
+      location:
+        dto.type === ReviewType.GUEST_TO_LISTING
+          ? dto.location
+          : null,
+
+      accuracy:
+        dto.type === ReviewType.GUEST_TO_LISTING
+          ? dto.accuracy
+          : null,
+
+      value:
+        dto.type === ReviewType.GUEST_TO_LISTING
+          ? dto.value
+          : null,
+
+      comment: dto.comment,
+      isVisible: true,
+    },
+
+    include: {
+      reviewer: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+      },
+
+      reviewed: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+      },
+
+      listing: {
+        select: {
+          id: true,
+          title: true,
+          photos: {
+            where: {
+              isCover: true,
+            },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+}
 
   // ─── Get reviews FOR a listing (public) ────
 
-  async getListingReviews(listingId: number, query: QueryReviewsDto) {
-    const page  = query.page  ?? 1;
-    const limit = query.limit ?? 10;
-    const skip  = (page - 1) * limit;
+  async getListingReviews(
+  listingId: number,
+  query: QueryReviewsDto,
+) {
+  const page = query.page ?? 1;
+  const limit = query.limit ?? 10;
+  const skip = (page - 1) * limit;
 
-    const listing = await this.prisma.listing.findFirst({
-      where: { id: listingId, isDeleted: false },
-    });
+  const listing = await this.prisma.listing.findFirst({
+    where: {
+      id: listingId,
+      isDeleted: false,
+    },
+  });
 
-    if (!listing) throw new NotFoundException('Listing not found');
+  if (!listing) {
+    throw new NotFoundException('Listing not found');
+  }
 
-    const [reviews, total] = await Promise.all([
-      this.prisma.review.findMany({
-        where:   { listingId, isVisible: true, type: ReviewType.GUEST_TO_HOST },
-        skip,
-        take:    limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          reviewer: {
-            select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+  // تقييمات السكن فقط
+  const where = {
+    listingId,
+    isVisible: true,
+    type: ReviewType.GUEST_TO_LISTING,
+  };
+
+  const [reviews, total, aggregates] = await Promise.all([
+    this.prisma.review.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        reviewer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
           },
         },
-      }),
-      this.prisma.review.count({
-        where: { listingId, isVisible: true, type: ReviewType.GUEST_TO_HOST },
-      }),
-    ]);
+      },
+    }),
 
-    const aggregates = await this.prisma.review.aggregate({
-      where: { listingId, isVisible: true, type: ReviewType.GUEST_TO_HOST },
-      _avg:  {
-        rating:      true,
+    this.prisma.review.count({
+      where,
+    }),
+
+    this.prisma.review.aggregate({
+      where,
+      _avg: {
+        rating: true,
         cleanliness: true,
-        location:    true,
-        accuracy:    true,
-        value:       true,
+        location: true,
+        accuracy: true,
+        value: true,
       },
-    });
+    }),
+  ]);
 
-    return {
-      data: reviews,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages:        Math.ceil(total / limit),
-        averageRating:     Number(aggregates._avg.rating?.toFixed(1)      ?? 0),
-        averageCleanliness: Number(aggregates._avg.cleanliness?.toFixed(1) ?? 0),
-        averageLocation:   Number(aggregates._avg.location?.toFixed(1)    ?? 0),
-        averageAccuracy:   Number(aggregates._avg.accuracy?.toFixed(1)    ?? 0),
-        averageValue:      Number(aggregates._avg.value?.toFixed(1)       ?? 0),
-      },
-    };
-  }
+  return {
+    data: reviews,
+
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+
+      averageRating: Number(
+        aggregates._avg.rating?.toFixed(1) ?? 0,
+      ),
+
+      averageCleanliness: Number(
+        aggregates._avg.cleanliness?.toFixed(1) ?? 0,
+      ),
+
+      averageLocation: Number(
+        aggregates._avg.location?.toFixed(1) ?? 0,
+      ),
+
+      averageAccuracy: Number(
+        aggregates._avg.accuracy?.toFixed(1) ?? 0,
+      ),
+
+      averageValue: Number(
+        aggregates._avg.value?.toFixed(1) ?? 0,
+      ),
+    },
+  };
+}
 
   // ─── Get reviews FOR a host (public profile) ──
 
-  async getHostReviews(hostId: number, query: QueryReviewsDto) {
-    const page  = query.page  ?? 1;
-    const limit = query.limit ?? 10;
-    const skip  = (page - 1) * limit;
+  async getHostReviews(
+  hostId: number,
+  query: QueryReviewsDto,
+) {
+  const page = query.page ?? 1;
+  const limit = query.limit ?? 10;
+  const skip = (page - 1) * limit;
 
-    const [reviews, total] = await Promise.all([
-      this.prisma.review.findMany({
-        where:   {
-          reviewedId: hostId,
-          isVisible:  true,
-          type:       ReviewType.GUEST_TO_HOST,
-        },
-        skip,
-        take:    limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          reviewer: {
-            select: { id: true, firstName: true, lastName: true, avatarUrl: true },
-          },
-          listing: {
-            select: { id: true, title: true },
-          },
-        },
-      }),
-      this.prisma.review.count({
-        where: {
-          reviewedId: hostId,
-          isVisible:  true,
-          type:       ReviewType.GUEST_TO_HOST,
-        },
-      }),
-    ]);
+  const host = await this.prisma.user.findUnique({
+    where: {
+      id: hostId,
+    },
+    select: {
+      id: true,
+      role: true,
+    },
+  });
 
-    const aggregates = await this.prisma.review.aggregate({
-      where: { reviewedId: hostId, isVisible: true, type: ReviewType.GUEST_TO_HOST },
-      _avg:  { rating: true },
-    });
-
-    return {
-      data: reviews,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages:    Math.ceil(total / limit),
-        averageRating: Number(aggregates._avg.rating?.toFixed(1) ?? 0),
-      },
-    };
+  if (!host) {
+    throw new NotFoundException('Host not found');
   }
+
+  // تقييمات تعامل صاحب السكن فقط
+  const where = {
+    reviewedId: hostId,
+    isVisible: true,
+    type: ReviewType.GUEST_TO_HOST,
+  };
+
+  const [reviews, total, aggregates] = await Promise.all([
+    this.prisma.review.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        reviewer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+
+        listing: {
+          select: {
+            id: true,
+            title: true,
+            photos: {
+              where: {
+                isCover: true,
+              },
+              take: 1,
+            },
+          },
+        },
+      },
+    }),
+
+    this.prisma.review.count({
+      where,
+    }),
+
+    this.prisma.review.aggregate({
+      where,
+      _avg: {
+        rating: true,
+      },
+    }),
+  ]);
+
+  return {
+    data: reviews,
+
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+
+      averageRating: Number(
+        aggregates._avg.rating?.toFixed(1) ?? 0,
+      ),
+    },
+  };
+}
 
   // ─── Get reviews FOR a guest ───────────────
 
@@ -316,38 +477,122 @@ export class ReviewsService {
   // ─── Check if user can review a booking ────
 
   async canReview(bookingId: number, userId: number) {
-    const booking = await this.prisma.booking.findUnique({
-      where:   { id: bookingId },
-      include: { listing: true },
-    });
+  const booking = await this.prisma.booking.findUnique({
+    where: {
+      id: bookingId,
+    },
+    include: {
+      listing: true,
+    },
+  });
 
-    if (!booking || booking.status !== BookingStatus.COMPLETED) {
-      return { canReview: false, reason: 'Booking not completed' };
-    }
+  // التقييم متاح بعد اكتمال الحجز فقط
+  if (!booking || booking.status !== BookingStatus.COMPLETED) {
+    return {
+      canReview: false,
+      reason: 'Booking not completed',
+      availableReviews: [],
+    };
+  }
 
-    const isGuest = booking.guestId === userId;
-    const isHost  = booking.listing.hostId === userId;
+  const isGuest = booking.guestId === userId;
+  const isHost = booking.listing.hostId === userId;
 
-    if (!isGuest && !isHost) {
-      return { canReview: false, reason: 'Not part of this booking' };
-    }
+  // المستخدم ليس طرفًا في الحجز
+  if (!isGuest && !isHost) {
+    return {
+      canReview: false,
+      reason: 'You are not part of this booking',
+      availableReviews: [],
+    };
+  }
 
-    const reviewType = isGuest
-      ? ReviewType.GUEST_TO_HOST
-      : ReviewType.HOST_TO_GUEST;
+  // المغترب يستطيع تقييم السكن وصاحب السكن بشكل منفصل
+  if (isGuest) {
+    const guestReviewTypes = [
+      ReviewType.GUEST_TO_LISTING,
+      ReviewType.GUEST_TO_HOST,
+    ];
 
-    const existing = await this.prisma.review.findUnique({
+    const existingReviews =
+      await this.prisma.review.findMany({
+        where: {
+          bookingId,
+          type: {
+            in: guestReviewTypes,
+          },
+        },
+        select: {
+          id: true,
+          type: true,
+        },
+      });
+
+    const existingTypes = new Set(
+      existingReviews.map((review) => review.type),
+    );
+
+    const availableReviews = [
+      {
+        type: ReviewType.GUEST_TO_LISTING,
+        title: 'Review the property',
+        canReview: !existingTypes.has(
+          ReviewType.GUEST_TO_LISTING,
+        ),
+        alreadyReviewed: existingTypes.has(
+          ReviewType.GUEST_TO_LISTING,
+        ),
+      },
+      {
+        type: ReviewType.GUEST_TO_HOST,
+        title: 'Review the host',
+        canReview: !existingTypes.has(
+          ReviewType.GUEST_TO_HOST,
+        ),
+        alreadyReviewed: existingTypes.has(
+          ReviewType.GUEST_TO_HOST,
+        ),
+      },
+    ];
+
+    return {
+      canReview: availableReviews.some(
+        (review) => review.canReview,
+      ),
+      role: 'GUEST',
+      availableReviews,
+    };
+  }
+
+  // صاحب السكن يستطيع تقييم المغترب فقط
+  const existingHostReview =
+    await this.prisma.review.findUnique({
       where: {
-        bookingId_type: { bookingId, type: reviewType },
+        bookingId_type: {
+          bookingId,
+          type: ReviewType.HOST_TO_GUEST,
+        },
+      },
+      select: {
+        id: true,
+        type: true,
       },
     });
 
-    return {
-      canReview:  !existing,
-      reviewType,
-      alreadyReviewed: !!existing,
-    };
-  }
+  return {
+    canReview: !existingHostReview,
+    role: 'HOST',
+
+    availableReviews: [
+      {
+        type: ReviewType.HOST_TO_GUEST,
+        title: 'Review the guest',
+        canReview: !existingHostReview,
+        alreadyReviewed: Boolean(existingHostReview),
+      },
+    ],
+  };
+}
 
   // ─── Delete review ─────────────────────────
 
@@ -362,9 +607,18 @@ export class ReviewsService {
       throw new ForbiddenException('You can only delete your own reviews');
     }
 
-    await this.prisma.review.delete({ where: { id: reviewId } });
+    await this.prisma.review.update({
+  where: {
+    id: reviewId,
+  },
+  data: {
+    isVisible: false,
+  },
+});
 
-    return { message: 'Review deleted successfully' };
+return {
+  message: 'Review removed successfully',
+};
   }
 
   // ─── Admin: toggle visibility ──────────────
