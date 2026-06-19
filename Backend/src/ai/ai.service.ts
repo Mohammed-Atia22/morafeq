@@ -1,0 +1,301 @@
+import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+import OpenAI from 'openai';
+import { pipeline } from '@xenova/transformers';
+import { OnModuleInit } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service'; // Adjust path based on your project structure
+
+@Injectable()
+export class RagService implements OnModuleInit {
+
+  private embeddingModel: any;
+
+  private openRouter = new OpenAI({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseURL: 'https://openrouter.ai/api/v1',
+  });
+
+  constructor(
+    private prisma: PrismaService,
+    private httpService: HttpService,
+  ) {}
+
+  /**
+   * 1. INGESTION PHASE (MySQL Edition)
+   * Run this when a listing is created or modified.
+   */
+
+  async onModuleInit() {
+  this.embeddingModel = await pipeline(
+    'feature-extraction',
+    'Xenova/all-MiniLM-L6-v2'
+  );
+}
+
+private async createEmbedding(text: string): Promise<number[]> {
+  const output = await this.embeddingModel(text, {
+    pooling: 'mean',
+    normalize: true,
+  });
+
+  return Array.from(output.data);
+}
+  async syncListingToVectorDB(listingId: number): Promise<void> {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId, isDeleted: false },
+      include: {
+        amenities: true,
+        rooms: true,
+        area: true,
+      },
+    });
+
+    if (!listing) {
+      throw new NotFoundException(`Listing with ID ${listingId} not found.`);
+    }
+
+    // Build the structural paragraph for semantic AI lookup
+    const textChunk = `
+      Listing ID: ${listing.id}
+      Title: ${listing.title}
+      Description: ${listing.description}
+      Configuration: This is a ${listing.roomType.replace(/_/g, ' ')} inside a ${listing.propertyType.toLowerCase()}.
+      Capacity: Accommodates up to ${listing.maxTenants} students. Has ${listing.bedrooms} bedrooms, ${listing.beds} beds, and ${listing.bathrooms} bathrooms.
+      Financials: Monthly rent is ${listing.monthlyRent} ${listing.currency}. Security deposit is ${listing.depositAmount} ${listing.currency}.
+      Location: Located in ${listing.city}, ${listing.governorate}, near ${listing.nearbyLandmark || 'local amenities'}. Area: ${listing.area?.name || 'N/A'}.
+      Inclusions: Internet is ${listing.internetIncluded ? 'INCLUDED' : 'NOT INCLUDED'}. Utilities are ${listing.utilitiesIncluded ? 'INCLUDED' : 'PAID SEPARATELY'}. Furnished: ${listing.furnished ? 'YES' : 'NO'}.
+      Rules: Gender preference: ${listing.genderPreference}. Smoking policy: ${listing.smokingPolicy.replace(/_/g, ' ')}.
+      Status: Currently ${listing.status}.
+    `.trim();
+
+    try {
+      // Generate numeric vector embedding (768 numbers)
+      const vectorValues = await this.createEmbedding(textChunk);
+      if (!vectorValues) {
+        throw new InternalServerErrorException('Embedding values missing from Google API response.');
+      }
+
+      // Save or update directly in your MySQL listing_vectors table via Prisma
+      await this.prisma.listingVector.upsert({
+        where: { listingId: listing.id },
+        update: {
+          vectorText: vectorValues, // Prisma handles JSON fields as arrays/objects
+          textChunk: textChunk,
+        },
+        create: {
+          listingId: listing.id,
+          vectorText: vectorValues,
+          textChunk: textChunk,
+        },
+      });
+    } catch (err) {
+      console.error(`[MySQL RAG Ingestion Error] Failed for listing ${listingId}:`, err);
+      throw new InternalServerErrorException('Failed to process and store vector embedding.');
+    }
+  }
+
+  /**
+   * 2. RETRIEVAL & GENERATION PHASE (MySQL Edition)
+   * Queries vectors directly out of MySQL using dot-product math, then streams to Gemini.
+   */
+  async generateRAGResponse(studentQuery: string): Promise<string> {
+  try {
+    // Step A: Vectorize the incoming student inquiry
+    const queryVector = await this.createEmbedding(studentQuery);
+    const queryVectorString = JSON.stringify(queryVector);
+
+    // Step B: Vector search — top 3 matching listings from MySQL
+    const matches: any[] = await this.prisma.$queryRaw`
+      SELECT 
+        v.listingId, 
+        v.textChunk,
+        (
+          SELECT SUM(CAST(JSON_EXTRACT(v.vectorText, CONCAT('$[', idx, ']')) AS DECIMAL(10,6)) * CAST(JSON_EXTRACT(${queryVectorString}, CONCAT('$[', idx, ']')) AS DECIMAL(10,6)))
+          FROM (
+            SELECT n AS idx FROM (
+              SELECT a.N + b.N * 10 + c.N * 100 AS n
+              FROM (SELECT 0 AS N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) a
+              CROSS JOIN (SELECT 0 AS N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) b
+              CROSS JOIN (SELECT 0 AS N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7) c
+            ) numbers WHERE n < 768
+          ) indexes
+        ) AS similarity
+      FROM listing_vectors v
+      ORDER BY similarity DESC
+      LIMIT 3;
+    `;
+
+    const listingIds = matches.map((m) => Number(m.listingId));
+
+    // Step B2 — NEW: fetch coordinates for the matched listings
+    // so we know WHERE to query Overpass for nearby services
+    const matchedListings = await this.prisma.listing.findMany({
+      where: { id: { in: listingIds } },
+      select: { id: true, lat: true, lng: true, area: { select: { name: true } } },
+    });
+
+    // Step B3 — NEW: fetch live nearby-services data for each matched listing
+    // run in parallel — don't wait for one before starting the next
+    const nearbyServicesPerListing = await Promise.all(
+      matchedListings.map(async (listing) => {
+        if (!listing.lat || !listing.lng) {
+          return { listingId: listing.id, services: 'Location data not available for this listing.' };
+        }
+
+        const services = await this.fetchNearbyServices(
+          Number(listing.lat),
+          Number(listing.lng),
+        );
+
+        return { listingId: listing.id, services };
+      }),
+    );
+
+    // build a lookup so we can attach services to the right listing's text chunk
+    const servicesByListingId = new Map(
+      nearbyServicesPerListing.map((s) => [Number(s.listingId), s.services]),
+    );
+
+    // Step C: combine listing text chunk + its live nearby-services context
+    const extractedContexts = matches
+      .map((match) => {
+        const services = servicesByListingId.get(match.listingId);
+        return `
+          ${match.textChunk}
+          Nearby services (live data): ${services ?? 'Not available'}
+        `.trim();
+      })
+      .join('\n\n---\n\n');
+
+    if (!extractedContexts) {
+      return "I couldn't find any student housing options matching your exact parameters right now.";
+    }
+
+    // Step D: system instruction — now aware of two data sources
+    const systemInstruction = `
+      You are an elite student housing matching assistant for an Airbnb-style web platform.
+      Your task is to answer user questions using the verified contextual text blocks provided.
+      Each context block contains two types of information:
+      1. Listing details — pulled from our verified property database (price, rooms, location, rules).
+      2. Nearby services — live data showing pharmacies, hospitals, universities, restaurants, supermarkets, and transport stations near that listing.
+      
+      If the student asks about a listing's price, rooms, or rules — use the listing details.
+      If the student asks about what's nearby, transportation, services, or area convenience — use the nearby services data.
+      If a student asks for custom requirements and nothing matches the provided context, state politely that no listings match.
+      Always clearly report pricing and location details for any recommended apartment.
+      If nearby services data says "temporarily unavailable" or "not available", mention that this specific information could not be retrieved right now rather than guessing.
+      Keep answers tailored toward helping university students.
+    `;
+
+    const standardPrompt = `
+      Context Source Data:
+      ${extractedContexts}
+
+      Student Question: "${studentQuery}"
+      
+      Response:
+    `;
+
+    // Step E: send to Gemini
+    const completion = await this.openRouter.chat.completions.create({
+  model: 'meta-llama/llama-3.3-70b-instruct:free',
+  messages: [
+    {
+      role: 'system',
+      content: systemInstruction,
+    },
+    {
+      role: 'user',
+      content: standardPrompt,
+    },
+  ],
+  temperature: 0.2,
+});
+
+return (
+  completion.choices[0].message.content ??
+  "I'm sorry, I couldn't formulate a response."
+);
+  } catch (err) {
+    console.error('[MySQL RAG Runtime Error]', err);
+    throw new InternalServerErrorException('Error scanning matching data vectors.');
+  }
+}
+  private async fetchNearbyServices(
+    latitude: number,
+    longitude: number,
+    radiusMeters = 1000,
+  ): Promise<string> {
+    const query = `
+      [out:json][timeout:15];
+      (
+        node["amenity"="pharmacy"](around:${radiusMeters},${latitude},${longitude});
+        node["amenity"="hospital"](around:${radiusMeters},${latitude},${longitude});
+        node["amenity"="university"](around:${radiusMeters},${latitude},${longitude});
+        node["amenity"="restaurant"](around:${radiusMeters},${latitude},${longitude});
+        node["amenity"="supermarket"](around:${radiusMeters},${latitude},${longitude});
+        node["public_transport"="station"](around:${radiusMeters},${latitude},${longitude});
+        node["railway"="station"](around:${radiusMeters},${latitude},${longitude});
+        node["highway"="bus_stop"](around:${radiusMeters},${latitude},${longitude});
+      );
+      out body;
+    `;
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          'https://overpass-api.de/api/interpreter',
+          query,
+          {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+              Accept: '*/*',
+              'User-Agent': 'Moraafeq/1.0 (contact@moraafeq.local)',
+            },
+            timeout: 15000,
+          },
+        ),
+      );
+
+      const elements = response.data?.elements ?? [];
+
+      if (elements.length === 0) {
+        return 'No notable nearby services found in this area.';
+      }
+
+      // group counts by amenity type — much more useful to the LLM
+      // than a raw dump of 40 individual POIs
+      const counts: Record<string, number> = {};
+      const namedPlaces: string[] = [];
+
+      for (const el of elements) {
+        const type =
+          el.tags?.amenity ||
+          el.tags?.public_transport ||
+          el.tags?.railway ||
+          el.tags?.highway ||
+          'other';
+
+        counts[type] = (counts[type] ?? 0) + 1;
+
+        if (el.tags?.name && namedPlaces.length < 10) {
+          namedPlaces.push(`${el.tags.name} (${type})`);
+        }
+      }
+
+      const summaryLines = Object.entries(counts)
+        .map(([type, count]) => `${count} ${type}(s)`)
+        .join(', ');
+
+      return `
+        Nearby services within ${radiusMeters}m: ${summaryLines}.
+        Named places include: ${namedPlaces.join(', ') || 'none with names available'}.
+      `.trim();
+    } catch (err) {
+      console.error('[Overpass Fetch Error]', err);
+      // never let a third-party API failure break the whole RAG answer
+      return 'Nearby services data is temporarily unavailable.';
+    }
+  }
+}

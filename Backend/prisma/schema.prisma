@@ -159,6 +159,7 @@ model Listing {
   availabilityBlocks AvailabilityBlock[]
   bookings           Booking[]
   reviews            Review[]
+  vectorInsight  ListingVector?
 
   @@index([hostId])
   @@index([areaId])
@@ -463,6 +464,7 @@ model Message {
   @@map("messages")
 }
 
+<<<<<<< HEAD
 model DisputeConversation {
   id Int @id @default(autoincrement()) @db.UnsignedInt
 
@@ -505,6 +507,26 @@ model DisputeMessage {
   @@index([conversationId, createdAt])
   @@index([senderId])
   @@map("dispute_messages")
+=======
+model ListingVector {
+  id         Int      @id @default(autoincrement()) @db.UnsignedInt
+  listingId  Int      @unique @db.UnsignedInt
+  
+  // Stores the stringified float array (e.g., "[0.012, -0.234, ...]")
+  // Google's text-embedding-004 model generates 768 dimensions
+  vectorText Json
+  
+  // It's highly beneficial to cache the raw text chunk used to generate the vector
+  textChunk  String   @db.Text
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relation back to your main Listing table
+  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("listing_vectors")
+>>>>>>> f3179c69312b7b382f1ee3be5785c213b94f0b83
 }
 
 enum UserRole {
