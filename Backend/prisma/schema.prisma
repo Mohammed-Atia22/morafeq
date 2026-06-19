@@ -388,19 +388,22 @@ model Review {
   id         Int        @id @default(autoincrement()) @db.UnsignedInt
   bookingId  Int        @db.UnsignedInt
   reviewerId Int        @db.UnsignedInt
-  listingId  Int?       @db.UnsignedInt // nullable — host-to-guest has no listing
-  reviewedId Int        @db.UnsignedInt // who is being reviewed
+  listingId  Int?       @db.UnsignedInt
+  reviewedId Int?       @db.UnsignedInt
   type       ReviewType
 
+  // التقييم العام من 1 إلى 5 نجوم
   rating Int @db.UnsignedInt
 
-  // sub-ratings — only relevant for GUEST_TO_HOST
+  // تستخدم فقط مع تقييم السكن
   cleanliness Int? @db.UnsignedInt
   location    Int? @db.UnsignedInt
   accuracy    Int? @db.UnsignedInt
   value       Int? @db.UnsignedInt
 
-  comment   String? @db.Text
+  // النص الذي يكتب فيه المستخدم رأيه
+  comment String? @db.Text
+
   isVisible Boolean @default(true)
 
   createdAt DateTime @default(now())
@@ -408,14 +411,14 @@ model Review {
 
   booking  Booking  @relation(fields: [bookingId], references: [id])
   reviewer User     @relation("ReviewsWritten", fields: [reviewerId], references: [id])
-  reviewed User     @relation("ReviewsReceived", fields: [reviewedId], references: [id])
+  reviewed User?    @relation("ReviewsReceived", fields: [reviewedId], references: [id])
   listing  Listing? @relation(fields: [listingId], references: [id])
 
-  // one review per booking per type — no duplicates
   @@unique([bookingId, type])
   @@index([reviewerId])
   @@index([reviewedId])
   @@index([listingId])
+  @@index([type])
   @@map("reviews")
 }
 
@@ -541,7 +544,13 @@ enum BlockReason {
 }
 
 enum ReviewType {
+  // المغترب يقيّم السكن نفسه
+  GUEST_TO_LISTING
+
+  // المغترب يقيّم تعامل صاحب السكن
   GUEST_TO_HOST
+
+  // صاحب السكن يقيّم المغترب
   HOST_TO_GUEST
 }
 

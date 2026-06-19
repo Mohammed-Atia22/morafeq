@@ -1,56 +1,77 @@
+import { Type } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import { ReviewType } from '@prisma/client';
 
 export class CreateReviewDto {
   @Type(() => Number)
   @IsInt()
-  bookingId!: number;
+  @Min(1)
+  bookingId: number;
 
-  @IsEnum(ReviewType, { message: 'Type must be GUEST_TO_HOST or HOST_TO_GUEST' })
-  type!: ReviewType;
+  @IsEnum(ReviewType)
+  type: ReviewType;
 
+  // التقييم العام: من نجمة واحدة إلى 5 نجوم
   @Type(() => Number)
   @IsInt()
-  @Min(1, { message: 'Rating must be at least 1' })
-  @Max(5, { message: 'Rating must not exceed 5' })
-  rating!: number;
+  @Min(1)
+  @Max(5)
+  rating: number;
 
-  // sub-ratings — only for GUEST_TO_HOST
-  @IsOptional()
+  // الحقول التالية مطلوبة فقط عند تقييم السكن
+  @ValidateIf(
+    (dto: CreateReviewDto) =>
+      dto.type === ReviewType.GUEST_TO_LISTING,
+  )
   @Type(() => Number)
   @IsInt()
-  @Min(1) @Max(5)
+  @Min(1)
+  @Max(5)
   cleanliness?: number;
 
-  @IsOptional()
+  @ValidateIf(
+    (dto: CreateReviewDto) =>
+      dto.type === ReviewType.GUEST_TO_LISTING,
+  )
   @Type(() => Number)
   @IsInt()
-  @Min(1) @Max(5)
+  @Min(1)
+  @Max(5)
   location?: number;
 
-  @IsOptional()
+  @ValidateIf(
+    (dto: CreateReviewDto) =>
+      dto.type === ReviewType.GUEST_TO_LISTING,
+  )
   @Type(() => Number)
   @IsInt()
-  @Min(1) @Max(5)
+  @Min(1)
+  @Max(5)
   accuracy?: number;
 
-  @IsOptional()
+  @ValidateIf(
+    (dto: CreateReviewDto) =>
+      dto.type === ReviewType.GUEST_TO_LISTING,
+  )
   @Type(() => Number)
   @IsInt()
-  @Min(1) @Max(5)
+  @Min(1)
+  @Max(5)
   value?: number;
 
+  // الرأي المكتوب مع التقييم
   @IsOptional()
   @IsString()
-  @MaxLength(1000)
+  @MaxLength(2000)
   comment?: string;
 }
