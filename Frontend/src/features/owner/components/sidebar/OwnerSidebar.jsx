@@ -16,6 +16,7 @@ UserIcon,
 } from "../common/OwnerIcons";
 
 import { chatApi } from './../../../chat/services/chatApi';
+import { VerificationBadge } from "../../../verification/components/VerificationBadge";
 
 function ClipboardIcon({ className }) {
   return (
@@ -145,8 +146,12 @@ className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition
         </p>
 
         <p className="text-xs font-semibold text-emerald-500">
-          مالك موثق
+          مالك عقار
         </p>
+
+        <div className="mt-2">
+          <VerificationBadge status={user?.verificationStatus} compact />
+        </div>
       </div>
     </button>
   </div>
@@ -177,13 +182,13 @@ className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition
       className={itemClassName}
     />
 
-    <SidebarNavItem
+    {/* <SidebarNavItem
       to="/owner/bookings"
       label="طلبات المعاينة"
       icon={EyeIcon}
       badge="5"
       className={itemClassName}
-    />
+    /> */}
 
     <SidebarNavItem
       to="/owner/rental-requests"
@@ -219,12 +224,12 @@ className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition
       className={itemClassName}
     />
 
-    <SidebarNavItem
+    {/* <SidebarNavItem
       to="/owner/settings"
       label="الإعدادات"
       icon={SettingsIcon}
       className={itemClassName}
-    />
+    /> */}
 
     <SidebarNavItem
       to="/owner/profile"
