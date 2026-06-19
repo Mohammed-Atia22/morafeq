@@ -176,6 +176,7 @@ export function OwnerRentalRequestsPage() {
             const statusStyle = getStatusLabel(request.status);
             const expiresAt = getReservationExpiry(request);
             const remainingTime = formatRemainingTime(expiresAt, now);
+            const selectedRoomName = request.selectedRoomName || request.room?.roomName;
 
             return (
               <div
@@ -230,6 +231,12 @@ export function OwnerRentalRequestsPage() {
                   </div>
 
                   {/* Guest optional message */}
+                  {selectedRoomName && (
+                    <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs font-bold text-blue-800">
+                      الغرفة المختارة: {selectedRoomName}
+                    </div>
+                  )}
+
                   {request.guestMessage && (
                     <div className="mb-4 rounded-xl border border-slate-100 bg-[#E8F0FF]/30 p-3 text-xs text-[#0b62d8]">
                       <span className="font-extrabold block mb-1">رسالة المستأجر:</span>
@@ -246,7 +253,7 @@ export function OwnerRentalRequestsPage() {
 
                   {request.status === "PENDING_PAYMENT" && (
                     <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-center text-xs font-bold text-blue-800">
-                      العقار محجوز الآن ولا يظهر في نتائج البحث العامة حتى يدفع المستأجر أو تنتهي المهلة.
+                      تم حجز مكان من السعة المتاحة حتى يدفع المستأجر أو تنتهي المهلة.
                       {remainingTime && (
                         <span className="mt-1 block font-black">
                           الوقت المتبقي للدفع: {remainingTime}

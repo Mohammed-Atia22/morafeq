@@ -429,6 +429,20 @@ export function ListingCard({
               <span>المتبقي {availablePlaces.toLocaleString("ar-EG")}</span>
             </div>
 
+            {listing.roomType !== "ENTIRE_PLACE" && listing.rooms?.length > 0 && (
+              <div className="mt-3 grid gap-2 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-600">
+                {listing.rooms.map((room) => (
+                  <div key={room.id} className="flex items-center justify-between">
+                    <span>{room.roomName}</span>
+                    <span>
+                      {Number(room.occupiedCount || 0).toLocaleString("ar-EG")} /{" "}
+                      {Number(room.capacity || 0).toLocaleString("ar-EG")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="mt-4 grid grid-cols-[1fr_1fr_auto] gap-2">
               <button
                 type="button"

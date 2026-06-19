@@ -217,6 +217,7 @@ export function ExpatriateBookingsPage() {
             const coverPhoto = booking.listing?.photos?.[0]?.url || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=300&h=200&fit=crop";
             const expiresAt = getReservationExpiry(booking);
             const remainingTime = formatRemainingTime(expiresAt, now);
+            const selectedRoomName = booking.selectedRoomName || booking.room?.roomName;
 
             return (
               <div
@@ -273,6 +274,12 @@ export function ExpatriateBookingsPage() {
                       </span>
                     </div>
                   </div>
+
+                  {selectedRoomName && (
+                    <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50/60 p-2.5 text-xs font-bold text-blue-800">
+                      الغرفة المختارة: {selectedRoomName}
+                    </div>
+                  )}
 
                   {booking.hostResponseNote && (
                     <div className="mt-3 rounded-lg bg-blue-50/50 p-2.5 text-xs text-blue-700 border border-blue-100/50">

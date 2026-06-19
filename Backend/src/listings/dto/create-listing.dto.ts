@@ -1,7 +1,9 @@
 import {
   IsBoolean,
+  IsArray,
   IsDateString,
   IsEnum,
+  ValidateNested,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -20,6 +22,7 @@ import {
   RoomType,
   SmokingPolicy,
 } from '@prisma/client';
+import { CreateRoomDto } from './create-room.dto';
 
 export class CreateListingDto {
   @IsString()
@@ -179,4 +182,10 @@ export class CreateListingDto {
   @IsOptional()
   @IsEnum(SmokingPolicy)
   smokingPolicy?: SmokingPolicy;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateRoomDto)
+  rooms?: CreateRoomDto[];
 }

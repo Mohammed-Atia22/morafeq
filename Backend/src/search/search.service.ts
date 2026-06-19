@@ -4,6 +4,8 @@ import { SearchListingDto } from '../listings/dto/search-listing.dto';
 import {
   calculateCapacity,
   CAPACITY_HOLDING_BOOKING_STATUSES,
+  areAllRoomsFull,
+  resolveReservedPlaces,
 } from '../bookings/booking-capacity';
 
 @Injectable()
@@ -34,7 +36,14 @@ export class SearchService {
     return earthRadiusKm * c;
   }
 
-  private async attachCapacityToListings<T extends { id: number; maxTenants: number }>(
+  private async attachCapacityToListings<
+    T extends {
+      id: number;
+      maxTenants: number;
+      roomType?: string;
+      rooms?: any[];
+    },
+  >(
     listings: T[],
   ) {
     if (listings.length === 0) {
@@ -54,13 +63,19 @@ export class SearchService {
       reservedCounts.map((count) => [count.listingId, count._count._all]),
     );
 
-    return listings.map((listing) => ({
-      ...listing,
-      ...calculateCapacity(
-        listing.maxTenants,
+    return listings.map((listing) => {
+      const reservedPlaces = resolveReservedPlaces(
+        listing,
         reservedByListingId.get(listing.id) ?? 0,
-      ),
-    }));
+      );
+      const capacity = calculateCapacity(listing.maxTenants, reservedPlaces);
+
+      return {
+        ...listing,
+        ...capacity,
+        isFull: capacity.isFull || areAllRoomsFull(listing),
+      };
+    });
   }
 
   private buildWhere(dto: SearchListingDto) {
@@ -205,6 +220,10 @@ export class SearchService {
             take: 1,
           },
           amenities: true,
+          rooms: {
+            include: { images: true },
+            orderBy: { roomNumber: 'asc' as const },
+          },
           locationInsight: true,
           _count: {
             select: {
@@ -243,7 +262,11 @@ export class SearchService {
           };
         })
         .filter((listing) => {
-          return listing !== null && listing.distanceKm <= radiusKm;
+          return (
+            listing !== null &&
+            listing.distanceKm <= radiusKm &&
+            !(listing as any).isFull
+          );
         });
 
       if (dto.sortBy === 'price_low' || dto.sortBy === 'price_asc') {
@@ -319,6 +342,10 @@ export class SearchService {
             take: 1,
           },
           amenities: true,
+          rooms: {
+            include: { images: true },
+            orderBy: { roomNumber: 'asc' as const },
+          },
           locationInsight: true,
           _count: {
             select: {
@@ -332,8 +359,10 @@ export class SearchService {
       }),
     ]);
 
+    const listingsWithCapacity = await this.attachCapacityToListings(listings);
+
     return {
-      data: await this.attachCapacityToListings(listings),
+      data: listingsWithCapacity.filter((listing) => !(listing as any).isFull),
       meta: {
         total,
         page,

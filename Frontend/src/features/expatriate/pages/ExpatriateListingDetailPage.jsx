@@ -74,6 +74,9 @@ export function ExpatriateListingDetailPage() {
               currency={listing.currency}
               listingId={listing.id}
               listingStatus={listing.status}
+              rooms={
+                listing.roomType !== "ENTIRE_PLACE" ? listing.rooms ?? [] : []
+              }
             />
           </aside>
 

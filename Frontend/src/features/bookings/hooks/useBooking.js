@@ -22,7 +22,7 @@ export function useBooking() {
     }
   }, []);
 
-  const createBooking = async (listingId, preferredMoveInDate, guestMessage) => {
+  const createBooking = async (listingId, preferredMoveInDate, guestMessage, roomId) => {
     setLoading(true);
     setError(null);
     try {
@@ -30,6 +30,7 @@ export function useBooking() {
         listingId,
         preferredMoveInDate,
         guestMessage,
+        roomId,
       });
       toast.success("تم إرسال طلب الحجز بنجاح");
       // Update list dynamically

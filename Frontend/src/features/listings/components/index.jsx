@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { apiRequest } from "../../../shared/services/api";
 import { listingsApi } from "../services/listingsApi";
@@ -25,6 +26,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [confirmedLocation, setConfirmedLocation] = useState(null);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [selectedRoomPhotos, setSelectedRoomPhotos] = useState({});
   const [selectedAmenities, setSelectedAmenities] = useState([]);
 
   const [isFindingLocation, setIsFindingLocation] = useState(false);
@@ -36,6 +38,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
     register,
     handleSubmit,
     getValues,
+    watch,
     setValue,
     setError,
     clearErrors,
@@ -74,6 +77,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
       bedrooms: "",
       beds: "",
       bathrooms: "",
+      rooms: [],
 
       availableFrom: "",
 
@@ -84,6 +88,25 @@ export function AddListingForm({ embedded = false, onCreated }) {
       currency: "EGP",
     },
   });
+
+  const bedroomCount = Number(watch("bedrooms") || 0);
+  const roomType = watch("roomType") || "PRIVATE_ROOM";
+  const isEntirePlace = roomType === "ENTIRE_PLACE";
+
+  useEffect(() => {
+    if (isEntirePlace || !Number.isFinite(bedroomCount) || bedroomCount <= 0) return;
+
+    const currentRooms = getValues("rooms") || [];
+    for (let index = 0; index < bedroomCount; index += 1) {
+      if (!currentRooms[index]?.roomName) {
+        setValue(`rooms.${index}.roomName`, `غرفة ${index + 1}`);
+      }
+      if (!currentRooms[index]?.capacity) {
+        setValue(`rooms.${index}.capacity`, "1");
+      }
+      setValue(`rooms.${index}.roomNumber`, index + 1);
+    }
+  }, [bedroomCount, getValues, setValue, isEntirePlace]);
 
   const findOnMap = async () => {
     const isStepValid = await trigger([
@@ -130,7 +153,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
       console.error(error);
 
       setError("root", {
-        message: error.message || "Something went wrong while finding location",
+        message: error.message || "حدث خطأ أثناء تحديد الموقع",
       });
     } finally {
       setIsFindingLocation(false);
@@ -145,7 +168,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
   const confirmLocation = () => {
     if (!selectedLocation) {
       setError("root", {
-        message: "Please select location first",
+        message: "يرجى اختيار الموقع أولاً",
       });
       return;
     }
@@ -163,7 +186,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
   const goToStep2 = () => {
     if (!confirmedLocation) {
       setError("root", {
-        message: "Please confirm the location on the map first",
+        message: "يرجى تأكيد الموقع على الخريطة أولاً",
       });
       return;
     }
@@ -199,7 +222,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
 
     if (files.length !== validFiles.length) {
       setError("root", {
-        message: "Each photo must be 5MB or less",
+        message: "يجب ألا يتجاوز حجم كل صورة 5 ميجابايت",
       });
     } else {
       clearErrors("root");
@@ -216,6 +239,35 @@ export function AddListingForm({ embedded = false, onCreated }) {
     setSelectedPhotos((currentPhotos) =>
       currentPhotos.filter((_, index) => index !== photoIndex),
     );
+  };
+
+  const handleRoomPhotoChange = (roomIndex, event) => {
+    const files = Array.from(event.target.files || []);
+    const validFiles = files.filter((file) => file.size <= 5 * 1024 * 1024);
+
+    if (files.length !== validFiles.length) {
+      setError("root", {
+        message: "يجب ألا تتجاوز كل صورة 5 ميغابايت",
+      });
+    } else {
+      clearErrors("root");
+    }
+
+    setSelectedRoomPhotos((current) => ({
+      ...current,
+      [roomIndex]: [...(current[roomIndex] || []), ...validFiles].slice(0, 10),
+    }));
+
+    event.target.value = "";
+  };
+
+  const removeSelectedRoomPhoto = (roomIndex, photoIndex) => {
+    setSelectedRoomPhotos((current) => ({
+      ...current,
+      [roomIndex]: (current[roomIndex] || []).filter(
+        (_, index) => index !== photoIndex,
+      ),
+    }));
   };
 
   const toggleAmenity = (amenityKey) => {
@@ -238,10 +290,22 @@ export function AddListingForm({ embedded = false, onCreated }) {
     return listingsApi.setAmenities(listingId, selectedAmenities);
   };
 
+  const uploadSelectedRoomPhotos = async (listingId) => {
+    const rooms = await listingsApi.getRooms(listingId);
+
+    await Promise.all(
+      rooms.map((room, index) => {
+        const photos = selectedRoomPhotos[index] || [];
+        if (photos.length === 0) return null;
+        return listingsApi.uploadRoomImages(listingId, room.id, photos);
+      }),
+    );
+  };
+
   const onSubmit = async (data) => {
     if (!confirmedLocation) {
       setError("root", {
-        message: "Please confirm the location on the map first",
+        message: "يرجى تأكيد الموقع على الخريطة أولاً",
       });
       setCurrentStep(1);
       return;
@@ -318,6 +382,15 @@ export function AddListingForm({ embedded = false, onCreated }) {
         bedrooms: Number(data.bedrooms),
         beds: Number(data.beds),
         bathrooms: Number(data.bathrooms),
+        rooms: isEntirePlace
+          ? []
+          : (data.rooms || [])
+              .slice(0, Number(data.bedrooms || 0))
+              .map((room, index) => ({
+                roomNumber: index + 1,
+                roomName: room.roomName || `غرفة ${index + 1}`,
+                capacity: Number(room.capacity || 1),
+              })),
 
         country: data.country || "Egypt",
         currency: "EGP",
@@ -387,7 +460,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
         } else if (typeof msg === "string") {
           setError("root", { message: msg });
         } else {
-          setError("root", { message: "Failed to create listing" });
+          setError("root", { message: "تعذر إنشاء العقار" });
         }
 
         return;
@@ -408,13 +481,21 @@ export function AddListingForm({ embedded = false, onCreated }) {
         } catch (optionalError) {
           optionalWarnings.push(optionalError.message);
         }
+
+        try {
+          if (!isEntirePlace) {
+            await uploadSelectedRoomPhotos(listingId);
+          }
+        } catch (optionalError) {
+          optionalWarnings.push(optionalError.message);
+        }
       }
 
       if (optionalWarnings.length > 0) {
         setError("root", {
           message: optionalWarnings.join(". "),
         });
-        alert("Listing created, but some optional details were not saved yet");
+        alert("تم إنشاء العقار، لكن تعذر حفظ بعض التفاصيل الاختيارية حالياً");
         onCreated?.(result);
         return;
       }
@@ -423,7 +504,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
 
       if (latestUser?.verificationStatus === "APPROVED") {
         await listingsApi.publishListing(listingId);
-        alert("Listing published successfully");
+        alert("تم نشر العقار بنجاح");
         onCreated?.({
           ...result,
           listing: { ...result.listing, status: "ACTIVE" },
@@ -437,7 +518,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
       console.error(error);
 
       setError("root", {
-        message: error.message || "Something went wrong while creating listing",
+        message: error.message || "حدث خطأ أثناء إنشاء العقار",
       });
     } finally {
       setIsSubmittingListing(false);
@@ -605,6 +686,11 @@ export function AddListingForm({ embedded = false, onCreated }) {
                 selectedPhotos={selectedPhotos}
                 handlePhotoChange={handlePhotoChange}
                 removeSelectedPhoto={removeSelectedPhoto}
+                roomCount={bedroomCount}
+                roomType={roomType}
+                selectedRoomPhotos={selectedRoomPhotos}
+                handleRoomPhotoChange={handleRoomPhotoChange}
+                removeSelectedRoomPhoto={removeSelectedRoomPhoto}
                 amenityOptions={AMENITY_OPTIONS}
                 selectedAmenities={selectedAmenities}
                 toggleAmenity={toggleAmenity}

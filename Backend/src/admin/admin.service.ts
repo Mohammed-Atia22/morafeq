@@ -5,6 +5,12 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BookingStatus,ListingStatus } from '@prisma/client';
+import {
+  calculateCapacity,
+  CAPACITY_HOLDING_BOOKING_STATUSES,
+  areAllRoomsFull,
+  resolveReservedPlaces,
+} from '../bookings/booking-capacity';
 import { ApproveListingDto } from './dto/approve-listing.dto';
 import { RejectListingDto } from './dto/reject-listing.dto';
 import { AdminQueryListingsDto } from './dto/query-listings.dto';
@@ -14,6 +20,39 @@ import { AdminUpdateUserDto } from './dto/update-user.dto';
 @Injectable()
 export class AdminService {
   constructor(private prisma: PrismaService) {}
+
+  private async attachCapacityToListings<T extends { id: number; maxTenants: number; roomType?: string; rooms?: any[] }>(
+    listings: T[],
+  ) {
+    if (listings.length === 0) return listings;
+
+    const reservedCounts = await this.prisma.booking.groupBy({
+      by: ['listingId'],
+      where: {
+        listingId: { in: listings.map((listing) => listing.id) },
+        status: { in: CAPACITY_HOLDING_BOOKING_STATUSES },
+      },
+      _count: { _all: true },
+    });
+
+    const reservedByListingId = new Map(
+      reservedCounts.map((count) => [count.listingId, count._count._all]),
+    );
+
+    return listings.map((listing) => {
+      const reservedPlaces = resolveReservedPlaces(
+        listing,
+        reservedByListingId.get(listing.id) ?? 0,
+      );
+      const capacity = calculateCapacity(listing.maxTenants, reservedPlaces);
+
+      return {
+        ...listing,
+        ...capacity,
+        isFull: capacity.isFull || areAllRoomsFull(listing),
+      };
+    });
+  }
 
   async getComplaints() {
     return this.prisma.booking.findMany({
@@ -96,6 +135,10 @@ export class AdminService {
             where: { isCover: true },
             take:  1,
           },
+          rooms: {
+            include: { images: true },
+            orderBy: { roomNumber: 'asc' as const },
+          },
           area:     { select: { id: true, name: true } },
           category: { select: { id: true, name: true } },
           _count: {
@@ -107,7 +150,7 @@ export class AdminService {
     ]);
 
     return {
-      data: listings,
+      data: await this.attachCapacityToListings(listings),
       meta: {
         total,
         page,
@@ -136,6 +179,10 @@ export class AdminService {
           },
         },
         photos:    { orderBy: { sortOrder: 'asc' } },
+        rooms: {
+          include: { images: true },
+          orderBy: { roomNumber: 'asc' as const },
+        },
         amenities: true,
         area:      true,
         category:  true,
@@ -149,7 +196,8 @@ export class AdminService {
       throw new NotFoundException('Listing not found');
     }
 
-    return listing;
+    const [listingWithCapacity] = await this.attachCapacityToListings([listing]);
+    return listingWithCapacity;
   }
 
   // ─── Approve listing ───────────────────────

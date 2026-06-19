@@ -7,6 +7,11 @@ export class CreateBookingDto {
   listingId!: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  roomId?: number;
+
+  @IsOptional()
   @IsDateString()
   preferredMoveInDate?: string;
 

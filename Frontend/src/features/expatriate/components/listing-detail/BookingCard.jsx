@@ -24,12 +24,14 @@ const formatRemainingTime = (expiresAt, now) => {
   return `${hours} ساعة و ${minutes} دقيقة`;
 };
 
-export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", listingId, listingStatus }) {
+export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", listingId, listingStatus, rooms = [] }) {
   const { user, refreshUser } = useAuth();
   const [checkIn, setCheckIn] = useState("");
   const [guestMessage, setGuestMessage] = useState("");
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [selectedRoomId, setSelectedRoomId] = useState(null);
+  const [roomSelectionError, setRoomSelectionError] = useState("");
 
   // Problem Modal state
   const [showProblemModal, setShowProblemModal] = useState(false);
@@ -85,10 +87,22 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
       return;
     }
 
+    if (rooms.length > 0 && !selectedRoomId) {
+      setRoomSelectionError("يرجى اختيار الغرفة المناسبة قبل إرسال طلب الحجز");
+      return;
+    }
+
     try {
-      await createBooking(Number(listingId), checkIn || undefined, guestMessage || undefined);
+      await createBooking(
+        Number(listingId),
+        checkIn || undefined,
+        guestMessage || undefined,
+        selectedRoomId || undefined,
+      );
       setCheckIn("");
       setGuestMessage("");
+      setSelectedRoomId(null);
+      setRoomSelectionError("");
     } catch (err) {
       console.error(err);
     }
@@ -157,7 +171,74 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
 
       // Normal state: Book Now
       return (
-        <div className="space-y-3">
+          <div className="space-y-3">
+          {rooms.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-black text-slate-700">اختر الغرفة المناسبة</p>
+              <div className="grid gap-2">
+                {rooms.map((room) => {
+                  const remaining = Math.max(
+                    0,
+                    Number(room.capacity || 0) - Number(room.occupiedCount || 0),
+                  );
+                  const isFull = remaining <= 0;
+                  const image = room.images?.[0]?.imageUrl;
+
+                  return (
+                    <button
+                      key={room.id}
+                      type="button"
+                      disabled={isFull}
+                      onClick={() => {
+                        if (isFull) {
+                          setRoomSelectionError("هذه الغرفة ممتلئة، يرجى اختيار غرفة أخرى.");
+                          return;
+                        }
+                        setSelectedRoomId(room.id);
+                        setRoomSelectionError("");
+                      }}
+                      className={[
+                        "flex items-center gap-3 rounded-xl border p-2 text-right transition",
+                        selectedRoomId === room.id
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-slate-200 bg-white hover:border-blue-200",
+                        isFull ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+                      ].join(" ")}
+                    >
+                      {image && (
+                        <img
+                          src={image}
+                          alt={room.roomName}
+                          className="h-12 w-12 rounded-lg object-cover"
+                        />
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-black text-slate-800">
+                          {room.roomName}
+                        </span>
+                        <span className="block text-[11px] font-bold text-slate-500">
+                          {isFull
+                            ? "ممتلئة"
+                            : `الأماكن المتبقية: ${remaining.toLocaleString("ar-EG")} من ${Number(room.capacity || 0).toLocaleString("ar-EG")}`}
+                        </span>
+                      </span>
+                      {isFull && (
+                        <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-black text-red-600">
+                          ممتلئة
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {roomSelectionError && (
+                <p className="text-[11px] font-bold text-red-600">
+                  {roomSelectionError}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="block text-xs font-bold text-slate-600">تاريخ الدخول</label>
             <input

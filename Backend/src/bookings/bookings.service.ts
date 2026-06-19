@@ -26,6 +26,8 @@ import {
   calculateCapacity,
   CAPACITY_HOLDING_BOOKING_STATUSES,
   getPaymentExpiresAt,
+  isRoomBasedListing,
+  areAllRoomsFull,
 } from './booking-capacity';
 
 
@@ -82,6 +84,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         isDeleted: false,
         status: { in: [ListingStatus.APPROVED, ListingStatus.ACTIVE] },
       },
+      include: {
+        rooms: true,
+      },
     });
 
     if (!listing) {
@@ -90,6 +95,26 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
 
     if (listing.hostId === guestId) {
       throw new ForbiddenException('You cannot book your own listing');
+    }
+
+    let selectedRoomName: string | undefined;
+
+    if (isRoomBasedListing(listing)) {
+      if (!dto.roomId) {
+        throw new BadRequestException('يرجى اختيار الغرفة المناسبة قبل إرسال طلب الحجز');
+      }
+
+      const selectedRoom = listing.rooms.find((room) => room.id === dto.roomId);
+
+      if (!selectedRoom) {
+        throw new BadRequestException('الغرفة المختارة غير تابعة لهذا العقار');
+      }
+
+      if (selectedRoom.occupiedCount >= selectedRoom.capacity) {
+        throw new ConflictException('هذه الغرفة ممتلئة، يرجى اختيار غرفة أخرى.');
+      }
+
+      selectedRoomName = selectedRoom.roomName;
     }
 
     const existingBooking = await this.prisma.booking.findFirst({
@@ -132,6 +157,8 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           ? new Date(dto.preferredMoveInDate)
           : null,
         guestMessage: dto.guestMessage,
+        roomId: isRoomBasedListing(listing) ? dto.roomId ?? null : null,
+        selectedRoomName,
         status: BookingStatus.PENDING_HOST_APPROVAL,
       },
       include: this.bookingIncludes(),
@@ -141,7 +168,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
   async respond(bookingId: number, hostId: number, dto: RespondBookingDto) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { listing: true },
+      include: { listing: true, room: true },
     });
 
     if (!booking) throw new NotFoundException('Booking not found');
@@ -177,6 +204,25 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         const now = new Date();
         const paymentExpiresAt = getPaymentExpiresAt(now);
 
+        if (booking.roomId) {
+          const room = await tx.room.findUnique({
+            where: { id: booking.roomId },
+          });
+
+          if (!room || room.apartmentId !== booking.listingId) {
+            throw new BadRequestException('الغرفة المختارة غير متاحة لهذا العقار');
+          }
+
+          if (room.occupiedCount >= room.capacity) {
+            throw new ConflictException('هذه الغرفة ممتلئة، يرجى اختيار غرفة أخرى.');
+          }
+
+          await tx.room.update({
+            where: { id: room.id },
+            data: { occupiedCount: { increment: 1 } },
+          });
+        }
+
         const updatedBooking = await tx.booking.update({
           where: { id: bookingId },
           data: {
@@ -198,6 +244,15 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           booking.listing.hostId,
           booking.listingId,
           'تمت الموافقة على طلب الحجز الخاص بك. يرجى إكمال الدفع خلال ساعة واحدة، وإلا سيتم إلغاء الحجز تلقائيا.',
+        );
+
+        await this.createBookingMessage(
+          tx,
+          booking.guestId,
+          booking.listing.hostId,
+          booking.listingId,
+          'تم حجز مكان جديد.',
+          booking.guestId,
         );
 
         return updatedBooking;
@@ -261,6 +316,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       });
 
       if (CAPACITY_HOLDING_BOOKING_STATUSES.includes(booking.status)) {
+        await this.releaseRoomPlaceIfNeeded(tx, booking.roomId);
         await this.recalculateListingVisibility(tx, booking.listingId);
       }
 
@@ -333,6 +389,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           return;
         }
 
+        await this.releaseRoomPlaceIfNeeded(tx, booking.roomId);
         await this.recalculateListingVisibility(tx, booking.listingId);
 
         await this.createBookingMessage(
@@ -611,6 +668,12 @@ return {
           maxTenants: true,
           city: true,
           governorate: true,
+          rooms: {
+            include: {
+              images: true,
+            },
+            orderBy: { roomNumber: 'asc' as const },
+          },
           photos: {
             where: { isCover: true },
             take: 1,
@@ -637,6 +700,11 @@ return {
         },
       },
       payment: true,
+      room: {
+        include: {
+          images: true,
+        },
+      },
     };
   }
 
@@ -654,7 +722,17 @@ return {
   private async recalculateListingVisibility(tx: any, listingId: number) {
     const listing = await tx.listing.findUnique({
       where: { id: listingId },
-      select: { maxTenants: true, status: true },
+      select: {
+        maxTenants: true,
+        status: true,
+        roomType: true,
+        rooms: {
+          select: {
+            capacity: true,
+            occupiedCount: true,
+          },
+        },
+      },
     });
 
     if (!listing) {
@@ -671,8 +749,9 @@ return {
     });
 
     const capacity = calculateCapacity(listing.maxTenants, reservedPlaces);
+    const allRoomsFull = areAllRoomsFull(listing);
 
-    if (capacity.isFull && listing.status !== ListingStatus.RESERVED) {
+    if ((capacity.isFull || allRoomsFull) && listing.status !== ListingStatus.RESERVED) {
       await tx.listing.update({
         where: { id: listingId },
         data: { status: ListingStatus.RESERVED },
@@ -680,12 +759,32 @@ return {
       return;
     }
 
-    if (!capacity.isFull && listing.status === ListingStatus.RESERVED) {
+    if (!capacity.isFull && !allRoomsFull && listing.status === ListingStatus.RESERVED) {
       await tx.listing.update({
         where: { id: listingId },
         data: { status: ListingStatus.ACTIVE },
       });
     }
+  }
+
+  private async releaseRoomPlaceIfNeeded(tx: any, roomId?: number | null) {
+    if (!roomId) {
+      return;
+    }
+
+    const room = await tx.room.findUnique({
+      where: { id: roomId },
+      select: { occupiedCount: true },
+    });
+
+    if (!room || room.occupiedCount <= 0) {
+      return;
+    }
+
+    await tx.room.update({
+      where: { id: roomId },
+      data: { occupiedCount: { decrement: 1 } },
+    });
   }
 
   private async createBookingMessage(
