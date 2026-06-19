@@ -34,6 +34,7 @@ const publicNavbarPaths = new Set([
   "/confirm-otp",
   "/forgot-password",
   "/reset-password",
+  "/reset-password/new",
   "/auth/callback",
 ]);
 

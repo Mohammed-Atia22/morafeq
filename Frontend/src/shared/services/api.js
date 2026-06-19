@@ -2,17 +2,52 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api/v1";
 
 let refreshPromise = null;
 
+const ERROR_TRANSLATIONS = {
+  "Please provide a valid email": "أدخل بريد إلكتروني صحيح",
+  "Validation error": "أدخل بريد إلكتروني صحيح",
+  "No account found with this email": "لم يتم العثور على حساب مرتبط بهذا البريد الإلكتروني",
+  "Invalid credentials": "يرجى التحقق من البريد الإلكتروني وكلمة المرور والمحاولة مرة أخرى.",
+  "OTP is required": "رمز التحقق مطلوب",
+  "OTP must be 6 digits": "رمز التحقق يجب أن يكون 6 أرقام",
+  "OTP must contain digits only": "رمز التحقق يجب أن يحتوي على أرقام فقط",
+  "OTP does not exist. Please request a new one.": "لم يتم إرسال رمز التحقق أو انتهت صلاحيته. اطلب رمزًا جديدًا.",
+  "OTP has expired. Please request a new one.": "انتهت صلاحية رمز التحقق. اطلب رمزًا جديدًا.",
+  "OTP is incorrect": "رمز التحقق غير صحيح",
+  "Email does not exist or is already verified": "لم يتم العثور على حساب يحتاج إلى تأكيد بهذا البريد الإلكتروني",
+  "Passwords do not match": "كلمتا المرور غير متطابقتين",
+  "New password is required": "كلمة المرور الجديدة مطلوبة",
+  "Password must be at least 8 characters": "كلمة المرور يجب ألا تقل عن 8 أحرف",
+  "Password must not exceed 50 characters": "كلمة المرور يجب ألا تزيد عن 50 حرف",
+  "Password must contain uppercase, lowercase, number, and symbol": "استخدم حرف كبير وصغير ورقم ورمز",
+  "Confirm password is required": "تأكيد كلمة المرور مطلوب",
+  "Session expired. Please login again.": "انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.",
+  "This account uses Google login. Please sign in with Google.": "هذا الحساب يستخدم تسجيل الدخول عبر جوجل.",
+  "This account has been deactivated": "تم تعطيل هذا الحساب.",
+};
+
+const translateErrorMessage = (message) => {
+  if (Array.isArray(message)) {
+    return message.map(translateErrorMessage).join(", ");
+  }
+
+  if (typeof message !== "string") {
+    return "حدث خطأ ما. حاول مرة أخرى.";
+  }
+
+  return ERROR_TRANSLATIONS[message] || message;
+};
+
 const getErrorMessage = async (response) => {
   try {
     const data = await response.json();
     const message = data?.message || data?.error;
 
-    if (Array.isArray(message)) {
-      return message.join(", ");
+    if (typeof message === "string") {
+      return translateErrorMessage(message);
     }
 
-    if (typeof message === "string") {
-      return message;
+    if (Array.isArray(message)) {
+      return translateErrorMessage(message);
     }
 
     return "حدث خطأ ما. حاول مرة أخرى.";
@@ -35,7 +70,7 @@ const refreshAccessToken = async () => {
     })
     .then((data) => {
       if (!data?.accessToken) {
-        throw new Error("Session expired. Please login again.");
+        throw new Error("انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.");
       }
 
       localStorage.setItem("morafeq_access_token", data.accessToken);

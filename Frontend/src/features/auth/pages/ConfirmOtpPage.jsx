@@ -4,17 +4,14 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthCard } from "../components/AuthCard";
 import { AuthLayout } from "../components/AuthLayout";
 import { AuthMessage } from "../components/AuthMessage";
-import { FormField, inputClass } from "../components/FormField";
+import { FormField } from "../components/FormField";
+import { OtpInput } from "../components/OtpInput";
 import { useAuth } from "../hooks/useAuth";
 import { authApi } from "../services/authApi";
 import { getRoleHomePath } from "../utils/roleRedirect";
 import toast from "react-hot-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
-
-const keepDigitsOnly = (event) => {
-  event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "");
-};
 
 const schema = zod.object({
   email: zod
@@ -42,6 +39,9 @@ export function ConfirmOtpPage() {
     register,
     handleSubmit,
     getValues,
+    watch,
+    setValue,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm({
     defaultValues: { email: searchParams.get("email") || "", otp: "" },
@@ -92,17 +92,14 @@ export function ConfirmOtpPage() {
           <AuthMessage type="success">{success}</AuthMessage>
 
           <input type="hidden" {...register("email")} />
+          <input type="hidden" {...register("otp")} />
 
           <FormField label="رمز التحقق" error={errors.otp}>
-            <input
-              className={`${inputClass} text-center text-lg tracking-[0.4em]`}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              placeholder="000000"
-              onInput={keepDigitsOnly}
-              {...register("otp")}
+            <OtpInput
+              value={watch("otp")}
+              disabled={isSubmitting}
+              onChange={(value) => setValue("otp", value, { shouldValidate: true })}
+              onBlur={() => trigger("otp")}
             />
           </FormField>
 

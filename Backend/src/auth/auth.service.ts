@@ -17,6 +17,7 @@ import {
   forgetDto,
   RegisterDto,
   ResendOtpDto,
+  ResetOtpDto,
   resetDto,
 } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -466,7 +467,9 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new ForbiddenException('No account found with this email');
+        throw new ForbiddenException(
+          'لم يتم العثور على حساب مرتبط بهذا البريد الإلكتروني',
+        );
       }
 
       const saltRounds = Number(process.env.SaltRound ?? 12);
@@ -486,7 +489,7 @@ export class AuthService {
         html: `<h1>Your password reset code: ${code}</h1><p>This code expires in 10 minutes.</p>`,
       });
 
-      return { message: 'Password reset code sent to your email' };
+      return { message: 'تم إرسال رمز إعادة تعيين كلمة المرور إلى بريدك الإلكتروني' };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       throw new InternalServerErrorException(error);
@@ -501,7 +504,7 @@ export class AuthService {
 
       // 1. check passwords match
       if (newPassword !== confirmPassword) {
-        throw new BadRequestException('Passwords do not match');
+        throw new BadRequestException('كلمتا المرور غير متطابقتين');
       }
 
       // 2. find user
@@ -510,7 +513,9 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new ForbiddenException('No account found with this email');
+        throw new ForbiddenException(
+          'لم يتم العثور على حساب مرتبط بهذا البريد الإلكتروني',
+        );
       }
 
       // 3. find latest reset OTP
@@ -524,7 +529,7 @@ export class AuthService {
 
       if (!otpExist) {
         throw new ForbiddenException(
-          'OTP does not exist. Please request a new one.',
+          'لم يتم إرسال رمز التحقق أو انتهت صلاحيته. اطلب رمزًا جديدًا.',
         );
       }
 
@@ -532,7 +537,7 @@ export class AuthService {
       if (new Date() > otpExist.expiresAt) {
         await this.prisma.oTP.delete({ where: { id: otpExist.id } });
         throw new ForbiddenException(
-          'OTP has expired. Please request a new one.',
+          'انتهت صلاحية رمز التحقق. اطلب رمزًا جديدًا.',
         );
       }
 
@@ -540,7 +545,7 @@ export class AuthService {
       const otpCompare = await bcrypt.compare(otp, otpExist.otp);
 
       if (!otpCompare) {
-        throw new ForbiddenException('OTP is incorrect');
+        throw new ForbiddenException('رمز التحقق غير صحيح');
       }
 
       // 6. hash and save new password
@@ -557,12 +562,55 @@ export class AuthService {
 
       return {
         message:
-          'Password changed successfully. Please login with your new password.',
+          'تم تغيير كلمة المرور بنجاح. يرجى تسجيل الدخول بكلمة المرور الجديدة.',
       };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       throw new InternalServerErrorException(error);
     }
+  }
+
+  async verifyResetOtp(body: ResetOtpDto) {
+    const { email, otp } = body;
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (!user) {
+      throw new ForbiddenException(
+        'لم يتم العثور على حساب مرتبط بهذا البريد الإلكتروني',
+      );
+    }
+
+    const otpExist = await this.prisma.oTP.findFirst({
+      where: {
+        userId: user.id,
+        otpTypes: OTPTypes.RESET_PASSWORD,
+      },
+      orderBy: { id: 'desc' },
+    });
+
+    if (!otpExist) {
+      throw new ForbiddenException(
+        'لم يتم إرسال رمز التحقق أو انتهت صلاحيته. اطلب رمزًا جديدًا.',
+      );
+    }
+
+    if (new Date() > otpExist.expiresAt) {
+      await this.prisma.oTP.delete({ where: { id: otpExist.id } });
+      throw new ForbiddenException(
+        'انتهت صلاحية رمز التحقق. اطلب رمزًا جديدًا.',
+      );
+    }
+
+    const otpCompare = await bcrypt.compare(otp, otpExist.otp);
+
+    if (!otpCompare) {
+      throw new ForbiddenException('رمز التحقق غير صحيح');
+    }
+
+    return { message: 'تم التحقق من الرمز بنجاح' };
   }
 
   // ─── Resend OTP ────────────────────────────
