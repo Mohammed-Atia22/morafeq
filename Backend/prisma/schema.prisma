@@ -157,7 +157,7 @@ model Listing {
   availabilityBlocks AvailabilityBlock[]
   bookings           Booking[]
   reviews            Review[]
-  vectorInsight  ListingVector?
+  vectorInsight      ListingVector?
 
   @@index([hostId])
   @@index([areaId])
@@ -462,21 +462,21 @@ model Message {
 }
 
 model ListingVector {
-  id         Int      @id @default(autoincrement()) @db.UnsignedInt
-  listingId  Int      @unique @db.UnsignedInt
-  
+  id        Int @id @default(autoincrement()) @db.UnsignedInt
+  listingId Int @unique @db.UnsignedInt
+
   // Stores the stringified float array (e.g., "[0.012, -0.234, ...]")
   // Google's text-embedding-004 model generates 768 dimensions
   vectorText Json
-  
+
   // It's highly beneficial to cache the raw text chunk used to generate the vector
-  textChunk  String   @db.Text
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  textChunk String @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relation back to your main Listing table
-  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@map("listing_vectors")
 }
