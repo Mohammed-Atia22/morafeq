@@ -12,6 +12,7 @@ import {
   DisputeResolutionDialog,
   DisputeCancellationSuccess,
 } from "../../bookings/components/DisputeResolutionDialog";
+import { BookingReviewActions } from "../../reviews/components/BookingReviewActions";
 import toast from "react-hot-toast";
 
 const getReservationExpiry = (booking) => {
@@ -430,7 +431,14 @@ export function ExpatriateBookingsPage() {
                     </button>
                   )}
 
-                  {!["PENDING_PAYMENT", "CHECK_IN_PENDING", "PENDING_HOST_APPROVAL", "DISPUTE_RESOLVED_FOR_HOST"].includes(booking.status) && (
+                  {booking.status === "COMPLETED" && (
+                    <BookingReviewActions
+                      bookingId={booking.id}
+                      bookingStatus={booking.status}
+                    />
+                  )}
+
+                  {!["PENDING_PAYMENT", "CHECK_IN_PENDING", "PENDING_HOST_APPROVAL", "DISPUTE_RESOLVED_FOR_HOST", "COMPLETED"].includes(booking.status) && (
                     <div className="text-center py-1.5 text-xs font-bold text-slate-400">
                       حالة الحجز مغلقة
                     </div>

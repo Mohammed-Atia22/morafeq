@@ -43,6 +43,8 @@ import AdminUsersPage from "./features/admin/pages/AdminUsersPage";
 import { OwnerRentalRequestsPage } from "./features/owner/pages/OwnerRentalRequestsPage";
 import { ExpatriateBookingsPage } from "./features/expatriate/pages/ExpatriateBookingsPage";
 import { AdminComplaintsPage } from "./features/admin/pages/AdminComplaintsPage";
+import { PublicHostProfilePage } from "./features/profile/pages/PublicHostProfilePage";
+import { PublicGuestProfilePage } from "./features/profile/pages/PublicGuestProfilePage";
 
 function App() {
 return ( <AuthProvider> <Routes>
@@ -113,6 +115,11 @@ return ( <AuthProvider> <Routes>
         path="rental-requests"
         element={<OwnerRentalRequestsPage />}
       />
+
+      <Route
+        path="guests/:guestId"
+        element={<PublicGuestProfilePage />}
+      />
     </Route>
 
     {/* Expatriate routes */}
@@ -151,6 +158,11 @@ return ( <AuthProvider> <Routes>
       <Route
         path="bookings"
         element={<ExpatriateBookingsPage />}
+      />
+
+      <Route
+        path="hosts/:hostId"
+        element={<PublicHostProfilePage />}
       />
     </Route>
 

@@ -1,3 +1,5 @@
+import { RatingSummary } from "../../../reviews/components/RatingSummary";
+
 const ROOM_TYPE_LABELS = {
   ENTIRE_PLACE: "شقة كاملة",
   PRIVATE_ROOM: "غرفة خاصة",
@@ -60,6 +62,14 @@ export function ListingInfo({ listing }) {
 
       {/* Title */}
       <h1 className="mt-2 text-xl font-black text-[#0f172a]">{listing.title}</h1>
+
+      <div className="mt-2">
+        <RatingSummary
+          averageRating={listing.averageRating ?? 0}
+          reviewCount={listing._count?.reviews ?? 0}
+          size="md"
+        />
+      </div>
 
       {/* Location */}
       {location && (

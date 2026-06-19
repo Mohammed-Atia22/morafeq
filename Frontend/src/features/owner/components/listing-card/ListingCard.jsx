@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { listingsApi } from "../../../listings/services/listingsApi";
+import { RatingSummary } from "../../../reviews/components/RatingSummary";
 import { CheckIcon, EyeIcon, TrashIcon } from "../common/OwnerIcons";
 import {
   genderPreferenceOptions,
@@ -420,7 +421,11 @@ export function ListingCard({
                 <EyeIcon className="h-4 w-4" />
                 {listing.viewsCount || 0}
               </span>
-              <span>{reviewCount ? `★ ${reviewCount}` : "لا تقييمات"}</span>
+              <RatingSummary
+                averageRating={listing.averageRating ?? 0}
+                reviewCount={reviewCount}
+                size="xs"
+              />
               <span>{bookingCount} طلب</span>
               <span>{roomsCount} غرفة</span>
               <span>{listing.bathrooms || 0} حمام</span>

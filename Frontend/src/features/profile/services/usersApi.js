@@ -39,4 +39,10 @@ export const usersApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  /**
+   * GET /users/:id
+   * Public profile — no private fields
+   */
+  getPublicProfile: (userId) => apiRequest(`/users/${userId}`),
 };
