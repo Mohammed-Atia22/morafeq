@@ -15,7 +15,7 @@ export function useOwnerRequests() {
       setRequests(data || []);
       return data;
     } catch (err) {
-      setError(err.message || "Failed to load requests");
+      setError(err.message || "تعذر تحميل الطلبات");
       console.error(err);
     } finally {
       setLoading(false);
@@ -43,7 +43,7 @@ export function useOwnerRequests() {
       );
       return updatedBooking;
     } catch (err) {
-      setError(err.message || "Failed to respond to request");
+      setError(err.message || "تعذر إرسال الرد على الطلب");
       toast.error(err.message || "تعذر إرسال الرد على طلب الإيجار");
       throw err;
     } finally {

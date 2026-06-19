@@ -8,6 +8,7 @@ import {
   InternalServerErrorException,
   ForbiddenException,
   HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -31,6 +32,15 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 @Injectable()
 export class AuthService {
+  private readonly resendCooldownMs = 60 * 1000;
+  private readonly otpLockMs = 60 * 60 * 1000;
+  private readonly maxOtpAttempts = 5;
+  private readonly resendCooldowns = new Map<string, number>();
+  private readonly otpAttemptState = new Map<
+    string,
+    { attempts: number; blockedUntil?: number }
+  >();
+
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
@@ -98,9 +108,17 @@ export class AuthService {
     });
 
     if (existingPhone) {
-      throw new ConflictException(
-        'رقم الهاتف مسجل بالفعل',
-      );
+      if (existingPhone.isVerified) {
+        throw new ConflictException(
+          'رقم الهاتف مسجل بالفعل',
+        );
+      }
+
+      await this.prisma.user.delete({
+        where: {
+          id: existingPhone.id,
+        },
+      });
     }
 
     // 4. Hash password
@@ -188,6 +206,8 @@ export class AuthService {
       `,
     });
 
+    this.markOtpSent(normalizedEmail, OTPTypes.EMAIL_CONFIRMATION);
+
     return {
       message: existingUser
         ? 'A new verification code has been sent to your email.'
@@ -209,11 +229,18 @@ export class AuthService {
 
   async confirm(body: confirmrDto) {
     const { email, otp } = body;
+    const normalizedEmail = email.toLowerCase();
+    const attemptKey = this.getOtpAttemptKey(
+      normalizedEmail,
+      OTPTypes.EMAIL_CONFIRMATION,
+    );
+
+    this.assertOtpAttemptsAllowed(attemptKey);
 
     // 1. find unverified user
     const user = await this.prisma.user.findFirst({
       where: {
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         isVerified: false,
       },
     });
@@ -251,8 +278,11 @@ export class AuthService {
     const otpCompare = await bcrypt.compare(otp, otpExist.otp);
 
     if (!otpCompare) {
+      this.recordFailedOtpAttempt(attemptKey);
       throw new ForbiddenException('رمز التحقق غير صحيح');
     }
+
+    this.clearOtpAttempts(attemptKey);
 
     // 5. verify user
     const updatedUser = await this.prisma.user.update({
@@ -472,6 +502,8 @@ export class AuthService {
         );
       }
 
+      this.assertResendAllowed(email.toLowerCase(), OTPTypes.RESET_PASSWORD);
+
       const saltRounds = Number(process.env.SaltRound ?? 12);
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       const codeHash = await bcrypt.hash(code, saltRounds);
@@ -489,6 +521,8 @@ export class AuthService {
         html: `<h1>Your password reset code: ${code}</h1><p>This code expires in 10 minutes.</p>`,
       });
 
+      this.markOtpSent(email.toLowerCase(), OTPTypes.RESET_PASSWORD);
+
       return { message: 'تم إرسال رمز إعادة تعيين كلمة المرور إلى بريدك الإلكتروني' };
     } catch (error) {
       if (error instanceof HttpException) throw error;
@@ -501,6 +535,13 @@ export class AuthService {
   async resetPassword(body: resetDto) {
     try {
       const { email, otp, newPassword, confirmPassword } = body;
+      const normalizedEmail = email.toLowerCase();
+      const attemptKey = this.getOtpAttemptKey(
+        normalizedEmail,
+        OTPTypes.RESET_PASSWORD,
+      );
+
+      this.assertOtpAttemptsAllowed(attemptKey);
 
       // 1. check passwords match
       if (newPassword !== confirmPassword) {
@@ -509,7 +550,7 @@ export class AuthService {
 
       // 2. find user
       const user = await this.prisma.user.findUnique({
-        where: { email: email.toLowerCase() },
+        where: { email: normalizedEmail },
       });
 
       if (!user) {
@@ -545,8 +586,11 @@ export class AuthService {
       const otpCompare = await bcrypt.compare(otp, otpExist.otp);
 
       if (!otpCompare) {
+        this.recordFailedOtpAttempt(attemptKey);
         throw new ForbiddenException('رمز التحقق غير صحيح');
       }
+
+      this.clearOtpAttempts(attemptKey);
 
       // 6. hash and save new password
       const saltRounds = Number(process.env.SaltRound ?? 12);
@@ -572,9 +616,16 @@ export class AuthService {
 
   async verifyResetOtp(body: ResetOtpDto) {
     const { email, otp } = body;
+    const normalizedEmail = email.toLowerCase();
+    const attemptKey = this.getOtpAttemptKey(
+      normalizedEmail,
+      OTPTypes.RESET_PASSWORD,
+    );
+
+    this.assertOtpAttemptsAllowed(attemptKey);
 
     const user = await this.prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email: normalizedEmail },
     });
 
     if (!user) {
@@ -607,8 +658,11 @@ export class AuthService {
     const otpCompare = await bcrypt.compare(otp, otpExist.otp);
 
     if (!otpCompare) {
+      this.recordFailedOtpAttempt(attemptKey);
       throw new ForbiddenException('رمز التحقق غير صحيح');
     }
+
+    this.clearOtpAttempts(attemptKey);
 
     return { message: 'تم التحقق من الرمز بنجاح' };
   }
@@ -617,10 +671,13 @@ export class AuthService {
 
   async resendOtp(body: ResendOtpDto) {
     const { email } = body;
+    const normalizedEmail = email.toLowerCase();
+
+    this.assertResendAllowed(normalizedEmail, OTPTypes.EMAIL_CONFIRMATION);
 
     const user = await this.prisma.user.findFirst({
       where: {
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         isVerified: false,
       },
     });
@@ -655,6 +712,8 @@ export class AuthService {
       subject: 'New Verification Code',
       html: `<h1>Your new verification code: ${code}</h1><p>This code expires in 10 minutes.</p>`,
     });
+
+    this.markOtpSent(normalizedEmail, OTPTypes.EMAIL_CONFIRMATION);
 
     return { message: 'New verification code sent to your email' };
   }
@@ -709,5 +768,70 @@ export class AuthService {
     ]);
 
     return { accessToken, refreshToken };
+  }
+
+  private getOtpAttemptKey(email: string, otpType: OTPTypes) {
+    return `${otpType}:${email.toLowerCase()}`;
+  }
+
+  private getResendCooldownKey(email: string, otpType: OTPTypes) {
+    return `${otpType}:${email.toLowerCase()}`;
+  }
+
+  private assertResendAllowed(email: string, otpType: OTPTypes) {
+    const key = this.getResendCooldownKey(email, otpType);
+    const lastSentAt = this.resendCooldowns.get(key);
+
+    if (lastSentAt && Date.now() - lastSentAt < this.resendCooldownMs) {
+      throw new HttpException(
+        'انتظر دقيقة واحدة قبل طلب الرمز.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private markOtpSent(email: string, otpType: OTPTypes) {
+    this.resendCooldowns.set(
+      this.getResendCooldownKey(email, otpType),
+      Date.now(),
+    );
+  }
+
+  private assertOtpAttemptsAllowed(key: string) {
+    const state = this.otpAttemptState.get(key);
+
+    if (state?.blockedUntil && state.blockedUntil > Date.now()) {
+      throw new HttpException(
+        'عدد المحاولات كبير جدًا\nيمكنك المحاولة مرة أخرى بعد ساعة',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    if (state?.blockedUntil && state.blockedUntil <= Date.now()) {
+      this.otpAttemptState.delete(key);
+    }
+  }
+
+  private recordFailedOtpAttempt(key: string) {
+    const current = this.otpAttemptState.get(key) ?? { attempts: 0 };
+    const attempts = current.attempts + 1;
+
+    if (attempts >= this.maxOtpAttempts) {
+      this.otpAttemptState.set(key, {
+        attempts,
+        blockedUntil: Date.now() + this.otpLockMs,
+      });
+
+      throw new HttpException(
+        'عدد المحاولات كبير جدًا\nيمكنك المحاولة مرة أخرى بعد ساعة',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    this.otpAttemptState.set(key, { attempts });
+  }
+
+  private clearOtpAttempts(key: string) {
+    this.otpAttemptState.delete(key);
   }
 }

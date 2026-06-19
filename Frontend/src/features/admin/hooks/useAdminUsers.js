@@ -17,7 +17,7 @@ export function useAdminUsers() {
       setUsers(res.data);
       setMeta(res.meta);
     } catch (err) {
-      setError(err.message || "Failed to load users");
+      setError(err.message || "تعذر تحميل المستخدمين");
     } finally {
       setLoading(false);
     }

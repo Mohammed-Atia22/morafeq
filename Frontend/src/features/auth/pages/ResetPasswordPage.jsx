@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthCard } from "../components/AuthCard";
@@ -23,11 +23,14 @@ const schema = zod.object({
     .regex(/^\d{6}$/, "رمز التحقق يجب أن يكون 6 أرقام"),
 });
 
+const RESEND_LIMIT_MESSAGE = "انتظر دقيقة واحدة قبل طلب الرمز.";
+
 export function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [serverError, setServerError] = useState("");
   const [success, setSuccess] = useState("");
+  const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
 
   const {
     register,
@@ -41,6 +44,16 @@ export function ResetPasswordPage() {
     defaultValues: { email: searchParams.get("email") || "", otp: "" },
     resolver: zodResolver(schema),
   });
+
+  useEffect(() => {
+    if (resendSecondsLeft <= 0) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setResendSecondsLeft((seconds) => Math.max(seconds - 1, 0));
+    }, 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [resendSecondsLeft]);
 
   const onSubmit = async (values) => {
     setServerError("");
@@ -60,6 +73,8 @@ export function ResetPasswordPage() {
   };
 
   const resend = async () => {
+    if (resendSecondsLeft > 0) return;
+
     const email = getValues("email");
 
     setServerError("");
@@ -73,8 +88,12 @@ export function ResetPasswordPage() {
     try {
       await authApi.forgotPassword({ email });
       setSuccess("تم إرسال رمز جديد إلى بريدك الإلكتروني.");
+      setResendSecondsLeft(60);
     } catch (error) {
       setServerError(error.message);
+      if (error.message === RESEND_LIMIT_MESSAGE) {
+        setResendSecondsLeft(60);
+      }
     }
   };
 
@@ -110,8 +129,15 @@ export function ResetPasswordPage() {
           </button>
 
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-            <button type="button" onClick={resend} className="font-black text-[#075ed8]">
-              إعادة إرسال الرمز
+            <button
+              type="button"
+              onClick={resend}
+              disabled={resendSecondsLeft > 0}
+              className="font-black text-[#075ed8] transition disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {resendSecondsLeft > 0
+                ? `إعادة إرسال الرمز خلال ${resendSecondsLeft} ثانية`
+                : "إعادة إرسال الرمز"}
             </button>
             <Link to="/forgot-password" className="font-black text-slate-500">
               تغيير البريد الإلكتروني

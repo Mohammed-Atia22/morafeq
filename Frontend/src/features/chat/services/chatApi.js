@@ -1,3 +1,5 @@
+import { translateErrorMessage } from "../../../shared/services/api";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   "http://localhost:3001/api/v1";
@@ -28,7 +30,7 @@ async function chatRequest(path, options = {}) {
       ? data.message.join(", ")
       : data?.message || "حدث خطأ أثناء تنفيذ الطلب";
 
-    throw new Error(message);
+    throw new Error(translateErrorMessage(message));
   }
 
   return data;
