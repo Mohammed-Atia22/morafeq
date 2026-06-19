@@ -44,6 +44,10 @@ export function ListingInfo({ listing }) {
         day: "numeric",
       })
     : null;
+  const reservedPlaces = Number(listing.reservedPlaces ?? 0);
+  const availablePlaces = Number(
+    listing.availablePlaces ?? Math.max(0, (listing.maxTenants ?? 0) - reservedPlaces),
+  );
 
   return (
     <div dir="rtl" className="rounded-2xl bg-white px-6 py-5 shadow-sm ring-1 ring-slate-100">
@@ -86,7 +90,13 @@ export function ListingInfo({ listing }) {
           <StatBadge icon="🚿" label={`${listing.bathrooms} حمام`} />
         )}
         {listing.maxTenants != null && (
-          <StatBadge icon="👥" label={`${listing.maxTenants} مستأجر كحد أقصى`} />
+          <StatBadge icon="👥" label={`الحد الأقصى للأشخاص ${listing.maxTenants}`} />
+        )}
+        {listing.maxTenants != null && (
+          <StatBadge icon="🔒" label={`الأماكن المحجوزة ${reservedPlaces}`} />
+        )}
+        {listing.maxTenants != null && (
+          <StatBadge icon="✅" label={`الأماكن المتبقية ${availablePlaces}`} />
         )}
         {listing.genderPreference && listing.genderPreference !== "ANY" && (
           <StatBadge icon="🚻" label={GENDER_LABELS[listing.genderPreference] ?? listing.genderPreference} />

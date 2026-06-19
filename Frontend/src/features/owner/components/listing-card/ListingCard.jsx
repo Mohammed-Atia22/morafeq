@@ -33,6 +33,10 @@ export function ListingCard({
   const reviewCount = listing._count?.reviews || 0;
   const bookingCount = listing._count?.bookings || 0;
   const roomsCount = listing.bedrooms || listing.beds || 0;
+  const reservedPlaces = Number(listing.reservedPlaces ?? 0);
+  const availablePlaces = Number(
+    listing.availablePlaces ?? Math.max(0, (listing.maxTenants ?? 0) - reservedPlaces),
+  );
 
   useEffect(() => {
     setForm(listingToForm(listing));
@@ -420,6 +424,9 @@ export function ListingCard({
               <span>{bookingCount} طلب</span>
               <span>{roomsCount} غرفة</span>
               <span>{listing.bathrooms || 0} حمام</span>
+              <span>السعة {Number(listing.maxTenants || 0).toLocaleString("ar-EG")}</span>
+              <span>المحجوز {reservedPlaces.toLocaleString("ar-EG")}</span>
+              <span>المتبقي {availablePlaces.toLocaleString("ar-EG")}</span>
             </div>
 
             <div className="mt-4 grid grid-cols-[1fr_1fr_auto] gap-2">

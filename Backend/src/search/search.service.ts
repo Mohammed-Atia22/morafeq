@@ -1,6 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchListingDto } from '../listings/dto/search-listing.dto';
+import {
+  calculateCapacity,
+  CAPACITY_HOLDING_BOOKING_STATUSES,
+} from '../bookings/booking-capacity';
 
 @Injectable()
 export class SearchService {
@@ -28,6 +32,35 @@ export class SearchService {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return earthRadiusKm * c;
+  }
+
+  private async attachCapacityToListings<T extends { id: number; maxTenants: number }>(
+    listings: T[],
+  ) {
+    if (listings.length === 0) {
+      return listings;
+    }
+
+    const reservedCounts = await this.prisma.booking.groupBy({
+      by: ['listingId'],
+      where: {
+        listingId: { in: listings.map((listing) => listing.id) },
+        status: { in: CAPACITY_HOLDING_BOOKING_STATUSES },
+      },
+      _count: { _all: true },
+    });
+
+    const reservedByListingId = new Map(
+      reservedCounts.map((count) => [count.listingId, count._count._all]),
+    );
+
+    return listings.map((listing) => ({
+      ...listing,
+      ...calculateCapacity(
+        listing.maxTenants,
+        reservedByListingId.get(listing.id) ?? 0,
+      ),
+    }));
   }
 
   private buildWhere(dto: SearchListingDto) {
@@ -180,8 +213,10 @@ export class SearchService {
           },
         },
       });
+      const allListingsWithCapacity =
+        await this.attachCapacityToListings(allListings);
 
-      const listingsWithDistance = allListings
+      const listingsWithDistance = allListingsWithCapacity
         .map((listing) => {
           const listingLat = Number(listing.lat);
           const listingLng = Number(listing.lng);
@@ -298,7 +333,7 @@ export class SearchService {
     ]);
 
     return {
-      data: listings,
+      data: await this.attachCapacityToListings(listings),
       meta: {
         total,
         page,

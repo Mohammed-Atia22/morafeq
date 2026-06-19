@@ -28,6 +28,11 @@ export function OwnerApartmentsList({
             const image =
               listing.photos?.[0]?.url ||
               fallbackImages[index % fallbackImages.length];
+            const reservedPlaces = Number(listing.reservedPlaces ?? 0);
+            const availablePlaces = Number(
+              listing.availablePlaces ??
+                Math.max(0, (listing.maxTenants ?? 0) - reservedPlaces),
+            );
 
             return (
               <article
@@ -68,6 +73,13 @@ export function OwnerApartmentsList({
                     </span>
                     <span>•</span>
                     <span>{listing.viewsCount || 0} مشاهدة</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center justify-end gap-2 text-[11px] font-bold text-slate-500">
+                    <span>السعة: {Number(listing.maxTenants || 0).toLocaleString("ar-EG")}</span>
+                    <span>•</span>
+                    <span>المحجوزة: {reservedPlaces.toLocaleString("ar-EG")}</span>
+                    <span>•</span>
+                    <span>المتبقية: {availablePlaces.toLocaleString("ar-EG")}</span>
                   </div>
                 </div>
                 <div className="text-left">

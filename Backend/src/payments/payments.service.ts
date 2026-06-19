@@ -13,6 +13,11 @@ import { BookingStatus, PaymentStatus } from '@prisma/client';
 import axios from 'axios';
 import * as crypto from 'crypto';
 import { ReleasePaymentDto } from './dto/release-payment.dto';
+import {
+  calculateCapacity,
+  CAPACITY_HOLDING_BOOKING_STATUSES,
+  getPaymentExpiresAt,
+} from '../bookings/booking-capacity';
 
 @Injectable()
 export class PaymentsService {
@@ -136,37 +141,36 @@ export class PaymentsService {
       );
     }
 
-    if (
-      booking.approvedAt &&
-      Date.now() - booking.approvedAt.getTime() > 24 * 60 * 60 * 1000
-    ) {
+    const paymentExpiresAt =
+      booking.paymentExpiresAt ??
+      (booking.approvedAt ? getPaymentExpiresAt(booking.approvedAt) : null);
+
+    if (paymentExpiresAt && paymentExpiresAt.getTime() <= Date.now()) {
       await this.prisma.$transaction(async (tx) => {
         await tx.booking.update({
           where: { id: booking.id },
           data: {
-            status: BookingStatus.CANCELED,
-            cancellationReason:
-              'تم إلغاء الحجز تلقائيا لأن الدفع لم يكتمل خلال 24 ساعة.',
+            status: BookingStatus.EXPIRED,
+            cancellationReason: 'انتهت مهلة الدفع الخاصة بالحجز.',
             cancelledAt: new Date(),
           },
         });
 
-        const activeReservation = await tx.booking.findFirst({
+        const reservedPlaces = await tx.booking.count({
           where: {
             listingId: booking.listingId,
-            id: { not: booking.id },
             status: {
-              in: [
-                BookingStatus.PENDING_PAYMENT,
-                BookingStatus.CHECK_IN_PENDING,
-                BookingStatus.DISPUTED,
-                BookingStatus.COMPLETED,
-              ],
+              in: CAPACITY_HOLDING_BOOKING_STATUSES,
             },
           },
         });
 
-        if (!activeReservation) {
+        const capacity = calculateCapacity(
+          booking.listing.maxTenants,
+          reservedPlaces,
+        );
+
+        if (!capacity.isFull && booking.listing.status === 'RESERVED') {
           await tx.listing.update({
             where: { id: booking.listingId },
             data: { status: 'ACTIVE' },
@@ -175,7 +179,7 @@ export class PaymentsService {
       });
 
       throw new BadRequestException(
-        'انتهت مهلة الدفع وتم إلغاء الحجز. يمكنك إرسال طلب حجز جديد إذا أصبح العقار متاحا.',
+        'انتهت مهلة الدفع الخاصة بالحجز. يمكنك إرسال طلب حجز جديد إذا كان هناك أماكن متاحة.',
       );
     }
 
@@ -430,10 +434,23 @@ const paymentSucceeded = transaction.success === true;
     if (paymentSucceeded) {
       const payableBooking = await this.prisma.booking.findUnique({
         where: { id: payment.bookingId },
-        select: { status: true },
+        select: {
+          status: true,
+          approvedAt: true,
+          paymentExpiresAt: true,
+        },
       });
 
-      if (payableBooking?.status !== BookingStatus.PENDING_PAYMENT) {
+      const expiresAt =
+        payableBooking?.paymentExpiresAt ??
+        (payableBooking?.approvedAt
+          ? getPaymentExpiresAt(payableBooking.approvedAt)
+          : null);
+
+      if (
+        payableBooking?.status !== BookingStatus.PENDING_PAYMENT ||
+        (expiresAt && expiresAt.getTime() <= Date.now())
+      ) {
         return {
           received: true,
           status: 'booking_not_payable',

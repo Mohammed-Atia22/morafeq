@@ -29,6 +29,8 @@ export function ListingCard({ listing }) {
   const coverPhoto = listing.photos?.[0]?.url;
   const reviewCount = listing._count?.reviews ?? 0;
   const amenities = listing.amenities?.slice(0, 3) ?? [];
+  const availablePlaces =
+    listing.availablePlaces ?? Math.max(0, (listing.maxTenants ?? 0) - (listing.reservedPlaces ?? 0));
 
   const roomLabel =
     ROOM_TYPE_LABELS[listing.roomType] ??
@@ -109,6 +111,11 @@ export function ListingCard({ listing }) {
         )}
 
         {/* Footer */}
+        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+          <span>الأماكن المتبقية: {availablePlaces.toLocaleString("ar-EG")}</span>
+          <span className="text-left">السعة الكاملة: {Number(listing.maxTenants ?? 0).toLocaleString("ar-EG")}</span>
+        </div>
+
         <div className="mt-3 flex items-center justify-between">
           <div className="flex items-center gap-1 text-xs text-slate-500">
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-amber-400">
