@@ -302,10 +302,29 @@ model Payment {
   paymobOrderId       String? @unique @db.VarChar(255)
   paymobTransactionId String? @unique @db.VarChar(255)
 
-  amount           Int    @db.UnsignedInt // in piastres (EGP cents)
-  platformFee      Int    @default(0) @db.UnsignedInt
-  hostPayoutAmount Int    @default(0) @db.UnsignedInt
-  currency         String @default("EGP") @db.VarChar(3)
+  // قيمة الإيجار الأساسية وقت الدفع
+  rentAmount Int @default(0) @db.UnsignedInt
+
+  // مبلغ التأمين وقت الدفع
+  securityDepositAmount Int @default(0) @db.UnsignedInt
+
+  // إجمالي المبلغ المدفوع من المغترب
+  // إيجار + تأمين + رسوم المنصة
+  amount Int @db.UnsignedInt
+
+  // رسوم المنصة التي دفعها المغترب
+  platformFee Int @default(0) @db.UnsignedInt
+
+  // المبلغ المستحق لصاحب السكن عند الاستلام الطبيعي
+  hostPayoutAmount Int @default(0) @db.UnsignedInt
+
+  // المبلغ الذي تم رده للمغترب بعد حسم النزاع
+  guestRefundAmount Int @default(0) @db.UnsignedInt
+
+  // التعويض الذي أخذه صاحب السكن بعد حسم النزاع
+  hostCompensationAmount Int @default(0) @db.UnsignedInt
+
+  currency String @default("EGP") @db.VarChar(3)
 
   status PaymentStatus @default(PENDING)
 
@@ -316,6 +335,7 @@ model Payment {
   heldAt     DateTime?
   releasedAt DateTime?
   refundedAt DateTime?
+  settledAt  DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -463,6 +483,7 @@ enum BookingStatus {
   CANCELED
   CANCELLED_BY_GUEST
   CANCELLED_BY_HOST
+  CANCELLED_AFTER_DISPUTE
   REFUNDED
 }
 

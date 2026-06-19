@@ -92,14 +92,14 @@ export class PaymentsController {
     return this.paymentsService.refundPayment(id, dto);
   }
 
-  @Patch(':id/release')
+  @Patch(':id/resolve-for-host')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
-releasePayment(
+resolveDisputeForHost(
   @Param('id', ParseIntPipe) paymentId: number,
   @Body() dto: ReleasePaymentDto,
 ) {
-  return this.paymentsService.releasePaymentByAdmin(
+  return this.paymentsService.resolveDisputeForHost(
     paymentId,
     dto,
   );
