@@ -599,8 +599,12 @@ const paymentSucceeded = transaction.success === true;
   // ─── Get host earnings ──────────────────────
 
   async getHostEarnings(hostId: number) {
-  const [heldPayments, releasedPayments] = await Promise.all([
-    // فلوس مدفوعة لكنها معلقة
+  const [
+    heldPayments,
+    releasedPayments,
+    compensationPayments,
+  ] = await Promise.all([
+    // 1. مبالغ مدفوعة لكنها ما زالت معلقة
     this.prisma.payment.findMany({
       where: {
         status: PaymentStatus.HELD,
@@ -635,7 +639,7 @@ const paymentSucceeded = transaction.success === true;
       },
     }),
 
-    // فلوس أصبحت متاحة لصاحب السكن
+    // 2. حجوزات اكتملت طبيعيًا وأصبح المبلغ متاحًا
     this.prisma.payment.findMany({
       where: {
         status: PaymentStatus.RELEASED,
@@ -669,35 +673,107 @@ const paymentSucceeded = transaction.success === true;
         releasedAt: 'desc',
       },
     }),
+
+    // 3. مبلغ التأمين الذي حصل عليه صاحب السكن
+    // بعد حل النزاع لصالحه وإلغاء المغترب للحجز
+    this.prisma.payment.findMany({
+      where: {
+        status: PaymentStatus.PARTIALLY_REFUNDED,
+
+        hostCompensationAmount: {
+          gt: 0,
+        },
+
+        booking: {
+          listing: {
+            hostId,
+          },
+        },
+      },
+      include: {
+        booking: {
+          select: {
+            id: true,
+            status: true,
+            listing: {
+              select: {
+                id: true,
+                title: true,
+                photos: {
+                  where: {
+                    isCover: true,
+                  },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        settledAt: 'desc',
+      },
+    }),
   ]);
 
+  // المبالغ المعلقة قبل تأكيد الاستلام أو حسم النزاع
   const pendingBalanceCents = heldPayments.reduce(
     (sum, payment) =>
       sum + payment.hostPayoutAmount,
     0,
   );
 
-  const availableBalanceCents =
-    releasedPayments.reduce(
+  // المبالغ الناتجة عن حجوزات مكتملة طبيعيًا
+  const releasedBalanceCents = releasedPayments.reduce(
+    (sum, payment) =>
+      sum + payment.hostPayoutAmount,
+    0,
+  );
+
+  // مبالغ التأمين الناتجة عن النزاعات
+  const compensationBalanceCents =
+    compensationPayments.reduce(
       (sum, payment) =>
-        sum + payment.hostPayoutAmount,
+        sum + payment.hostCompensationAmount,
       0,
     );
+
+  // إجمالي ما يستطيع صاحب السكن التصرف فيه
+  const availableBalanceCents =
+    releasedBalanceCents +
+    compensationBalanceCents;
 
   return {
     pendingPayments: heldPayments,
     releasedPayments,
+    compensationPayments,
 
     summary: {
       pendingBalanceCents,
+      releasedBalanceCents,
+      compensationBalanceCents,
       availableBalanceCents,
 
-      // القيم دي بالجنيه عشان الـ frontend يعرضها
-      pendingBalance: pendingBalanceCents / 100,
-      availableBalance: availableBalanceCents / 100,
+      pendingBalance:
+        pendingBalanceCents / 100,
 
-      pendingTransactions: heldPayments.length,
-      releasedTransactions: releasedPayments.length,
+      releasedBalance:
+        releasedBalanceCents / 100,
+
+      compensationBalance:
+        compensationBalanceCents / 100,
+
+      availableBalance:
+        availableBalanceCents / 100,
+
+      pendingTransactions:
+        heldPayments.length,
+
+      releasedTransactions:
+        releasedPayments.length,
+
+      compensationTransactions:
+        compensationPayments.length,
 
       currency: 'EGP',
     },

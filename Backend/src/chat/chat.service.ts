@@ -330,4 +330,4 @@ async markConversationAsRead(
     updatedMessagesCount: result.count,
   };
 }
-}
+} 

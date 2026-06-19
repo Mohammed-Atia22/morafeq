@@ -6,12 +6,14 @@ import { ChatController } from './chat.controller';
 import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { DisputeChatModule } from '../dispute-chat/dispute-chat.module';
 
 @Module({
   imports: [
     PrismaModule,
     ConfigModule,
     JwtModule.register({}),
+     DisputeChatModule,
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway],
