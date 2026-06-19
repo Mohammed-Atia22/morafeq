@@ -19,6 +19,10 @@ import { SearchListingDto } from './dto/search-listing.dto';
 import { SetAmenitiesDto } from './dto/set-amenities.dto';
 import { BlockDatesDto } from './dto/block-dates.dto';
 import { LocationInsightsService } from './../location-insights/location-insights.service';
+import {
+  calculateCapacity,
+  CAPACITY_HOLDING_BOOKING_STATUSES,
+} from '../bookings/booking-capacity';
 
 @Injectable()
 export class ListingsService {
@@ -167,6 +171,42 @@ export class ListingsService {
     return earthRadiusKm * c;
   }
 
+  private async attachCapacityToListings<T extends { id: number; maxTenants: number }>(
+    listings: T[],
+  ) {
+    if (listings.length === 0) {
+      return listings;
+    }
+
+    const reservedCounts = await this.prisma.booking.groupBy({
+      by: ['listingId'],
+      where: {
+        listingId: { in: listings.map((listing) => listing.id) },
+        status: { in: CAPACITY_HOLDING_BOOKING_STATUSES },
+      },
+      _count: { _all: true },
+    });
+
+    const reservedByListingId = new Map(
+      reservedCounts.map((count) => [count.listingId, count._count._all]),
+    );
+
+    return listings.map((listing) => ({
+      ...listing,
+      ...calculateCapacity(
+        listing.maxTenants,
+        reservedByListingId.get(listing.id) ?? 0,
+      ),
+    }));
+  }
+
+  private async attachCapacityToListing<T extends { id: number; maxTenants: number }>(
+    listing: T,
+  ) {
+    const [listingWithCapacity] = await this.attachCapacityToListings([listing]);
+    return listingWithCapacity;
+  }
+
   async search(dto: SearchListingDto) {
     const page = dto.page ?? 1;
     const limit = dto.limit ?? 12;
@@ -312,8 +352,10 @@ export class ListingsService {
         },
         include,
       });
+      const allListingsWithCapacity =
+        await this.attachCapacityToListings(allListings);
 
-      const listingsWithDistance = allListings
+      const listingsWithDistance = allListingsWithCapacity
         .map((listing) => {
           const listingLat = Number(listing.lat);
           const listingLng = Number(listing.lng);
@@ -399,7 +441,7 @@ export class ListingsService {
     ]);
 
     return {
-      data: listings,
+      data: await this.attachCapacityToListings(listings),
       meta: {
         total,
         page,
@@ -465,13 +507,13 @@ export class ListingsService {
     });
 
     return {
-      ...listing,
+      ...(await this.attachCapacityToListing(listing)),
       averageRating: avgRating._avg.rating ?? 0,
     };
   }
 
   async findMyListings(hostId: number) {
-    return this.prisma.listing.findMany({
+    const listings = await this.prisma.listing.findMany({
       where: { hostId, isDeleted: false },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -481,6 +523,8 @@ export class ListingsService {
         _count: { select: { bookings: true, reviews: true } },
       },
     });
+
+    return this.attachCapacityToListings(listings);
   }
 
   async update(id: number, hostId: number, dto: UpdateListingDto) {

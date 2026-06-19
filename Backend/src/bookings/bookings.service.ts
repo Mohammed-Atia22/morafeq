@@ -11,7 +11,7 @@ import {
 import {
   BookingStatus,
   ListingStatus,
-   PaymentStatus,
+  PaymentStatus,
   VerificationStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,6 +22,11 @@ import {
   BookingResponseAction,
   RespondBookingDto,
 } from './dto/respond-booking.dto';
+import {
+  calculateCapacity,
+  CAPACITY_HOLDING_BOOKING_STATUSES,
+  getPaymentExpiresAt,
+} from './booking-capacity';
 
 
 
@@ -29,7 +34,6 @@ import {
 export class BookingsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BookingsService.name);
   private expirationTimer?: NodeJS.Timeout;
-  private readonly reservationWindowMs = 24 * 60 * 60 * 1000;
   private readonly expirationCheckMs = 5 * 60 * 1000;
 
   constructor(private prisma: PrismaService) {}
@@ -109,25 +113,15 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    const activeBooking = await this.prisma.booking.findFirst({
-  where: {
-    listingId: dto.listingId,
-    status: {
-      in: [
-        BookingStatus.PENDING_PAYMENT,
-        BookingStatus.CHECK_IN_PENDING,
-        BookingStatus.DISPUTED,
-        BookingStatus.COMPLETED,
-      ],
-    },
-  },
-});
+    const activeReservedPlaces = await this.countReservedPlaces(dto.listingId);
+    const capacity = calculateCapacity(
+      listing.maxTenants,
+      activeReservedPlaces,
+    );
 
-if (activeBooking) {
-  throw new ConflictException(
-    'This listing is already reserved or booked',
-  );
-}
+    if (capacity.isFull) {
+      throw new ConflictException('لا توجد أماكن متاحة في هذا العقار حاليا');
+    }
 
   
     return this.prisma.booking.create({
@@ -165,29 +159,23 @@ if (activeBooking) {
     }
 
     if (dto.action === BookingResponseAction.ACCEPT) {
-      const blockingBooking = await this.prisma.booking.findFirst({
-        where: {
-          listingId: booking.listingId,
-          id: { not: bookingId },
-          status: {
-            in: [
-              BookingStatus.PENDING_PAYMENT,
-              BookingStatus.CHECK_IN_PENDING,
-              BookingStatus.DISPUTED,
-              BookingStatus.COMPLETED,
-            ],
-          },
-        },
-      });
+      const activeReservedPlaces = await this.countReservedPlaces(
+        booking.listingId,
+      );
+      const capacity = calculateCapacity(
+        booking.listing.maxTenants,
+        activeReservedPlaces,
+      );
 
-      if (blockingBooking || booking.listing.status === ListingStatus.RESERVED) {
+      if (capacity.isFull) {
         throw new ConflictException(
-          'هذا العقار محجوز حاليا ولا يمكن قبول طلب آخر عليه',
+          'لا توجد أماكن متاحة في هذا العقار حاليا ولا يمكن قبول طلب آخر',
         );
       }
 
       return this.prisma.$transaction(async (tx) => {
         const now = new Date();
+        const paymentExpiresAt = getPaymentExpiresAt(now);
 
         const updatedBooking = await tx.booking.update({
           where: { id: bookingId },
@@ -197,35 +185,19 @@ if (activeBooking) {
             hostResponseNote: dto.note,
             acceptedAt: now,
             approvedAt: now,
+            paymentExpiresAt,
           },
           include: this.bookingIncludes(),
         });
 
-        await tx.listing.update({
-          where: { id: booking.listingId },
-          data: { status: ListingStatus.RESERVED },
-        });
-
-        await tx.booking.updateMany({
-          where: {
-            listingId: booking.listingId,
-            id: { not: bookingId },
-            status: BookingStatus.PENDING_HOST_APPROVAL,
-          },
-          data: {
-            status: BookingStatus.REJECTED,
-            rejectionReason:
-              'تم رفض الطلب تلقائيا لأن العقار أصبح محجوزا بانتظار الدفع.',
-            rejectedAt: now,
-          },
-        });
+        await this.recalculateListingVisibility(tx, booking.listingId);
 
         await this.createBookingMessage(
           tx,
           booking.guestId,
           booking.listing.hostId,
           booking.listingId,
-          'تمت الموافقة على طلب الحجز الخاص بك. يرجى إكمال الدفع خلال 24 ساعة، وإلا سيتم إلغاء الحجز تلقائيا.',
+          'تمت الموافقة على طلب الحجز الخاص بك. يرجى إكمال الدفع خلال ساعة واحدة، وإلا سيتم إلغاء الحجز تلقائيا.',
         );
 
         return updatedBooking;
@@ -262,6 +234,7 @@ if (activeBooking) {
 
     const nonCancellableStatuses: BookingStatus[] = [
       BookingStatus.COMPLETED,
+      BookingStatus.EXPIRED,
       BookingStatus.CANCELED,
       BookingStatus.CANCELLED_BY_GUEST,
       BookingStatus.CANCELLED_BY_HOST,
@@ -287,8 +260,8 @@ if (activeBooking) {
         include: this.bookingIncludes(),
       });
 
-      if (booking.status === BookingStatus.PENDING_PAYMENT) {
-        await this.unlockListingIfNoActiveReservation(tx, booking.listingId);
+      if (CAPACITY_HOLDING_BOOKING_STATUSES.includes(booking.status)) {
+        await this.recalculateListingVisibility(tx, booking.listingId);
       }
 
       return updatedBooking;
@@ -296,16 +269,24 @@ if (activeBooking) {
   }
 
   async expireUnpaidApprovedBookings() {
-    const expiresBefore = new Date(Date.now() - this.reservationWindowMs);
+    const now = new Date();
 
     const expiredBookings = await this.prisma.booking.findMany({
       where: {
         status: BookingStatus.PENDING_PAYMENT,
-        approvedAt: { lte: expiresBefore },
         OR: [
-          { payment: null },
-          { payment: { status: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] } } },
+          { paymentExpiresAt: { lte: now } },
+          {
+            paymentExpiresAt: null,
+            approvedAt: { lte: new Date(now.getTime() - 60 * 60 * 1000) },
+          },
         ],
+        AND: {
+          OR: [
+            { payment: null },
+            { payment: { status: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] } } },
+          ],
+        },
       },
       include: {
         listing: {
@@ -324,19 +305,27 @@ if (activeBooking) {
             id: booking.id,
             status: BookingStatus.PENDING_PAYMENT,
             OR: [
-              { payment: null },
+              { paymentExpiresAt: { lte: now } },
               {
-                payment: {
-                  status: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] },
-                },
+                paymentExpiresAt: null,
+                approvedAt: { lte: new Date(now.getTime() - 60 * 60 * 1000) },
               },
             ],
+            AND: {
+              OR: [
+                { payment: null },
+                {
+                  payment: {
+                    status: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] },
+                  },
+                },
+              ],
+            },
           },
           data: {
-            status: BookingStatus.CANCELED,
-            cancellationReason:
-              'تم إلغاء الحجز تلقائيا لأن الدفع لم يكتمل خلال 24 ساعة.',
-            cancelledAt: new Date(),
+            status: BookingStatus.EXPIRED,
+            cancellationReason: 'انتهت مهلة الدفع الخاصة بالحجز.',
+            cancelledAt: now,
           },
         });
 
@@ -344,14 +333,23 @@ if (activeBooking) {
           return;
         }
 
-        await this.unlockListingIfNoActiveReservation(tx, booking.listingId);
+        await this.recalculateListingVisibility(tx, booking.listingId);
 
         await this.createBookingMessage(
           tx,
           booking.guestId,
           booking.listing.hostId,
           booking.listingId,
-          'تم إلغاء حجزك لأن الدفع لم يكتمل خلال 24 ساعة.',
+          'انتهت مهلة الدفع الخاصة بالحجز.',
+        );
+
+        await this.createBookingMessage(
+          tx,
+          booking.guestId,
+          booking.listing.hostId,
+          booking.listingId,
+          'انتهت مهلة الدفع الخاصة بالحجز.',
+          booking.guestId,
         );
       });
     }
@@ -610,6 +608,7 @@ return {
           title: true,
           status: true,
           monthlyRent: true,
+          maxTenants: true,
           city: true,
           governorate: true,
           photos: {
@@ -641,22 +640,47 @@ return {
     };
   }
 
-  private async unlockListingIfNoActiveReservation(tx: any, listingId: number) {
-    const activeReservation = await tx.booking.findFirst({
+  private async countReservedPlaces(listingId: number) {
+    return this.prisma.booking.count({
       where: {
         listingId,
         status: {
-          in: [
-            BookingStatus.PENDING_PAYMENT,
-            BookingStatus.CHECK_IN_PENDING,
-            BookingStatus.DISPUTED,
-            BookingStatus.COMPLETED,
-          ],
+          in: CAPACITY_HOLDING_BOOKING_STATUSES,
+        },
+      },
+    });
+  }
+
+  private async recalculateListingVisibility(tx: any, listingId: number) {
+    const listing = await tx.listing.findUnique({
+      where: { id: listingId },
+      select: { maxTenants: true, status: true },
+    });
+
+    if (!listing) {
+      return;
+    }
+
+    const reservedPlaces = await tx.booking.count({
+      where: {
+        listingId,
+        status: {
+          in: CAPACITY_HOLDING_BOOKING_STATUSES,
         },
       },
     });
 
-    if (!activeReservation) {
+    const capacity = calculateCapacity(listing.maxTenants, reservedPlaces);
+
+    if (capacity.isFull && listing.status !== ListingStatus.RESERVED) {
+      await tx.listing.update({
+        where: { id: listingId },
+        data: { status: ListingStatus.RESERVED },
+      });
+      return;
+    }
+
+    if (!capacity.isFull && listing.status === ListingStatus.RESERVED) {
       await tx.listing.update({
         where: { id: listingId },
         data: { status: ListingStatus.ACTIVE },
@@ -670,6 +694,7 @@ return {
     hostId: number,
     listingId: number,
     content: string,
+    senderId = hostId,
   ) {
     const conversation = await tx.conversation.upsert({
       where: {
@@ -690,7 +715,7 @@ return {
     await tx.message.create({
       data: {
         conversationId: conversation.id,
-        senderId: hostId,
+        senderId,
         content,
       },
     });

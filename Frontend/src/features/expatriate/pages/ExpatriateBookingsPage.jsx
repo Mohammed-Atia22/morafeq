@@ -5,9 +5,10 @@ import { usePayment } from "../../payments/hooks/usePayment";
 import toast from "react-hot-toast";
 
 const getReservationExpiry = (booking) => {
+  if (booking?.paymentExpiresAt) return new Date(booking.paymentExpiresAt);
   const approvedAt = booking?.approvedAt || booking?.acceptedAt;
   if (!approvedAt) return null;
-  return new Date(new Date(approvedAt).getTime() + 24 * 60 * 60 * 1000);
+  return new Date(new Date(approvedAt).getTime() + 60 * 60 * 1000);
 };
 
 const formatRemainingTime = (expiresAt, now) => {
@@ -154,6 +155,10 @@ export function ExpatriateBookingsPage() {
         text: "انتهت مهلة الدفع وتم الإلغاء",
         className: "bg-slate-50 text-slate-600 border border-slate-200",
       },
+      EXPIRED: {
+        text: "انتهت مهلة الدفع",
+        className: "bg-slate-50 text-slate-600 border border-slate-200",
+      },
       REFUNDED: {
         text: "تم استرجاع المبلغ",
         className: "bg-purple-50 text-purple-700 border border-purple-200",
@@ -292,7 +297,7 @@ export function ExpatriateBookingsPage() {
 
                   {booking.status === "PENDING_PAYMENT" && (
                     <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-center text-xs font-bold text-amber-800">
-                      لديك 24 ساعة لإكمال الدفع قبل إلغاء الحجز تلقائيا.
+                      لديك ساعة واحدة لإكمال الدفع قبل إلغاء الحجز تلقائيا.
                       {remainingTime && (
                         <span className="mt-1 block font-black">
                           الوقت المتبقي: {remainingTime}

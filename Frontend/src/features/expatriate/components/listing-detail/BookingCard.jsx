@@ -5,9 +5,10 @@ import { usePayment } from "../../../payments/hooks/usePayment";
 import { VerificationRequiredModal } from "../../../verification/components/VerificationRequiredModal";
 
 const getReservationExpiry = (booking) => {
+  if (booking?.paymentExpiresAt) return new Date(booking.paymentExpiresAt);
   const approvedAt = booking?.approvedAt || booking?.acceptedAt;
   if (!approvedAt) return null;
-  return new Date(new Date(approvedAt).getTime() + 24 * 60 * 60 * 1000);
+  return new Date(new Date(approvedAt).getTime() + 60 * 60 * 1000);
 };
 
 const formatRemainingTime = (expiresAt, now) => {
@@ -68,7 +69,7 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
   const currentBooking = bookings.find(
     (b) =>
       b.listingId === Number(listingId) &&
-      !["CANCELLED_BY_GUEST", "CANCELLED_BY_HOST", "CANCELED"].includes(b.status)
+      !["CANCELLED_BY_GUEST", "CANCELLED_BY_HOST", "CANCELED", "EXPIRED"].includes(b.status)
   );
 
   const total = Number(monthlyRent);
@@ -248,7 +249,7 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
               )}
             </div>
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-center text-xs font-bold text-amber-800">
-              لديك 24 ساعة لإكمال الدفع قبل إلغاء الحجز تلقائيا.
+              لديك ساعة واحدة لإكمال الدفع قبل إلغاء الحجز تلقائيا.
               {remainingTime && (
                 <span className="mt-1 block text-sm font-black">
                   الوقت المتبقي: {remainingTime}

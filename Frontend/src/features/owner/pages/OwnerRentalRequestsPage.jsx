@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useOwnerRequests } from "../hooks/useOwnerRequests";
 
 const getReservationExpiry = (booking) => {
+  if (booking?.paymentExpiresAt) return new Date(booking.paymentExpiresAt);
   const approvedAt = booking?.approvedAt || booking?.acceptedAt;
   if (!approvedAt) return null;
-  return new Date(new Date(approvedAt).getTime() + 24 * 60 * 60 * 1000);
+  return new Date(new Date(approvedAt).getTime() + 60 * 60 * 1000);
 };
 
 const formatRemainingTime = (expiresAt, now) => {
@@ -111,6 +112,10 @@ export function OwnerRentalRequestsPage() {
       },
       CANCELED: {
         text: "انتهت مهلة الدفع وتم الإلغاء",
+        className: "bg-slate-50 text-slate-600 border border-slate-200",
+      },
+      EXPIRED: {
+        text: "انتهت مهلة الدفع",
         className: "bg-slate-50 text-slate-600 border border-slate-200",
       },
       REFUNDED: {

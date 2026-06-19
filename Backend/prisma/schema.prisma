@@ -269,6 +269,7 @@ model Booking {
 
   acceptedAt        DateTime?
   approvedAt        DateTime?
+  paymentExpiresAt  DateTime?
   confirmedAt       DateTime?
   rejectedAt        DateTime?
   cancelledAt       DateTime?
@@ -483,6 +484,7 @@ enum BookingStatus {
   DISPUTED
   COMPLETED
   REJECTED
+  EXPIRED
   CANCELED
   CANCELLED_BY_GUEST
   CANCELLED_BY_HOST
