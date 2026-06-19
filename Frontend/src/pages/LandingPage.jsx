@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { expatriateListingsApi } from "../features/expatriate/services/expatriateListingsApi";
+import { RatingSummary } from "../features/reviews/components/RatingSummary";
 import heroBackground from "../../images/for the background.jpg";
 import ownerImage from "../../images/chosse onwer.png";
 import studentImage from "../../images/std.png";
@@ -464,9 +465,6 @@ function PropertyCard({ listing }) {
     listing.bedrooms ? `${listing.bedrooms} غرفة` : null,
   ].filter(Boolean);
   const reviewCount = listing._count?.reviews ?? 0;
-  const rating = listing.averageRating
-    ? Number(listing.averageRating).toFixed(1)
-    : "—";
 
   return (
     <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md">
@@ -519,10 +517,11 @@ function PropertyCard({ listing }) {
           >
             عرض التفاصيل
           </Link>
-          <span className="inline-flex items-center gap-1 text-sm font-black text-slate-600">
-            ({reviewCount}) {rating}
-            <StarIcon className="h-4 w-4 text-[#ffad18]" />
-          </span>
+          <RatingSummary
+            averageRating={listing.averageRating ?? 0}
+            reviewCount={reviewCount}
+            size="sm"
+          />
         </div>
       </div>
     </article>

@@ -7,6 +7,7 @@ import { ProfileCompleteness } from "../components/ProfileCompleteness";
 import { useVerification } from "../../verification/hooks/useVerification";
 import { VerificationBadge } from "../../verification/components/VerificationBadge";
 import { VerificationPanel } from "../../verification/components/VerificationPanel";
+import { UserReviewsSection } from "../../reviews/components/UserReviewsSection";
 
 // ─── Skeleton ─────────────────────────────────
 function ProfileSkeleton() {
@@ -189,6 +190,11 @@ export function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Received reviews */}
+      {profile?.id && (
+        <UserReviewsSection userId={profile.id} role={profile.role} />
+      )}
 
       {/* Change password — only for email/password users */}
       {profile?.passwordHash && (
