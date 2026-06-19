@@ -15,6 +15,7 @@ import { RegisterPage } from "./features/auth/pages/RegisterPage";
 import { ConfirmOtpPage } from "./features/auth/pages/ConfirmOtpPage";
 import { ForgotPasswordPage } from "./features/auth/pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage";
+import { NewPasswordPage } from "./features/auth/pages/NewPasswordPage";
 import { AuthCallbackPage } from "./features/auth/pages/AuthCallbackPage";
 
 import { OnboardingPage } from "./features/onboarding/pages/OnboardingPage";
@@ -64,6 +65,10 @@ return ( <AuthProvider> <Routes>
       <Route
         path="reset-password"
         element={<ResetPasswordPage />}
+      />
+      <Route
+        path="reset-password/new"
+        element={<NewPasswordPage />}
       />
       <Route
         path="auth/callback"

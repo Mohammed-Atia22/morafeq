@@ -10,6 +10,7 @@ import { useSearchParams } from "react-router-dom";
 import { chatApi } from "../services/chatApi";
 import { useChatSocket } from "./useChatSocket";
 import { useAuth } from "../../auth/hooks/useAuth";
+import { translateErrorMessage } from "../../../shared/services/api";
 
 export function useChatPage() {
 const { user } = useAuth();
@@ -263,7 +264,7 @@ const openConversation = async () => {
         new Promise((_, reject) => {
           window.setTimeout(() => {
             reject(
-              new Error("Socket markAsRead timeout"),
+              new Error("انتهت مهلة تعليم الرسائل كمقروءة"),
             );
           }, 4000);
         }),

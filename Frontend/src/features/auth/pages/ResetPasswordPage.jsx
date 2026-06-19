@@ -1,36 +1,99 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthCard } from "../components/AuthCard";
 import { AuthLayout } from "../components/AuthLayout";
 import { AuthMessage } from "../components/AuthMessage";
-import { FormField, inputClass } from "../components/FormField";
+import { FormField } from "../components/FormField";
+import { OtpInput } from "../components/OtpInput";
 import { authApi } from "../services/authApi";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as zod from "zod";
 
-const keepDigitsOnly = (event) => {
-  event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "");
-};
+const schema = zod.object({
+  email: zod
+    .string()
+    .trim()
+    .toLowerCase()
+    .nonempty("البريد الإلكتروني مطلوب")
+    .email("أدخل بريد إلكتروني صحيح"),
+  otp: zod
+    .string()
+    .nonempty("رمز التحقق مطلوب")
+    .regex(/^\d{6}$/, "رمز التحقق يجب أن يكون 6 أرقام"),
+});
+
+const RESEND_LIMIT_MESSAGE = "انتظر دقيقة واحدة قبل طلب الرمز.";
 
 export function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [serverError, setServerError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
+
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     getValues,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm({
-    defaultValues: { email: searchParams.get("email") || "" },
+    defaultValues: { email: searchParams.get("email") || "", otp: "" },
+    resolver: zodResolver(schema),
   });
+
+  useEffect(() => {
+    if (resendSecondsLeft <= 0) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setResendSecondsLeft((seconds) => Math.max(seconds - 1, 0));
+    }, 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [resendSecondsLeft]);
 
   const onSubmit = async (values) => {
     setServerError("");
+    setSuccess("");
+
     try {
-      await authApi.resetPassword(values);
-      navigate("/login");
+      await authApi.verifyResetOtp(values);
+      sessionStorage.setItem("morafeq_reset_email", values.email);
+      sessionStorage.setItem("morafeq_reset_otp", values.otp);
+      navigate("/reset-password/new", {
+        replace: true,
+        state: { email: values.email, otp: values.otp },
+      });
     } catch (error) {
       setServerError(error.message);
+    }
+  };
+
+  const resend = async () => {
+    if (resendSecondsLeft > 0) return;
+
+    const email = getValues("email");
+
+    setServerError("");
+    setSuccess("");
+
+    if (!email) {
+      setServerError("البريد الإلكتروني مطلوب لإعادة إرسال الرمز");
+      return;
+    }
+
+    try {
+      await authApi.forgotPassword({ email });
+      setSuccess("تم إرسال رمز جديد إلى بريدك الإلكتروني.");
+      setResendSecondsLeft(60);
+    } catch (error) {
+      setServerError(error.message);
+      if (error.message === RESEND_LIMIT_MESSAGE) {
+        setResendSecondsLeft(60);
+      }
     }
   };
 
@@ -38,60 +101,22 @@ export function ResetPasswordPage() {
     <AuthLayout>
       <AuthCard
         title="إعادة تعيين كلمة المرور"
-        subtitle="استخدم رمز التحقق لإنشاء كلمة مرور جديدة"
+        subtitle="أدخل رمز التحقق المرسل إلى بريدك الإلكتروني"
       >
-        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+        <form className="space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
           <AuthMessage>{serverError}</AuthMessage>
+          <AuthMessage>{errors.email?.message}</AuthMessage>
+          <AuthMessage type="success">{success}</AuthMessage>
 
-          <input
-            type="hidden"
-            {...register("email", { required: "البريد الإلكتروني مطلوب" })}
-          />
+          <input type="hidden" {...register("email")} />
+          <input type="hidden" {...register("otp")} />
 
           <FormField label="رمز التحقق" error={errors.otp}>
-            <input
-              className={`${inputClass} text-center text-lg tracking-[0.4em]`}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              placeholder="000000"
-              onInput={keepDigitsOnly}
-              {...register("otp", {
-                required: "رمز التحقق مطلوب",
-                pattern: {
-                  value: /^\d{6}$/,
-                  message: "رمز التحقق يجب أن يكون 6 أرقام",
-                },
-              })}
-            />
-          </FormField>
-
-          <FormField label="كلمة المرور الجديدة" error={errors.newPassword}>
-            <input
-              className={inputClass}
-              type="password"
-              {...register("newPassword", {
-                required: "كلمة المرور الجديدة مطلوبة",
-                minLength: { value: 8, message: "على الأقل 8 أحرف" },
-                pattern: {
-                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/,
-                  message: "استخدم حرف كبير وصغير ورقم ورمز",
-                },
-              })}
-            />
-          </FormField>
-
-          <FormField label="تأكيد كلمة المرور" error={errors.confirmPassword}>
-            <input
-              className={inputClass}
-              type="password"
-              {...register("confirmPassword", {
-                required: "تأكيد كلمة المرور مطلوب",
-                validate: (value) =>
-                  value === getValues("newPassword") ||
-                  "كلمتا المرور غير متطابقتين",
-              })}
+            <OtpInput
+              value={watch("otp")}
+              disabled={isSubmitting}
+              onChange={(value) => setValue("otp", value, { shouldValidate: true })}
+              onBlur={() => trigger("otp")}
             />
           </FormField>
 
@@ -100,15 +125,24 @@ export function ResetPasswordPage() {
             disabled={isSubmitting}
             className="h-[52px] w-full rounded-xl bg-[#075ed8] text-base font-black text-white shadow-lg shadow-blue-700/25 transition hover:bg-[#0451bd] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isSubmitting ? "جاري التعيين..." : "تعيين كلمة المرور"}
+            {isSubmitting ? "جاري التحقق..." : "تأكيد الرمز"}
           </button>
 
-          <Link
-            to="/login"
-            className="block text-center text-sm font-black text-[#075ed8]"
-          >
-            العودة لتسجيل الدخول
-          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <button
+              type="button"
+              onClick={resend}
+              disabled={resendSecondsLeft > 0}
+              className="font-black text-[#075ed8] transition disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {resendSecondsLeft > 0
+                ? `إعادة إرسال الرمز خلال ${resendSecondsLeft} ثانية`
+                : "إعادة إرسال الرمز"}
+            </button>
+            <Link to="/forgot-password" className="font-black text-slate-500">
+              تغيير البريد الإلكتروني
+            </Link>
+          </div>
         </form>
       </AuthCard>
     </AuthLayout>

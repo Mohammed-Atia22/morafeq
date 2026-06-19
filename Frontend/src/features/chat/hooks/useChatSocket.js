@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { createChatSocket } from "../services/chatSocket";
+import { translateErrorMessage } from "../../../shared/services/api";
 
 export function useChatSocket(
   onNewMessage,
@@ -69,7 +70,7 @@ export function useChatSocket(
       );
 
       setSocketError(
-        error.message ||
+        translateErrorMessage(error.message) ||
           "تعذر الاتصال بالمحادثة",
       );
 
@@ -80,7 +81,7 @@ export function useChatSocket(
       console.log("Socket error:", error);
 
       setSocketError(
-        error?.message ||
+        translateErrorMessage(error?.message) ||
           "حدث خطأ في اتصال المحادثة",
       );
     };
@@ -92,7 +93,7 @@ export function useChatSocket(
       );
 
       setSocketError(
-        error?.message ||
+        translateErrorMessage(error?.message) ||
           "حدث خطأ أثناء تنفيذ العملية",
       );
     };
@@ -203,7 +204,7 @@ export function useChatSocket(
           if (!socket?.connected) {
             reject(
               new Error(
-                "Socket is not connected",
+                "الاتصال بالمحادثة غير متاح حاليًا",
               ),
             );
 
@@ -216,7 +217,7 @@ export function useChatSocket(
           ) {
             reject(
               new Error(
-                "Invalid conversation ID",
+                "رقم المحادثة غير صحيح",
               ),
             );
 
@@ -238,7 +239,7 @@ export function useChatSocket(
               reject(
                 new Error(
                   response?.message ||
-                    "Could not join conversation",
+                    "تعذر فتح المحادثة",
                 ),
               );
             },
@@ -265,7 +266,7 @@ export function useChatSocket(
           if (!socket?.connected) {
             reject(
               new Error(
-                "Socket is not connected",
+                "الاتصال بالمحادثة غير متاح حاليًا",
               ),
             );
 
@@ -278,7 +279,7 @@ export function useChatSocket(
           ) {
             reject(
               new Error(
-                "Invalid conversation ID",
+                "رقم المحادثة غير صحيح",
               ),
             );
 
@@ -288,7 +289,7 @@ export function useChatSocket(
           if (!cleanedContent) {
             reject(
               new Error(
-                "Message cannot be empty",
+                "لا يمكن إرسال رسالة فارغة",
               ),
             );
 
@@ -312,7 +313,7 @@ export function useChatSocket(
               reject(
                 new Error(
                   response?.message ||
-                    "Could not send message",
+                    "تعذر إرسال الرسالة",
                 ),
               );
             },
@@ -336,7 +337,7 @@ export function useChatSocket(
           if (!socket?.connected) {
             reject(
               new Error(
-                "Socket is not connected",
+                "الاتصال بالمحادثة غير متاح حاليًا",
               ),
             );
 
@@ -349,7 +350,7 @@ export function useChatSocket(
           ) {
             reject(
               new Error(
-                "Invalid conversation ID",
+                "رقم المحادثة غير صحيح",
               ),
             );
 
@@ -371,7 +372,7 @@ export function useChatSocket(
               reject(
                 new Error(
                   response?.message ||
-                    "Could not mark messages as read",
+                    "تعذر تعليم الرسائل كمقروءة",
                 ),
               );
             },

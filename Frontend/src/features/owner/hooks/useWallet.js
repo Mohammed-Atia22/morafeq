@@ -14,7 +14,7 @@ export function useWallet() {
       setWallet(data);
       return data;
     } catch (err) {
-      setError(err.message || "Failed to load wallet data");
+      setError(err.message || "تعذر تحميل بيانات المحفظة");
       console.error(err);
     } finally {
       setLoading(false);

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { paymentsApi } from "../services/paymentsApi";
 import { bookingsApi } from "../../bookings/services/bookingsApi";
 import toast from "react-hot-toast";
+import { translateErrorMessage } from "../../../shared/services/api";
 
 export function usePayment() {
   const [loading, setLoading] = useState(false);
@@ -19,10 +20,10 @@ export function usePayment() {
         setIframeUrl(res.iframeUrl);
         return res;
       } else {
-        throw new Error("No payment session URL returned");
+        throw new Error("تعذر تجهيز رابط الدفع");
       }
     } catch (err) {
-      setError(err.message || "Failed to create payment session");
+      setError(translateErrorMessage(err.message || "Failed to create payment session"));
       toast.error(err.message || "تعذر بدء عملية الدفع");
       throw err;
     } finally {

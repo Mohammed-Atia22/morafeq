@@ -191,21 +191,21 @@ export class RegisterDto {
 }
 
 export class confirmrDto {
-  @IsEmail({}, { message: 'Please provide a valid email' })
+  @IsEmail({}, { message: 'أدخل بريد إلكتروني صحيح' })
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
   email!: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'OTP is required' })
-  @Length(6, 6, { message: 'OTP must be 6 digits' })
-  @Matches(/^\d+$/, { message: 'OTP must contain digits only' })
+  @IsNotEmpty({ message: 'رمز التحقق مطلوب' })
+  @Length(6, 6, { message: 'رمز التحقق يجب أن يكون 6 أرقام' })
+  @Matches(/^\d+$/, { message: 'رمز التحقق يجب أن يحتوي على أرقام فقط' })
   otp!: string;
 }
 
 export class forgetDto {
-  @IsEmail({}, { message: 'Please provide a valid email' })
+  @IsEmail({}, { message: 'أدخل بريد إلكتروني صحيح' })
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
@@ -213,22 +213,22 @@ export class forgetDto {
 }
 
 export class resetDto {
-  @IsEmail({}, { message: 'Please provide a valid email' })
+  @IsEmail({}, { message: 'أدخل بريد إلكتروني صحيح' })
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
   email!: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'OTP is required' })
-  @Length(6, 6, { message: 'OTP must be 6 digits' })
-  @Matches(/^\d+$/, { message: 'OTP must contain digits only' })
+  @IsNotEmpty({ message: 'رمز التحقق مطلوب' })
+  @Length(6, 6, { message: 'رمز التحقق يجب أن يكون 6 أرقام' })
+  @Matches(/^\d+$/, { message: 'رمز التحقق يجب أن يحتوي على أرقام فقط' })
   otp!: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'New password is required' })
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
-  @MaxLength(50, { message: 'Password must not exceed 50 characters' })
+  @IsNotEmpty({ message: 'كلمة المرور الجديدة مطلوبة' })
+  @MinLength(8, { message: 'كلمة المرور يجب ألا تقل عن 8 أحرف' })
+  @MaxLength(50, { message: 'كلمة المرور يجب ألا تزيد عن 50 حرف' })
   @IsStrongPassword(
     {
       minLength: 8,
@@ -239,20 +239,34 @@ export class resetDto {
     },
     {
       message:
-        'Password must contain uppercase, lowercase, number, and symbol',
+        'استخدم حرف كبير وصغير ورقم ورمز',
     },
   )
   newPassword!: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'Confirm password is required' })
+  @IsNotEmpty({ message: 'تأكيد كلمة المرور مطلوب' })
   confirmPassword!: string;
 }
 
 export class ResendOtpDto {
-  @IsEmail({}, { message: 'Please provide a valid email' })
+  @IsEmail({}, { message: 'أدخل بريد إلكتروني صحيح' })
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
   email!: string;
+}
+
+export class ResetOtpDto {
+  @IsEmail({}, { message: 'أدخل بريد إلكتروني صحيح' })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  email!: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'رمز التحقق مطلوب' })
+  @Length(6, 6, { message: 'رمز التحقق يجب أن يكون 6 أرقام' })
+  @Matches(/^\d+$/, { message: 'رمز التحقق يجب أن يحتوي على أرقام فقط' })
+  otp!: string;
 }
