@@ -15,7 +15,7 @@ export default function ExpatriateLayout() {
         </aside>
 
         {/* Main content */}
-        <main className="mr-[220px] flex-1 min-w-0 px-6 py-6">
+        <main className="flex-1 min-w-0 px-6 py-6 lg:mr-[220px]">
           <Outlet />
         </main>
         

@@ -11,6 +11,7 @@ useNavigate,
 
 import { useAuth } from "../../../auth/hooks/useAuth";
 import { chatApi } from "../../../chat/services/chatApi";
+import { VerificationBadge } from "../../../verification/components/VerificationBadge";
 
 const NAV_ITEMS = [
 {
@@ -212,6 +213,10 @@ className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition
         <p className="text-xs font-semibold text-blue-500">
           طالب مغترب
         </p>
+
+        <div className="mt-2">
+          <VerificationBadge status={user?.verificationStatus} compact />
+        </div>
       </div>
     </button>
   </div>

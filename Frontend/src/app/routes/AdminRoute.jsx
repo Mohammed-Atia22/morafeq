@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/hooks/useAuth";
+import { getRoleHomePath } from "../../features/auth/utils/roleRedirect";
 
 export function AdminRoute({ children }) {
   const { isAuthenticated, user, isUserLoading } = useAuth();
@@ -18,8 +19,7 @@ export function AdminRoute({ children }) {
   }
 
   if (user?.role !== "ADMIN") {
-    // If authenticated but not admin, redirect to landing or home
-    return <Navigate to="/" replace />;
+    return <Navigate to={getRoleHomePath(user?.role)} replace />;
   }
 
   return children;

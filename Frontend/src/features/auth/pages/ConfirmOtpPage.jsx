@@ -7,9 +7,14 @@ import { AuthMessage } from "../components/AuthMessage";
 import { FormField, inputClass } from "../components/FormField";
 import { useAuth } from "../hooks/useAuth";
 import { authApi } from "../services/authApi";
+import { getRoleHomePath } from "../utils/roleRedirect";
 import toast from "react-hot-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
+
+const keepDigitsOnly = (event) => {
+  event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "");
+};
 
 const schema = zod.object({
   email: zod
@@ -56,14 +61,7 @@ export function ConfirmOtpPage() {
         if (!res.user.onboardingCompleted) {
           navigate("/onboarding");
         } else {
-          // Redirect based on role
-          if (res.user.role === "HOST") {
-            navigate("/owner");
-          } else if (res.user.role === "GUEST") {
-            navigate("/expatriate");
-          } else {
-            navigate("/");
-          }
+          navigate(getRoleHomePath(res.user.role), { replace: true });
         }
       }
     } catch (error) {
@@ -98,9 +96,12 @@ export function ConfirmOtpPage() {
           <FormField label="رمز التحقق" error={errors.otp}>
             <input
               className={`${inputClass} text-center text-lg tracking-[0.4em]`}
+              type="text"
               inputMode="numeric"
+              pattern="[0-9]*"
               maxLength={6}
               placeholder="000000"
+              onInput={keepDigitsOnly}
               {...register("otp")}
             />
           </FormField>

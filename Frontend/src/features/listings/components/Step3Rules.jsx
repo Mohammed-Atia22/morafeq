@@ -3,7 +3,6 @@ export function Step3Rules({
   fieldStyles,
   register,
   errors,
-  getValues,
   selectedLocation,
   setCurrentStep,
   isSubmittingListing,
@@ -72,53 +71,6 @@ export function Step3Rules({
                       </span>
                     )}
                   </label>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "10px",
-                    flexWrap: "wrap",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <span
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: "999px",
-                      background: "#eef2ff",
-                      color: "#4338ca",
-                      fontSize: "13px",
-                    }}
-                  >
-                    ممنوع التدخين
-                  </span>
-                  <span
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: "999px",
-                      background: "#eef2ff",
-                      color: "#4338ca",
-                      fontSize: "13px",
-                    }}
-                  >
-                    {getValues("genderPreference") === "MALE"
-                      ? "دخول الرجال فقط"
-                      : getValues("genderPreference") === "FEMALE"
-                        ? "دخول النساء فقط"
-                        : "أي جنس"}
-                  </span>
-                  <span
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: "999px",
-                      background: "#eef2ff",
-                      color: "#4338ca",
-                      fontSize: "13px",
-                    }}
-                  >
-                    أطفال مسموح
-                  </span>
                 </div>
 
                 <div

@@ -72,7 +72,7 @@ export function OwnerApartmentsList({
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-black text-[#1f5bd7]">
-                    {Number(listing.monthlyRent || 0).toLocaleString("en-US")}
+                    {Number(listing.monthlyRent || 0).toLocaleString("ar-EG")}
                   </p>
                   <p className="text-xs font-semibold text-slate-400">ج.م</p>
                   <button
