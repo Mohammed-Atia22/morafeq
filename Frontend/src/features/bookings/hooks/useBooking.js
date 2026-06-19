@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { bookingsApi } from "../services/bookingsApi";
+import { paymentsApi } from "../../payments/services/paymentsApi";
 import toast from "react-hot-toast";
 
 export function useBooking() {
@@ -106,6 +107,48 @@ export function useBooking() {
     }
   };
 
+  const continueAfterDispute = async (bookingId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await bookingsApi.continueAfterDispute(bookingId);
+      toast.success("تمت متابعة الحجز بنجاح");
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId ? { ...b, status: "CHECK_IN_PENDING" } : b
+        )
+      );
+      return res;
+    } catch (err) {
+      setError(err.message || "Failed to continue booking");
+      toast.error(err.message || "فشل متابعة الحجز");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelAfterDispute = async (bookingId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await paymentsApi.cancelAfterDispute(bookingId);
+      toast.success("تم إلغاء الحجز واسترداد المبلغ المستحق");
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId ? { ...b, status: "CANCELLED_AFTER_DISPUTE" } : b
+        )
+      );
+      return res;
+    } catch (err) {
+      setError(err.message || "Failed to cancel after dispute");
+      toast.error(err.message || "فشل إلغاء الحجز");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     bookings,
     loading,
@@ -115,5 +158,7 @@ export function useBooking() {
     confirmReceipt,
     reportProblem,
     cancelBooking,
+    continueAfterDispute,
+    cancelAfterDispute,
   };
 }

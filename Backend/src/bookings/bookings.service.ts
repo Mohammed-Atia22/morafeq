@@ -618,6 +618,36 @@ async reportProblem(
   });
 }
 
+async continueAfterDisputeResolution(bookingId: number, guestId: number) {
+  const booking = await this.prisma.booking.findUnique({
+    where: { id: bookingId },
+  });
+
+  if (!booking) {
+    throw new NotFoundException('Booking not found');
+  }
+
+  if (booking.guestId !== guestId) {
+    throw new ForbiddenException(
+      'You can only respond to your own dispute resolution',
+    );
+  }
+
+  if (booking.status !== BookingStatus.DISPUTE_RESOLVED_FOR_HOST) {
+    throw new BadRequestException(
+      'لا يوجد قرار نزاع بانتظار ردك على هذا الحجز',
+    );
+  }
+
+  return this.prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      status: BookingStatus.CHECK_IN_PENDING,
+    },
+    include: this.bookingIncludes(),
+  });
+}
+
   async getHostStats(hostId: number) {
     const [pending, awaitingCheckIn, completed, total] =
   await Promise.all([

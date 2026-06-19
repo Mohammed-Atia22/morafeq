@@ -1,8 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../../auth/hooks/useAuth";
 import { useBooking } from "../../../bookings/hooks/useBooking";
 import { usePayment } from "../../../payments/hooks/usePayment";
 import { VerificationRequiredModal } from "../../../verification/components/VerificationRequiredModal";
+import { PaymentBreakdownCard } from "../../../payments/components/PaymentBreakdownCard";
+import {
+  buildBreakdownFromListing,
+  buildDisputeSettlementPreview,
+  normalizePaymentBreakdown,
+} from "../../../payments/utils/paymentBreakdown";
+import {
+  DisputeResolutionDialog,
+  DisputeCancellationSuccess,
+} from "../../../bookings/components/DisputeResolutionDialog";
 
 const getReservationExpiry = (booking) => {
   if (booking?.paymentExpiresAt) return new Date(booking.paymentExpiresAt);
@@ -37,6 +47,10 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
   const [showProblemModal, setShowProblemModal] = useState(false);
   const [problemReason, setProblemReason] = useState("");
   const [problemDescription, setProblemDescription] = useState("");
+  const [paymentBreakdown, setPaymentBreakdown] = useState(null);
+  const [showDisputeDialog, setShowDisputeDialog] = useState(false);
+  const [showCancellationSuccess, setShowCancellationSuccess] = useState(false);
+  const [cancellationSettlement, setCancellationSettlement] = useState(null);
 
   // Reusable hooks
   const {
@@ -46,6 +60,8 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
     createBooking,
     confirmReceipt,
     reportProblem,
+    continueAfterDispute,
+    cancelAfterDispute,
   } = useBooking();
 
   const {
@@ -67,15 +83,35 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
     return () => clearInterval(timer);
   }, []);
 
+  const listingBreakdown = useMemo(
+    () => buildBreakdownFromListing({ monthlyRent, depositAmount }),
+    [monthlyRent, depositAmount],
+  );
+
   // Find the active booking for this listing
   const currentBooking = bookings.find(
     (b) =>
       b.listingId === Number(listingId) &&
-      !["CANCELLED_BY_GUEST", "CANCELLED_BY_HOST", "CANCELED", "EXPIRED"].includes(b.status)
+      ![
+        "CANCELLED_BY_GUEST",
+        "CANCELLED_BY_HOST",
+        "CANCELED",
+        "EXPIRED",
+        "CANCELLED_AFTER_DISPUTE",
+      ].includes(b.status)
   );
 
-  const total = Number(monthlyRent);
-  const deposit = Number(depositAmount ?? 0);
+  const invoiceBreakdown =
+    paymentBreakdown ||
+    normalizePaymentBreakdown(currentBooking?.payment) ||
+    listingBreakdown;
+
+  useEffect(() => {
+    if (currentBooking?.status === "DISPUTE_RESOLVED_FOR_HOST") {
+      setShowDisputeDialog(true);
+    }
+  }, [currentBooking?.id, currentBooking?.status]);
+
   const currencyLabel = currency === "EGP" ? "ج.م" : currency;
 
   // Handle booking creation
@@ -108,13 +144,14 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
     }
   };
 
-  // Handle payment triggers
   const handlePayment = async () => {
     if (!currentBooking) return;
     try {
       const session = await createPaymentSession(currentBooking.id);
+      if (session?.amounts) {
+        setPaymentBreakdown(normalizePaymentBreakdown(session));
+      }
       if (session?.iframeUrl) {
-        // Start polling backend status every 3 seconds to auto-close modal on payment success
         startPolling(currentBooking.id, () => {
           fetchBookings();
         });
@@ -395,6 +432,25 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
           </div>
         );
 
+      case "DISPUTE_RESOLVED_FOR_HOST":
+        return (
+          <div className="space-y-3">
+            <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 text-amber-900 text-center">
+              <p className="text-sm font-extrabold">تم حل النزاع — يلزم اتخاذ قرار</p>
+              <p className="mt-1 text-xs font-semibold">
+                يرجى اختيار متابعة الحجز أو إلغائه واسترداد المبلغ المستحق.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDisputeDialog(true)}
+              className="w-full rounded-xl bg-[#1752F0] py-3 text-sm font-black text-white shadow hover:bg-[#1240c4] transition cursor-pointer"
+            >
+              عرض تفاصيل القرار
+            </button>
+          </div>
+        );
+
       case "COMPLETED":
         return (
           <div className="space-y-3">
@@ -455,24 +511,11 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
         <div className="my-4 border-t border-slate-100" />
 
         {/* Price breakdown */}
-        <div className="mb-4 space-y-2 rounded-xl bg-slate-50 px-4 py-3 text-sm">
-          <div className="flex justify-between text-slate-600">
-            <span>إيجار الشهر الأول</span>
-            <span className="font-semibold">{total.toLocaleString("ar-EG")} {currencyLabel}</span>
-          </div>
-          {deposit > 0 && (
-            <div className="flex justify-between text-slate-600">
-              <span>تأمين مسترد</span>
-              <span className="font-semibold">{deposit.toLocaleString("ar-EG")} {currencyLabel}</span>
-            </div>
-          )}
-          <div className="flex justify-between border-t border-slate-200 pt-2 font-black text-[#0f172a]">
-            <span>الإجمالي المطلوب دفعه</span>
-            <span className="text-[#1752F0]">
-              {(total + deposit).toLocaleString("ar-EG")} {currencyLabel}
-            </span>
-          </div>
-        </div>
+        <PaymentBreakdownCard
+          breakdown={invoiceBreakdown}
+          title="تفاصيل الفاتورة"
+          className="mb-4"
+        />
 
         {/* Dynamic Booking UI Actions */}
         {renderBookingState()}
@@ -567,6 +610,43 @@ export function BookingCard({ monthlyRent, depositAmount, currency = "EGP", list
 
       {/* Verification modal */}
       <VerificationRequiredModal open={showVerificationModal} onClose={() => setShowVerificationModal(false)} />
+
+      <DisputeResolutionDialog
+        open={showDisputeDialog && currentBooking?.status === "DISPUTE_RESOLVED_FOR_HOST"}
+        booking={currentBooking}
+        payment={currentBooking?.payment}
+        loading={bookingLoading}
+        onContinue={async () => {
+          await continueAfterDispute(currentBooking.id);
+          setShowDisputeDialog(false);
+          fetchBookings();
+        }}
+        onCancelRequest={async () => {
+          const result = await cancelAfterDispute(currentBooking.id);
+          const settlement = buildDisputeSettlementPreview(currentBooking?.payment) || {
+            totalAmount: result?.settlement?.totalPaid,
+            expectedRefund: result?.settlement?.guestRefund,
+            hostCompensation: result?.settlement?.hostCompensation,
+            retainedPlatformFee: result?.settlement?.platformFee,
+            currency: result?.settlement?.currency || "EGP",
+          };
+          setCancellationSettlement(settlement);
+          setShowDisputeDialog(false);
+          setShowCancellationSuccess(true);
+          fetchBookings();
+        }}
+        onClose={() => setShowDisputeDialog(false)}
+      />
+
+      <DisputeCancellationSuccess
+        open={showCancellationSuccess}
+        settlement={cancellationSettlement}
+        onClose={() => {
+          setShowCancellationSuccess(false);
+          setCancellationSettlement(null);
+          fetchBookings();
+        }}
+      />
     </>
   );
 }

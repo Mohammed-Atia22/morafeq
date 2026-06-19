@@ -1,7 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBooking } from "../../bookings/hooks/useBooking";
 import { usePayment } from "../../payments/hooks/usePayment";
+import { PaymentBreakdownCard } from "../../payments/components/PaymentBreakdownCard";
+import {
+  buildBreakdownFromListing,
+  buildDisputeSettlementPreview,
+  normalizePaymentBreakdown,
+} from "../../payments/utils/paymentBreakdown";
+import {
+  DisputeResolutionDialog,
+  DisputeCancellationSuccess,
+} from "../../bookings/components/DisputeResolutionDialog";
 import toast from "react-hot-toast";
 
 const getReservationExpiry = (booking) => {
@@ -34,6 +44,8 @@ export function ExpatriateBookingsPage() {
     confirmReceipt,
     reportProblem,
     cancelBooking,
+    continueAfterDispute,
+    cancelAfterDispute,
   } = useBooking();
 
   const {
@@ -54,6 +66,11 @@ export function ExpatriateBookingsPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [now, setNow] = useState(Date.now());
+  const [paymentBreakdowns, setPaymentBreakdowns] = useState({});
+  const [showDisputeDialog, setShowDisputeDialog] = useState(false);
+  const [disputeBooking, setDisputeBooking] = useState(null);
+  const [showCancellationSuccess, setShowCancellationSuccess] = useState(false);
+  const [cancellationSettlement, setCancellationSettlement] = useState(null);
 
   useEffect(() => {
     fetchBookings();
@@ -64,9 +81,15 @@ export function ExpatriateBookingsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const handlePayment = async (bookingId) => {
+  const handlePayment = async (bookingId, booking) => {
     try {
       const session = await createPaymentSession(bookingId);
+      if (session?.amounts) {
+        setPaymentBreakdowns((prev) => ({
+          ...prev,
+          [bookingId]: normalizePaymentBreakdown(session),
+        }));
+      }
       if (session?.iframeUrl) {
         startPolling(bookingId, () => {
           fetchBookings();
@@ -76,6 +99,16 @@ export function ExpatriateBookingsPage() {
       console.error(err);
     }
   };
+
+  useEffect(() => {
+    const pendingDispute = bookings.find(
+      (booking) => booking.status === "DISPUTE_RESOLVED_FOR_HOST",
+    );
+    if (pendingDispute && !showDisputeDialog && !showCancellationSuccess) {
+      setDisputeBooking(pendingDispute);
+      setShowDisputeDialog(true);
+    }
+  }, [bookings, showDisputeDialog, showCancellationSuccess]);
 
   const openListingDetails = (listingId) => {
     if (!listingId) return;
@@ -135,6 +168,10 @@ export function ExpatriateBookingsPage() {
         text: "تم تقديم شكوى",
         className: "bg-red-50 text-red-700 border border-red-200",
       },
+      DISPUTE_RESOLVED_FOR_HOST: {
+        text: "تم حل النزاع — يلزم قرارك",
+        className: "bg-amber-50 text-amber-800 border border-amber-200",
+      },
       COMPLETED: {
         text: "مكتمل بنجاح",
         className: "bg-green-50 text-green-700 border border-green-200",
@@ -162,6 +199,10 @@ export function ExpatriateBookingsPage() {
       REFUNDED: {
         text: "تم استرجاع المبلغ",
         className: "bg-purple-50 text-purple-700 border border-purple-200",
+      },
+      CANCELLED_AFTER_DISPUTE: {
+        text: "أُلغي بعد حل النزاع",
+        className: "bg-slate-50 text-slate-600 border border-slate-200",
       },
     };
 
@@ -218,6 +259,13 @@ export function ExpatriateBookingsPage() {
             const expiresAt = getReservationExpiry(booking);
             const remainingTime = formatRemainingTime(expiresAt, now);
             const selectedRoomName = booking.selectedRoomName || booking.room?.roomName;
+            const invoiceBreakdown =
+              paymentBreakdowns[booking.id] ||
+              normalizePaymentBreakdown(booking.payment) ||
+              buildBreakdownFromListing({
+                monthlyRent: booking.listing?.monthlyRent,
+                depositAmount: booking.listing?.depositAmount,
+              });
 
             return (
               <div
@@ -275,6 +323,14 @@ export function ExpatriateBookingsPage() {
                     </div>
                   </div>
 
+                  <div className="mt-3">
+                    <PaymentBreakdownCard
+                      breakdown={invoiceBreakdown}
+                      title="تفاصيل الدفع"
+                      compact
+                    />
+                  </div>
+
                   {selectedRoomName && (
                     <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50/60 p-2.5 text-xs font-bold text-blue-800">
                       الغرفة المختارة: {selectedRoomName}
@@ -322,11 +378,23 @@ export function ExpatriateBookingsPage() {
                 >
                   {booking.status === "PENDING_PAYMENT" && (
                     <button
-                      onClick={() => handlePayment(booking.id)}
+                      onClick={() => handlePayment(booking.id, booking)}
                       disabled={paymentLoading}
                       className="w-full rounded-xl bg-blue-600 py-2.5 text-xs font-black text-white hover:bg-blue-700 transition shadow cursor-pointer text-center"
                     >
-                      {paymentLoading ? "جاري تحضير بوابة الدفع..." : "ادفع الآن (Pay Now)"}
+                      {paymentLoading ? "جاري تحضير بوابة الدفع..." : "ادفع الآن"}
+                    </button>
+                  )}
+
+                  {booking.status === "DISPUTE_RESOLVED_FOR_HOST" && (
+                    <button
+                      onClick={() => {
+                        setDisputeBooking(booking);
+                        setShowDisputeDialog(true);
+                      }}
+                      className="w-full rounded-xl bg-[#1752F0] py-2.5 text-xs font-black text-white hover:bg-[#1240c4] transition shadow cursor-pointer text-center"
+                    >
+                      عرض قرار النزاع واتخاذ إجراء
                     </button>
                   )}
 
@@ -362,7 +430,7 @@ export function ExpatriateBookingsPage() {
                     </button>
                   )}
 
-                  {!["PENDING_PAYMENT", "CHECK_IN_PENDING", "PENDING_HOST_APPROVAL"].includes(booking.status) && (
+                  {!["PENDING_PAYMENT", "CHECK_IN_PENDING", "PENDING_HOST_APPROVAL", "DISPUTE_RESOLVED_FOR_HOST"].includes(booking.status) && (
                     <div className="text-center py-1.5 text-xs font-bold text-slate-400">
                       حالة الحجز مغلقة
                     </div>
@@ -501,6 +569,48 @@ export function ExpatriateBookingsPage() {
           </div>
         </div>
       )}
+
+      <DisputeResolutionDialog
+        open={showDisputeDialog && !!disputeBooking}
+        booking={disputeBooking}
+        payment={disputeBooking?.payment}
+        loading={bookingsLoading}
+        onContinue={async () => {
+          await continueAfterDispute(disputeBooking.id);
+          setShowDisputeDialog(false);
+          setDisputeBooking(null);
+          fetchBookings();
+        }}
+        onCancelRequest={async () => {
+          const result = await cancelAfterDispute(disputeBooking.id);
+          const settlement = buildDisputeSettlementPreview(disputeBooking?.payment) || {
+            totalAmount: result?.settlement?.totalPaid,
+            expectedRefund: result?.settlement?.guestRefund,
+            hostCompensation: result?.settlement?.hostCompensation,
+            retainedPlatformFee: result?.settlement?.platformFee,
+            currency: result?.settlement?.currency || "EGP",
+          };
+          setCancellationSettlement(settlement);
+          setShowDisputeDialog(false);
+          setDisputeBooking(null);
+          setShowCancellationSuccess(true);
+          fetchBookings();
+        }}
+        onClose={() => {
+          setShowDisputeDialog(false);
+          setDisputeBooking(null);
+        }}
+      />
+
+      <DisputeCancellationSuccess
+        open={showCancellationSuccess}
+        settlement={cancellationSettlement}
+        onClose={() => {
+          setShowCancellationSuccess(false);
+          setCancellationSettlement(null);
+          fetchBookings();
+        }}
+      />
     </div>
   );
 }

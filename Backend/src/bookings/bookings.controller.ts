@@ -112,4 +112,17 @@ reportProblem(
     dto,
   );
 }
+
+@Patch(':id/dispute/continue')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('GUEST')
+continueAfterDispute(
+  @Param('id', ParseIntPipe) bookingId: number,
+  @CurrentUser() user: any,
+) {
+  return this.bookingsService.continueAfterDisputeResolution(
+    bookingId,
+    user.id,
+  );
+}
 }

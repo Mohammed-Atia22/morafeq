@@ -61,13 +61,11 @@ export function AdminComplaintsPage() {
 
     try {
       if (resolutionType === "REFUND") {
-        // Approve Refund -> calls refund endpoint
         await paymentsApi.refundPayment(paymentId, resolutionNote);
         toast.success("تم إقرار الاسترجاع بنجاح وعكس العملية مالياً");
       } else {
-        // Reject Complaint -> releases payment to owner
-        await paymentsApi.releasePayment(paymentId, resolutionNote);
-        toast.success("تم رفض الشكوى وتحرير المبالغ لصاحب السكن");
+        await paymentsApi.resolveDisputeForHost(paymentId, resolutionNote);
+        toast.success("تم حل النزاع لصالح المالك وبانتظار قرار المستأجر");
       }
       closeResolutionModal();
       fetchComplaints();
@@ -224,7 +222,7 @@ export function AdminComplaintsPage() {
             <p className="text-xs font-semibold text-slate-500 mb-4">
               {resolutionType === "REFUND"
                 ? "سيتم استرجاع مبلغ الإيجار إلى كارت المستأجر تلقائياً عن طريق بوابة Paymob وإلغاء المعاملة المعلقة"
-                : "سيتم تحرير المبلغ ونقله إلى محفظة المالك المتاحة كدفعة مستلمة وتسجيل العقار كمحجوز"}
+                : "سيتم إبلاغ المستأجر بقرار حل النزاع لصالح المالك، وسيختار بين متابعة الحجز أو الإلغاء واسترداد المبلغ المستحق"}
             </p>
             <form onSubmit={handleResolve} className="space-y-4">
               <div className="space-y-1">
