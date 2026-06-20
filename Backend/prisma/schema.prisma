@@ -528,6 +528,28 @@ model ListingVector {
   @@map("listing_vectors")
 }
 
+model ChatSession {
+  id        String        @id @default(uuid())
+  userId    Int?          // Optional: link to your Student/User table if you have one
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String      @map("session_id")
+  role      String      // Custom validation in code: "user" | "model"
+  text      String      @db.Text // Text type to handle long AI or context strings
+  createdAt DateTime    @default(now())
+
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
 enum UserRole {
   GUEST
   HOST

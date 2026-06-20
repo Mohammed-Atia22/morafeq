@@ -20,7 +20,7 @@ import { ChatModule } from './chat/chat.module';
 import { ConfigModule } from '@nestjs/config';
 import { VerificationModule } from './verification/verification.module';
 import { DisputeChatModule } from './dispute-chat/dispute-chat.module';
-// import { AiModule } from './ai/ai.module';
+import { AiModule } from './ai/ai.module';
 
 
 @Module({
@@ -46,7 +46,7 @@ import { DisputeChatModule } from './dispute-chat/dispute-chat.module';
     ChatModule,
     VerificationModule,
     DisputeChatModule,
-    // AiModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],
