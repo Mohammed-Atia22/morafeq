@@ -47,7 +47,7 @@ export class UsersService {
         createdAt: true,
         passwordHash: true, // ← for checking if user has password
         _count: {
-          select: { listings: true },
+          select: { listings: true, favorites: true },
         },
         verification: {
           select: {

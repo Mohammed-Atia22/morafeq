@@ -21,6 +21,7 @@ import { ConfigModule } from '@nestjs/config';
 import { VerificationModule } from './verification/verification.module';
 import { DisputeChatModule } from './dispute-chat/dispute-chat.module';
 import { AiModule } from './ai/ai.module';
+import { FavoritesModule } from './favorites/favorites.module';
 
 
 @Module({
@@ -47,6 +48,7 @@ import { AiModule } from './ai/ai.module';
     VerificationModule,
     DisputeChatModule,
     AiModule,
+    FavoritesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

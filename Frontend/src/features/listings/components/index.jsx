@@ -72,6 +72,9 @@ export function AddListingForm({ embedded = false, onCreated }) {
       bathrooms: "",
       rooms: [],
 
+      // arrival instructions
+      arrivalInstructions: "",
+
       availableFrom: "",
 
       genderPreference: "ANY",

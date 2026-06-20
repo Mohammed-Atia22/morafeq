@@ -40,6 +40,7 @@ model User {
   verification         Verification?
   disputeConversations DisputeConversation[] @relation("DisputeConversationParticipant")
   disputeMessages      DisputeMessage[]      @relation("DisputeMessageSender")
+  favorites            Favorite[]
   preferences UserPreference[]
 
   @@index([email])
@@ -109,11 +110,12 @@ model Listing {
   propertyType PropertyType
   roomType     RoomType
 
-  streetName      String  @db.VarChar(255)
-  buildingNumber  String? @db.VarChar(50)
-  floorNumber     String? @db.VarChar(50)
-  apartmentNumber String? @db.VarChar(50)
-  nearbyLandmark  String? @db.VarChar(255)
+  streetName          String  @db.VarChar(255)
+  buildingNumber      String? @db.VarChar(50)
+  floorNumber         String? @db.VarChar(50)
+  apartmentNumber     String? @db.VarChar(50)
+  nearbyLandmark      String? @db.VarChar(255)
+  arrivalInstructions String? @db.Text
 
   city        String @db.VarChar(100)
   governorate String @db.VarChar(100)
@@ -173,6 +175,7 @@ model Listing {
   bookings           Booking[]
   reviews            Review[]
   vectorInsight      ListingVector?
+  favorites          Favorite[]
 
   @@index([hostId])
   @@index([areaId])
@@ -263,6 +266,21 @@ model ListingAmenity {
   @@unique([listingId, amenityKey])
   @@index([listingId])
   @@map("listing_amenities")
+}
+
+model Favorite {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  userId    Int      @db.UnsignedInt
+  listingId Int      @db.UnsignedInt
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([userId])
+  @@index([listingId])
+  @@map("favorites")
 }
 
 model Booking {
@@ -543,7 +561,7 @@ model ListingVector {
 
 model ChatSession {
   id        String        @id @default(uuid())
-  userId    Int?          // Optional: link to your Student/User table if you have one
+  userId    Int? // Optional: link to your Student/User table if you have one
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   messages  ChatMessage[]
@@ -552,13 +570,13 @@ model ChatSession {
 }
 
 model ChatMessage {
-  id        String      @id @default(uuid())
-  sessionId String      @map("session_id")
-  role      String      // Custom validation in code: "user" | "model"
-  text      String      @db.Text // Text type to handle long AI or context strings
-  createdAt DateTime    @default(now())
+  id        String   @id @default(uuid())
+  sessionId String   @map("session_id")
+  role      String // Custom validation in code: "user" | "model"
+  text      String   @db.Text // Text type to handle long AI or context strings
+  createdAt DateTime @default(now())
 
-  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("chat_messages")
 }

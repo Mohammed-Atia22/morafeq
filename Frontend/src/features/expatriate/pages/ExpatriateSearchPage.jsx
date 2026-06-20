@@ -6,6 +6,7 @@ import { ListingsGrid } from "../components/home/ListingsGrid";
 import { AmenitiesSelector } from "../../listings/components/AmenitiesSelector";
 import { AMENITY_OPTIONS } from "../../../shared/constants/amenities";
 import { useSearchSuggestions } from "../hooks/useSearchSuggestions";
+import { useFavoriteToggle } from "../../favorites/hooks/useFavoriteToggle";
 
 const ROOM_TYPES = [
   { value: "", label: "الكل" },
@@ -63,6 +64,7 @@ function FilterSelect({ value, onChange, options }) {
 
 export function ExpatriateSearchPage() {
   const { listings, meta, loading, error, fetchListings } = useListings();
+  const [displayListings, setDisplayListings] = useState([]);
   const {
     destinationName,
     confirmedDestination,
@@ -106,6 +108,22 @@ export function ExpatriateSearchPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionsRef = useRef(null);
   const [showMapModal, setShowMapModal] = useState(false);
+
+  useEffect(() => {
+    setDisplayListings(listings);
+  }, [listings]);
+
+  const handleFavoriteChanged = useCallback((listingId, isFavorited) => {
+    setDisplayListings((prev) =>
+      prev.map((listing) =>
+        listing.id === listingId ? { ...listing, isFavorited } : listing,
+      ),
+    );
+  }, []);
+
+  const { pendingIds, toggleFavorite } = useFavoriteToggle({
+    onChanged: handleFavoriteChanged,
+  });
 
   useEffect(() => {
     if (!confirmedDestination) {
@@ -672,7 +690,13 @@ export function ExpatriateSearchPage() {
             </p>
           )}
 
-          <ListingsGrid listings={listings} loading={loading} error={error} />
+          <ListingsGrid
+            listings={displayListings}
+            loading={loading}
+            error={error}
+            onFavoriteToggle={toggleFavorite}
+            pendingFavoriteIds={pendingIds}
+          />
         </div>
       )}
 
