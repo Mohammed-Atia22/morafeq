@@ -9,6 +9,10 @@ import {
 import { createChatSocket } from "../services/chatSocket";
 import { translateErrorMessage } from "../../../shared/services/api";
 
+const isSocketAuthError = (message = "") =>
+  String(message).toLowerCase().includes("unauthorized") ||
+  String(message).toLowerCase().includes("token");
+
 export function useChatSocket(
   onNewMessage,
   onMessagesRead,
@@ -69,6 +73,16 @@ export function useChatSocket(
         error.message,
       );
 
+      if (isSocketAuthError(error.message)) {
+        socket.auth = {
+          token: localStorage.getItem("morafeq_access_token"),
+        };
+
+        setSocketError("");
+        setIsConnected(false);
+        return;
+      }
+
       setSocketError(
         translateErrorMessage(error.message) ||
           "تعذر الاتصال بالمحادثة",
@@ -79,6 +93,16 @@ export function useChatSocket(
 
     const handleSocketError = (error) => {
       console.log("Socket error:", error);
+
+      if (isSocketAuthError(error?.message)) {
+        socket.auth = {
+          token: localStorage.getItem("morafeq_access_token"),
+        };
+
+        setSocketError("");
+        setIsConnected(false);
+        return;
+      }
 
       setSocketError(
         translateErrorMessage(error?.message) ||
@@ -150,6 +174,24 @@ export function useChatSocket(
       handleMessagesRead,
     );
 
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState === "visible" &&
+        !socket.connected
+      ) {
+        socket.auth = {
+          token: localStorage.getItem("morafeq_access_token"),
+        };
+
+        socket.connect();
+      }
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
     return () => {
       socket.off(
         "connect",
@@ -184,6 +226,11 @@ export function useChatSocket(
       socket.off(
         "messagesRead",
         handleMessagesRead,
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
       );
 
       socket.disconnect();

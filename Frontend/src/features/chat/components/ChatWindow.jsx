@@ -30,7 +30,7 @@ useEffect(() => {
 }, [messages, selectedConversation?.id]);
   if (!selectedConversation) {
     return (
-      <main className="flex min-h-0 flex-col">
+      <main dir="rtl" className="flex min-h-0 flex-col">
         <div className="flex h-full items-center justify-center p-6 text-center">
           <div>
             <h2 className="text-xl font-black text-slate-800">
@@ -47,7 +47,7 @@ useEffect(() => {
   }
 
   return (
-    <main className="flex min-h-0 flex-col">
+    <main dir="rtl" className="flex min-h-0 flex-col">
       {/* رأس المحادثة */}
       <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
         <div>

@@ -1,3 +1,5 @@
+import { formatChatDateTime } from "../utils/chatDate";
+
 export function ConversationList({
   conversations,
   selectedConversationId,
@@ -5,7 +7,7 @@ export function ConversationList({
   onSelectConversation,
 }) {
   return (
-    <aside className="border-l border-slate-200 bg-slate-50">
+    <aside dir="rtl" className="border-r border-slate-200 bg-slate-50">
       <div className="border-b border-slate-200 p-5">
         <h1 className="text-2xl font-black text-slate-900">
           الرسائل
@@ -41,6 +43,14 @@ export function ConversationList({
                 conversation.otherUser?.lastName ?? ""
               }`.trim();
 
+            const lastMessageAt =
+              conversation.lastMessage?.createdAt ??
+              conversation.updatedAt ??
+              conversation.createdAt;
+
+            const lastMessageTime =
+              formatChatDateTime(lastMessageAt);
+
             return (
               <button
                 key={conversation.id}
@@ -73,11 +83,22 @@ export function ConversationList({
                       {otherUserName || "مستخدم"}
                     </p>
 
-                    {conversation.unreadCount > 0 && (
-                      <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-2 text-xs font-bold text-white">
-                        {conversation.unreadCount}
-                      </span>
-                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {lastMessageTime && (
+                        <time
+                          dateTime={lastMessageAt}
+                          className="whitespace-nowrap text-[11px] font-semibold text-slate-400"
+                        >
+                          {lastMessageTime}
+                        </time>
+                      )}
+
+                      {conversation.unreadCount > 0 && (
+                        <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-2 text-xs font-bold text-white">
+                          {conversation.unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <p className="mt-1 truncate text-xs font-semibold text-blue-700">

@@ -46,6 +46,15 @@ export class ChatGateway
   private readonly configService: ConfigService,
 ) {}
 
+  emitConversationMessage(
+    conversationId: number,
+    message: unknown,
+  ) {
+    const roomName = `conversation:${conversationId}`;
+
+    this.server.to(roomName).emit('newMessage', message);
+  }
+
   async handleConnection(client: Socket) {
     try {
       // هنستقبل الـ token من frontend داخل handshake.auth
@@ -206,10 +215,11 @@ async joinDisputeConversation(
         body,
       );
 
-      const roomName = `conversation:${body.conversationId}`;
-
       // إرسال الرسالة لكل الموجودين داخل المحادثة
-      this.server.to(roomName).emit('newMessage', message);
+      this.emitConversationMessage(
+        body.conversationId,
+        message,
+      );
 
       return {
         success: true,
