@@ -29,6 +29,7 @@ export function ListingCard({ listing }) {
 
   const coverPhoto = listing.photos?.[0]?.url;
   const reviewCount = listing._count?.reviews ?? 0;
+  const averageRating = listing.averageRating ?? 0;
   const amenities = listing.amenities?.slice(0, 3) ?? [];
   const availablePlaces =
     listing.availablePlaces ?? Math.max(0, (listing.maxTenants ?? 0) - (listing.reservedPlaces ?? 0));
@@ -119,7 +120,7 @@ export function ListingCard({ listing }) {
 
         <div className="mt-3 flex items-center justify-between">
           <RatingSummary
-            averageRating={listing.averageRating ?? 0}
+            averageRating={averageRating}
             reviewCount={reviewCount}
             size="sm"
           />

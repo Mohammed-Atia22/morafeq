@@ -6,17 +6,9 @@ import { listingsApi } from "../services/listingsApi";
 import { Step1Location } from "./Step1Location";
 import { Step2Details } from "./Step2Details";
 import { Step3Rules } from "./Step3Rules";
+import { AMENITY_OPTIONS } from "../../../shared/constants/amenities";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { DraftSavedVerificationModal } from "./DraftSavedVerificationModal";
-
-const AMENITY_OPTIONS = [
-  { key: "wifi", label: "واي فاي" },
-  { key: "kitchen", label: "مطبخ" },
-  { key: "parking", label: "موقف سيارات" },
-  { key: "air_conditioning", label: "تكييف" },
-  { key: "washing_machine", label: "غسالة" },
-  { key: "workspace", label: "مساحة عمل" },
-];
 
 export function AddListingForm({ embedded = false, onCreated }) {
   const { user, completeGoogleLogin, refreshUser } = useAuth();
@@ -33,6 +25,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
   const [isSubmittingListing, setIsSubmittingListing] = useState(false);
   const [showDraftSavedModal, setShowDraftSavedModal] = useState(false);
   const [savedDraftResult, setSavedDraftResult] = useState(null);
+  const [hasAttemptedStep2Submit, setHasAttemptedStep2Submit] = useState(false);
 
   const {
     register,
@@ -43,7 +36,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
     setError,
     clearErrors,
     trigger,
-    formState: { errors },
+    formState: { errors, touchedFields, dirtyFields },
   } = useForm({
     defaultValues: {
       // Step 1 - map address
@@ -93,8 +86,88 @@ export function AddListingForm({ embedded = false, onCreated }) {
   const roomType = watch("roomType") || "PRIVATE_ROOM";
   const isEntirePlace = roomType === "ENTIRE_PLACE";
 
+  const [maxTenantsField, bedsField, roomsField] = watch([
+    "maxTenants",
+    "beds",
+    "rooms",
+  ]);
+
+  const maxTenants = Number(maxTenantsField || 0);
+  const beds = Number(bedsField || 0);
+  const rooms = Array.isArray(roomsField) ? roomsField : [];
+
+  const getRoomCapacityFields = () =>
+    rooms.map((_, index) => `rooms.${index}.capacity`);
+
+  const getStep2CapacityError = () => {
+    if (errors.maxTenants?.message) return errors.maxTenants.message;
+
+    if (Array.isArray(errors.rooms)) {
+      for (let index = 0; index < errors.rooms.length; index += 1) {
+        const roomError = errors.rooms[index];
+        if (roomError?.capacity?.message) return roomError.capacity.message;
+      }
+    }
+
+    return "";
+  };
+
+  const step2CapacityError = getStep2CapacityError();
+
+  const validateStep2Capacities = () => {
+    const roomCapacityFields = getRoomCapacityFields();
+    const roomCapacitySum = rooms.reduce(
+      (sum, room) => sum + Number(room?.capacity || 0),
+      0,
+    );
+
+    const clearCapacityErrors = () => {
+      clearErrors(["maxTenants", ...roomCapacityFields]);
+    };
+
+    if (maxTenants <= 0 || beds <= 0) {
+      clearCapacityErrors();
+      return { valid: false };
+    }
+
+    if (maxTenants !== beds) {
+      setError("maxTenants", {
+        type: "manual",
+        message: "يجب أن يكون عدد السكان الأقصى مساوياً لعدد السراير.",
+      });
+      clearErrors(roomCapacityFields);
+      return { valid: false };
+    }
+
+    if (!isEntirePlace && rooms.length > 0 && roomCapacitySum !== maxTenants) {
+      setError("maxTenants", {
+        type: "manual",
+        message: "يجب أن يساوي مجموع سعات الغرف عدد السكان الأقصى.",
+      });
+
+      rooms.forEach((_, index) => {
+        setError(`rooms.${index}.capacity`, {
+          type: "manual",
+          message: "يجب أن يساوي مجموع سعات الغرف عدد السكان الأقصى.",
+        });
+      });
+
+      return { valid: false };
+    }
+
+    clearCapacityErrors();
+    return { valid: true };
+  };
+
   useEffect(() => {
-    if (isEntirePlace || !Number.isFinite(bedroomCount) || bedroomCount <= 0) return;
+    if (!hasAttemptedStep2Submit) return;
+
+    validateStep2Capacities();
+  }, [hasAttemptedStep2Submit, isEntirePlace, maxTenants, beds, rooms]);
+
+  useEffect(() => {
+    if (isEntirePlace || !Number.isFinite(bedroomCount) || bedroomCount <= 0)
+      return;
 
     const currentRooms = getValues("rooms") || [];
     for (let index = 0; index < bedroomCount; index += 1) {
@@ -211,6 +284,13 @@ export function AddListingForm({ embedded = false, onCreated }) {
     ]);
 
     if (!isStepValid) return;
+
+    setHasAttemptedStep2Submit(true);
+
+    const capacityResult = validateStep2Capacities();
+    if (!capacityResult.valid) {
+      return;
+    }
 
     clearErrors("root");
     setCurrentStep(3);
@@ -339,6 +419,9 @@ export function AddListingForm({ embedded = false, onCreated }) {
       return;
     }
 
+    // include dynamic room capacity fields in step3 validation
+    const roomValues = getValues("rooms") || [];
+    const roomCapacityFields = roomValues.map((_, i) => `rooms.${i}.capacity`);
     const step3Valid = await trigger([
       "title",
       "description",
@@ -348,9 +431,13 @@ export function AddListingForm({ embedded = false, onCreated }) {
       "beds",
       "bathrooms",
       "availableFrom",
+      ...roomCapacityFields,
     ]);
-    if (!step3Valid) {
-      setCurrentStep(3);
+
+    const capacityResult = validateStep2Capacities();
+    if (!step3Valid || !capacityResult.valid) {
+      setHasAttemptedStep2Submit(true);
+      setCurrentStep(2);
       return;
     }
 
@@ -696,6 +783,7 @@ export function AddListingForm({ embedded = false, onCreated }) {
                 toggleAmenity={toggleAmenity}
                 setCurrentStep={setCurrentStep}
                 goToStep3={goToStep3}
+                step2CapacityError={step2CapacityError}
               />
             )}
 
