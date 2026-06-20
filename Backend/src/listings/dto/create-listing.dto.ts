@@ -65,6 +65,11 @@ export class CreateListingDto {
   @MaxLength(255)
   nearbyLandmark?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  arrivalInstructions?: string;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)

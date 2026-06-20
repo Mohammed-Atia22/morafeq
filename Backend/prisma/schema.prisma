@@ -96,11 +96,12 @@ model Listing {
   propertyType PropertyType
   roomType     RoomType
 
-  streetName      String  @db.VarChar(255)
-  buildingNumber  String? @db.VarChar(50)
-  floorNumber     String? @db.VarChar(50)
-  apartmentNumber String? @db.VarChar(50)
-  nearbyLandmark  String? @db.VarChar(255)
+  streetName          String  @db.VarChar(255)
+  buildingNumber      String? @db.VarChar(50)
+  floorNumber         String? @db.VarChar(50)
+  apartmentNumber     String? @db.VarChar(50)
+  nearbyLandmark      String? @db.VarChar(255)
+  arrivalInstructions String? @db.Text
 
   city        String @db.VarChar(100)
   governorate String @db.VarChar(100)

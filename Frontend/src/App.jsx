@@ -47,187 +47,147 @@ import { DisputeConversationPage } from "./features/dispute-chat/pages/DisputeCo
 
 import { OwnerRentalRequestsPage } from "./features/owner/pages/OwnerRentalRequestsPage";
 import { ExpatriateBookingsPage } from "./features/expatriate/pages/ExpatriateBookingsPage";
+import BookingDetailPage from "./features/bookings/pages/BookingDetailPage";
 import { PublicHostProfilePage } from "./features/profile/pages/PublicHostProfilePage";
 import { PublicGuestProfilePage } from "./features/profile/pages/PublicGuestProfilePage";
 
 function App() {
-return ( <AuthProvider> <Routes>
-{/* Public and authentication routes */}
-<Route element={<Layout />}>
-<Route index element={<LandingPage />} />
-<Route path="home" element={<LandingPage />} />
+  return (
+    <AuthProvider>
+      {" "}
+      <Routes>
+        {/* Public and authentication routes */}
+        <Route element={<Layout />}>
+          <Route index element={<LandingPage />} />
+          <Route path="home" element={<LandingPage />} />
 
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="confirm-otp" element={<ConfirmOtpPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="reset-password" element={<ResetPasswordPage />} />
+          <Route path="reset-password/new" element={<NewPasswordPage />} />
+          <Route path="auth/callback" element={<AuthCallbackPage />} />
 
-      <Route path="login" element={<LoginPage />} />
-      <Route path="register" element={<RegisterPage />} />
-      <Route path="confirm-otp" element={<ConfirmOtpPage />} />
-      <Route
-        path="forgot-password"
-        element={<ForgotPasswordPage />}
-      />
-      <Route
-        path="reset-password"
-        element={<ResetPasswordPage />}
-      />
-      <Route
-        path="reset-password/new"
-        element={<NewPasswordPage />}
-      />
-      <Route
-        path="auth/callback"
-        element={<AuthCallbackPage />}
-      />
+          <Route path="onboarding" element={<OnboardingPage />} />
+        </Route>
 
-      <Route
-        path="onboarding"
-        element={<OnboardingPage />}
-      />
-    </Route>
+        {/* Owner routes */}
+        <Route
+          path="owner"
+          element={
+            <ProtectedRoute allowedRoles={["HOST"]}>
+              <OwnerLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<OwnerPage />} />
 
-    {/* Owner routes */}
-    <Route
-      path="owner"
-      element={
-        <ProtectedRoute allowedRoles={["HOST"]}>
-  <OwnerLayout />
-</ProtectedRoute>
-      }
-    >
-      <Route index element={<OwnerPage />} />
+          <Route path="bookings" element={<OwnerBookingsPage />} />
 
-      <Route
-        path="bookings"
-        element={<OwnerBookingsPage />}
-      />
+          <Route path="messages" element={<OwnerMessagesPage />} />
 
-      <Route
-        path="messages"
-        element={<OwnerMessagesPage />}
-      />
+          <Route path="settings" element={<OwnerSettingsPage />} />
 
-      <Route
-        path="settings"
-        element={<OwnerSettingsPage />}
-      />
+          <Route path="profile" element={<ProfilePage />} />
 
-      <Route path="profile" element={<ProfilePage />} />
+          <Route path="add" element={<AddListingPage />} />
 
-      <Route path="add" element={<AddListingPage />} />
+          <Route path="listings/:id/edit" element={<EditListingPage />} />
 
-      <Route
-        path="listings/:id/edit"
-        element={<EditListingPage />}
-      />
+          <Route path="rental-requests" element={<OwnerRentalRequestsPage />} />
 
-      <Route
-        path="rental-requests"
-        element={<OwnerRentalRequestsPage />}
-      />
+          <Route path="guests/:guestId" element={<PublicGuestProfilePage />} />
+        </Route>
 
-      <Route
-        path="guests/:guestId"
-        element={<PublicGuestProfilePage />}
-      />
-    </Route>
+        {/* Expatriate routes */}
+        <Route
+          path="expatriate"
+          element={
+            <ProtectedRoute allowedRoles={["GUEST"]}>
+              <ExpatriateLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<ExpatriateHomePage />} />
 
-    {/* Expatriate routes */}
-    <Route
-      path="expatriate"
-      element={
-        <ProtectedRoute allowedRoles={["GUEST"]}>
-  <ExpatriateLayout />
-</ProtectedRoute>
-      }
-    >
-      <Route index element={<ExpatriateHomePage />} />
+          <Route path="search" element={<ExpatriateSearchPage />} />
 
-      <Route
-        path="search"
-        element={<ExpatriateSearchPage />}
-      />
+          <Route path="messages" element={<ExpatriateMessagesPage />} />
 
-      <Route
-        path="messages"
-        element={<ExpatriateMessagesPage />}
-      />
+          <Route
+            path="listings/:id"
+            element={<ExpatriateListingDetailPage />}
+          />
 
-      <Route
-        path="listings/:id"
-        element={<ExpatriateListingDetailPage />}
-      />
+          <Route
+            path="listings/:id/insights"
+            element={<ExpatriateLocationInsightPage />}
+          />
 
-      <Route
-        path="listings/:id/insights"
-        element={<ExpatriateLocationInsightPage />}
-      />
+          <Route path="profile" element={<ProfilePage />} />
 
-      <Route path="profile" element={<ProfilePage />} />
+          <Route path="bookings" element={<ExpatriateBookingsPage />} />
 
-      <Route
-        path="bookings"
-        element={<ExpatriateBookingsPage />}
-      />
+          <Route path="bookings/:id" element={<BookingDetailPage />} />
 
-      <Route
-        path="hosts/:hostId"
-        element={<PublicHostProfilePage />}
-      />
-    </Route>
+          <Route path="hosts/:hostId" element={<PublicHostProfilePage />} />
+        </Route>
 
-    {/* Dispute chat routes (guest/host) */}
-    <Route
-      path="dispute-chat"
-      element={
-        <ProtectedRoute allowedRoles={["GUEST", "HOST"]}>
-          <MyDisputeConversationsPage />
-        </ProtectedRoute>
-      }
-    />
-    <Route
-      path="dispute-chat/:conversationId"
-      element={
-        <ProtectedRoute allowedRoles={["GUEST", "HOST"]}>
-          <DisputeConversationPage />
-        </ProtectedRoute>
-      }
-    />
+        {/* Dispute chat routes (guest/host) */}
+        <Route
+          path="dispute-chat"
+          element={
+            <ProtectedRoute allowedRoles={["GUEST", "HOST"]}>
+              <MyDisputeConversationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="dispute-chat/:conversationId"
+          element={
+            <ProtectedRoute allowedRoles={["GUEST", "HOST"]}>
+              <DisputeConversationPage />
+            </ProtectedRoute>
+          }
+        />
 
-    {/* Shared profile route */}
-    <Route
-      path="profile"
-      element={
-        <ProtectedRoute>
-          <ProfilePage />
-        </ProtectedRoute>
-      }
-    />
+        {/* Shared profile route */}
+        <Route
+          path="profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
 
-    {/* ─── Admin routes ─────────────────────────── */}
-    <Route
-      path="admin"
-      element={
-        <AdminRoute>
-          <AdminLayout />
-        </AdminRoute>
-      }
-    >
-      <Route index element={<AdminDashboardPage />} />
-      <Route path="listings" element={<AdminListingsPage />} />
-      <Route path="users" element={<AdminUsersPage />} />
-      <Route path="disputes" element={<AdminDisputesPage />} />
-      <Route path="disputes/:bookingId" element={<AdminDisputeDetailsPage />} />
-      <Route path="complaints" element={<AdminDisputesPage />} />
-    </Route>
+        {/* ─── Admin routes ─────────────────────────── */}
+        <Route
+          path="admin"
+          element={
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          }
+        >
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="listings" element={<AdminListingsPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="disputes" element={<AdminDisputesPage />} />
+          <Route
+            path="disputes/:bookingId"
+            element={<AdminDisputeDetailsPage />}
+          />
+          <Route path="complaints" element={<AdminDisputesPage />} />
+        </Route>
 
-    {/* Unknown routes */}
-    <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes>
-
-  <Toaster />
-</AuthProvider>
-
-
-);
+        {/* Unknown routes */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <Toaster />
+    </AuthProvider>
+  );
 }
 
 export default App;

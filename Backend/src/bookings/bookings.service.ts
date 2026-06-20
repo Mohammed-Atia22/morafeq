@@ -30,8 +30,6 @@ import {
   areAllRoomsFull,
 } from './booking-capacity';
 
-
-
 @Injectable()
 export class BookingsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BookingsService.name);
@@ -101,7 +99,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
 
     if (isRoomBasedListing(listing)) {
       if (!dto.roomId) {
-        throw new BadRequestException('يرجى اختيار الغرفة المناسبة قبل إرسال طلب الحجز');
+        throw new BadRequestException(
+          'يرجى اختيار الغرفة المناسبة قبل إرسال طلب الحجز',
+        );
       }
 
       const selectedRoom = listing.rooms.find((room) => room.id === dto.roomId);
@@ -111,7 +111,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (selectedRoom.occupiedCount >= selectedRoom.capacity) {
-        throw new ConflictException('هذه الغرفة ممتلئة، يرجى اختيار غرفة أخرى.');
+        throw new ConflictException(
+          'هذه الغرفة ممتلئة، يرجى اختيار غرفة أخرى.',
+        );
       }
 
       selectedRoomName = selectedRoom.roomName;
@@ -124,9 +126,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         status: {
           in: [
             BookingStatus.PENDING_HOST_APPROVAL,
-    BookingStatus.PENDING_PAYMENT,
-    BookingStatus.CHECK_IN_PENDING,
-    BookingStatus.DISPUTED,
+            BookingStatus.PENDING_PAYMENT,
+            BookingStatus.CHECK_IN_PENDING,
+            BookingStatus.DISPUTED,
           ],
         },
       },
@@ -148,8 +150,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       throw new ConflictException('لا توجد أماكن متاحة في هذا العقار حاليا');
     }
 
-  
-    return this.prisma.booking.create({
+    const created = await this.prisma.booking.create({
       data: {
         guestId,
         listingId: dto.listingId,
@@ -157,14 +158,15 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           ? new Date(dto.preferredMoveInDate)
           : null,
         guestMessage: dto.guestMessage,
-        roomId: isRoomBasedListing(listing) ? dto.roomId ?? null : null,
+        roomId: isRoomBasedListing(listing) ? (dto.roomId ?? null) : null,
         selectedRoomName,
         status: BookingStatus.PENDING_HOST_APPROVAL,
       },
       include: this.bookingIncludes(),
     });
-  }
 
+    return this.sanitizeBookingForUser(created, guestId);
+  }
   async respond(bookingId: number, hostId: number, dto: RespondBookingDto) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
@@ -210,11 +212,15 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           });
 
           if (!room || room.apartmentId !== booking.listingId) {
-            throw new BadRequestException('الغرفة المختارة غير متاحة لهذا العقار');
+            throw new BadRequestException(
+              'الغرفة المختارة غير متاحة لهذا العقار',
+            );
           }
 
           if (room.occupiedCount >= room.capacity) {
-            throw new ConflictException('هذه الغرفة ممتلئة، يرجى اختيار غرفة أخرى.');
+            throw new ConflictException(
+              'هذه الغرفة ممتلئة، يرجى اختيار غرفة أخرى.',
+            );
           }
 
           await tx.room.update({
@@ -302,7 +308,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       const updatedBooking = await tx.booking.update({
         where: { id: bookingId },
         data: {
@@ -322,6 +328,8 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
 
       return updatedBooking;
     });
+
+    return this.sanitizeBookingForUser(updated, userId);
   }
 
   async expireUnpaidApprovedBookings() {
@@ -340,7 +348,11 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         AND: {
           OR: [
             { payment: null },
-            { payment: { status: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] } } },
+            {
+              payment: {
+                status: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] },
+              },
+            },
           ],
         },
       },
@@ -372,7 +384,9 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
                 { payment: null },
                 {
                   payment: {
-                    status: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] },
+                    status: {
+                      in: [PaymentStatus.PENDING, PaymentStatus.FAILED],
+                    },
                   },
                 },
               ],
@@ -433,19 +447,21 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    return booking;
+    return this.sanitizeBookingForUser(booking, userId);
   }
 
   async findGuestBookings(guestId: number) {
-    return this.prisma.booking.findMany({
+    const bookings = await this.prisma.booking.findMany({
       where: { guestId },
       orderBy: { createdAt: 'desc' },
       include: this.bookingIncludes(),
     });
+
+    return bookings.map((b) => this.sanitizeBookingForUser(b, guestId));
   }
 
   async findHostBookings(hostId: number, status?: BookingStatus) {
-    return this.prisma.booking.findMany({
+    const bookings = await this.prisma.booking.findMany({
       where: {
         listing: { hostId },
         ...(status ? { status } : {}),
@@ -453,6 +469,8 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       orderBy: { createdAt: 'desc' },
       include: this.bookingIncludes(),
     });
+
+    return bookings.map((b) => this.sanitizeBookingForUser(b, hostId));
   }
 
   // async complete(bookingId: number, hostId: number) {
@@ -481,13 +499,8 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
   //   });
   // }
 
-
-  async confirmReceipt(
-  bookingId: number,
-  guestId: number,
-) {
-  const booking =
-    await this.prisma.booking.findUnique({
+  async confirmReceipt(bookingId: number, guestId: number) {
+    const booking = await this.prisma.booking.findUnique({
       where: {
         id: bookingId,
       },
@@ -496,38 +509,27 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-  if (!booking) {
-    throw new NotFoundException(
-      'Booking not found',
-    );
-  }
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
 
-  if (booking.guestId !== guestId) {
-    throw new ForbiddenException(
-      'Only the guest can confirm receiving the property',
-    );
-  }
+    if (booking.guestId !== guestId) {
+      throw new ForbiddenException(
+        'Only the guest can confirm receiving the property',
+      );
+    }
 
-  if (
-    booking.status !==
-    BookingStatus.CHECK_IN_PENDING
-  ) {
-    throw new BadRequestException(
-      `Cannot confirm receipt with booking status: ${booking.status}`,
-    );
-  }
+    if (booking.status !== BookingStatus.CHECK_IN_PENDING) {
+      throw new BadRequestException(
+        `Cannot confirm receipt with booking status: ${booking.status}`,
+      );
+    }
 
-  if (
-    !booking.payment ||
-    booking.payment.status !== PaymentStatus.HELD
-  ) {
-    throw new BadRequestException(
-      'No held payment found for this booking',
-    );
-  }
+    if (!booking.payment || booking.payment.status !== PaymentStatus.HELD) {
+      throw new BadRequestException('No held payment found for this booking');
+    }
 
-  return this.prisma.$transaction(
-    async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       // أولًا: تحرير المبلغ لصاحب السكن
       await tx.payment.update({
         where: {
@@ -540,7 +542,7 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       });
 
       // ثانيًا: إكمال الحجز
-      return tx.booking.update({
+      const result = await tx.booking.update({
         where: {
           id: bookingId,
         },
@@ -550,19 +552,17 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
         },
         include: this.bookingIncludes(),
       });
-    },
-  );
-}
 
+      return this.sanitizeBookingForUser(result, guestId);
+    });
+  }
 
-
-async reportProblem(
-  bookingId: number,
-  guestId: number,
-  dto: ReportBookingProblemDto,
-) {
-  const booking =
-    await this.prisma.booking.findUnique({
+  async reportProblem(
+    bookingId: number,
+    guestId: number,
+    dto: ReportBookingProblemDto,
+  ) {
+    const booking = await this.prisma.booking.findUnique({
       where: {
         id: bookingId,
       },
@@ -571,120 +571,111 @@ async reportProblem(
       },
     });
 
-  if (!booking) {
-    throw new NotFoundException(
-      'Booking not found',
-    );
-  }
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
 
-  if (booking.guestId !== guestId) {
-    throw new ForbiddenException(
-      'Only the guest can report a problem',
-    );
-  }
+    if (booking.guestId !== guestId) {
+      throw new ForbiddenException('Only the guest can report a problem');
+    }
 
-  if (
-    booking.status !==
-    BookingStatus.CHECK_IN_PENDING
-  ) {
-    throw new BadRequestException(
-      'A problem can only be reported while waiting for check-in',
-    );
-  }
+    if (booking.status !== BookingStatus.CHECK_IN_PENDING) {
+      throw new BadRequestException(
+        'A problem can only be reported while waiting for check-in',
+      );
+    }
 
-  if (
-    !booking.payment ||
-    booking.payment.status !== PaymentStatus.HELD
-  ) {
-    throw new BadRequestException(
-      'No held payment found for this booking',
-    );
-  }
+    if (!booking.payment || booking.payment.status !== PaymentStatus.HELD) {
+      throw new BadRequestException('No held payment found for this booking');
+    }
 
-  // لا نغير Payment:
-  // تظل HELD إلى أن يقرر الأدمن
-  return this.prisma.booking.update({
-    where: {
-      id: bookingId,
-    },
-    data: {
-      status: BookingStatus.DISPUTED,
-
-      disputeReason: dto.reason,
-      disputeDescription: dto.description,
-      disputedAt: new Date(),
-    },
-    include: this.bookingIncludes(),
-  });
-}
-
-async continueAfterDisputeResolution(bookingId: number, guestId: number) {
-  const booking = await this.prisma.booking.findUnique({
-    where: { id: bookingId },
-  });
-
-  if (!booking) {
-    throw new NotFoundException('Booking not found');
-  }
-
-  if (booking.guestId !== guestId) {
-    throw new ForbiddenException(
-      'You can only respond to your own dispute resolution',
-    );
-  }
-
-  if (booking.status !== BookingStatus.DISPUTE_RESOLVED_FOR_HOST) {
-    throw new BadRequestException(
-      'لا يوجد قرار نزاع بانتظار ردك على هذا الحجز',
-    );
-  }
-
-  return this.prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      status: BookingStatus.CHECK_IN_PENDING,
-    },
-    include: this.bookingIncludes(),
-  });
-}
-
-  async getHostStats(hostId: number) {
-    const [pending, awaitingCheckIn, completed, total] =
-  await Promise.all([
-    this.prisma.booking.count({
+    // لا نغير Payment:
+    // تظل HELD إلى أن يقرر الأدمن
+    const updated = await this.prisma.booking.update({
       where: {
-        listing: { hostId },
-        status: BookingStatus.PENDING_HOST_APPROVAL,
+        id: bookingId,
       },
-    }),
+      data: {
+        status: BookingStatus.DISPUTED,
 
-    this.prisma.booking.count({
-      where: {
-        listing: { hostId },
+        disputeReason: dto.reason,
+        disputeDescription: dto.description,
+        disputedAt: new Date(),
+      },
+      include: this.bookingIncludes(),
+    });
+
+    return this.sanitizeBookingForUser(updated, guestId);
+  }
+
+  async continueAfterDisputeResolution(bookingId: number, guestId: number) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    if (booking.guestId !== guestId) {
+      throw new ForbiddenException(
+        'You can only respond to your own dispute resolution',
+      );
+    }
+
+    if (booking.status !== BookingStatus.DISPUTE_RESOLVED_FOR_HOST) {
+      throw new BadRequestException(
+        'لا يوجد قرار نزاع بانتظار ردك على هذا الحجز',
+      );
+    }
+
+    const updated = await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: {
         status: BookingStatus.CHECK_IN_PENDING,
       },
-    }),
+      include: this.bookingIncludes(),
+    });
 
-    this.prisma.booking.count({
-      where: {
-        listing: { hostId },
-        status: BookingStatus.COMPLETED,
-      },
-    }),
+    return this.sanitizeBookingForUser(updated, guestId);
+  }
 
-    this.prisma.booking.count({
-      where: {
-        listing: { hostId },
-      },
-    }),
-  ]);
+  async getHostStats(hostId: number) {
+    const [pending, awaitingCheckIn, completed, total] = await Promise.all([
+      this.prisma.booking.count({
+        where: {
+          listing: { hostId },
+          status: BookingStatus.PENDING_HOST_APPROVAL,
+        },
+      }),
 
-return {
-  pending,
-  awaitingCheckIn,
-  completed,
-  total,
-};
+      this.prisma.booking.count({
+        where: {
+          listing: { hostId },
+          status: BookingStatus.CHECK_IN_PENDING,
+        },
+      }),
+
+      this.prisma.booking.count({
+        where: {
+          listing: { hostId },
+          status: BookingStatus.COMPLETED,
+        },
+      }),
+
+      this.prisma.booking.count({
+        where: {
+          listing: { hostId },
+        },
+      }),
+    ]);
+
+    return {
+      pending,
+      awaitingCheckIn,
+      completed,
+      total,
+    };
   }
 
   private bookingIncludes() {
@@ -698,6 +689,16 @@ return {
           maxTenants: true,
           city: true,
           governorate: true,
+          streetName: true,
+          buildingNumber: true,
+          floorNumber: true,
+          apartmentNumber: true,
+          nearbyLandmark: true,
+          googleFormattedAddress: true,
+          googlePlaceId: true,
+          lat: true,
+          lng: true,
+          arrivalInstructions: true,
           rooms: {
             include: {
               images: true,
@@ -715,6 +716,10 @@ return {
               lastName: true,
               avatarUrl: true,
               verificationStatus: true,
+              phone: true,
+              phoneCountry: true,
+              phoneCountryCode: true,
+              email: true,
             },
           },
         },
@@ -736,6 +741,59 @@ return {
         },
       },
     };
+  }
+
+  private sanitizeBookingForUser(booking: any, userId: number) {
+    if (!booking) return booking;
+    const currentUserId = Number(userId);
+    const isHost = Number((booking.listing as any).host?.id) === currentUserId;
+    const isGuest = booking.guestId === currentUserId;
+
+    if (isHost) return booking;
+
+    if (isGuest) {
+      // robust check: coerce enums/strings to uppercase strings to avoid mismatches
+      const paymentStatus = String(booking.payment?.status ?? '').toUpperCase();
+      const bookingStatus = String(booking.status ?? '').toUpperCase();
+
+      const hasAccess =
+        paymentStatus === 'HELD' && bookingStatus === 'CHECK_IN_PENDING';
+
+      this.logger.debug(
+        `sanitizeBookingForUser: booking=${booking.id} user=${currentUserId} isGuest=${isGuest} paymentStatus=${paymentStatus} bookingStatus=${bookingStatus} hasAccess=${hasAccess}`,
+      );
+
+      if (hasAccess) return booking;
+
+      // mask sensitive listing and host contact info
+      const maskedListing = {
+        ...booking.listing,
+        streetName: null,
+        buildingNumber: null,
+        floorNumber: null,
+        apartmentNumber: null,
+        nearbyLandmark: null,
+        googleFormattedAddress: null,
+        googlePlaceId: null,
+        lat: null,
+        lng: null,
+        arrivalInstructions: null,
+        host: {
+          id: booking.listing.host.id,
+          firstName: booking.listing.host.firstName,
+          lastName: booking.listing.host.lastName,
+          avatarUrl: booking.listing.host.avatarUrl,
+          verificationStatus: booking.listing.host.verificationStatus,
+        },
+      };
+
+      return {
+        ...booking,
+        listing: maskedListing,
+      };
+    }
+
+    return booking;
   }
 
   private async countReservedPlaces(listingId: number) {
@@ -781,7 +839,10 @@ return {
     const capacity = calculateCapacity(listing.maxTenants, reservedPlaces);
     const allRoomsFull = areAllRoomsFull(listing);
 
-    if ((capacity.isFull || allRoomsFull) && listing.status !== ListingStatus.RESERVED) {
+    if (
+      (capacity.isFull || allRoomsFull) &&
+      listing.status !== ListingStatus.RESERVED
+    ) {
       await tx.listing.update({
         where: { id: listingId },
         data: { status: ListingStatus.RESERVED },
@@ -789,7 +850,11 @@ return {
       return;
     }
 
-    if (!capacity.isFull && !allRoomsFull && listing.status === ListingStatus.RESERVED) {
+    if (
+      !capacity.isFull &&
+      !allRoomsFull &&
+      listing.status === ListingStatus.RESERVED
+    ) {
       await tx.listing.update({
         where: { id: listingId },
         data: { status: ListingStatus.ACTIVE },

@@ -96,6 +96,7 @@ const listingToForm = (listing) => ({
   areaName: listing.area?.name || listing.areaName || "",
   googleFormattedAddress: listing.googleFormattedAddress || "",
   locationPrivacy: listing.locationPrivacy || "APPROXIMATE",
+  arrivalInstructions: listing.arrivalInstructions || "",
   monthlyRent: listing.monthlyRent ?? "",
   depositAmount: listing.depositAmount ?? 0,
   currency: listing.currency || "EGP",
@@ -515,6 +516,12 @@ export default function EditListingPage() {
               label="عنوان جوجل"
               value={form.googleFormattedAddress}
               onChange={(value) => updateField("googleFormattedAddress", value)}
+            />
+            <EditField
+              label="تعليمات الوصول (اختياري)"
+              type="textarea"
+              value={form.arrivalInstructions}
+              onChange={(value) => updateField("arrivalInstructions", value)}
             />
           </FormSection>
 

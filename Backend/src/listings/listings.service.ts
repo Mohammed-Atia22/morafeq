@@ -88,6 +88,7 @@ export class ListingsService {
         floorNumber: dto.floorNumber,
         apartmentNumber: dto.apartmentNumber,
         nearbyLandmark: dto.nearbyLandmark,
+        arrivalInstructions: dto.arrivalInstructions,
 
         city: dto.city,
         governorate: dto.governorate,
@@ -664,6 +665,10 @@ export class ListingsService {
 
         ...(dto.nearbyLandmark !== undefined && {
           nearbyLandmark: dto.nearbyLandmark,
+        }),
+
+        ...(dto.arrivalInstructions !== undefined && {
+          arrivalInstructions: dto.arrivalInstructions,
         }),
 
         ...(dto.city !== undefined && {
