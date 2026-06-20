@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAdminListings } from "../hooks/useAdminListings";
+import { ImageViewer } from "../../../shared/components/ImageViewer";
 
 function CalendarIcon({ className }) {
   return (
@@ -36,6 +37,8 @@ export function AdminListingsPage() {
   const [note, setNote] = useState("");
   const [reason, setReason] = useState("");
   const [actionType, setActionType] = useState(null); // 'approve' | 'reject' | 'suspend'
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Filter listings based on frontend search term (title or host name)
   const filteredListings = listings.filter((listing) => {
@@ -350,12 +353,21 @@ export function AdminListingsPage() {
               {/* Photos Carousel */}
               <div className="mb-4 grid grid-cols-3 gap-2">
                 {selectedListing.photos?.slice(0, 3).map((photo, index) => (
-                  <img
+                  <button
                     key={index}
-                    src={photo.url}
-                    className="h-24 w-full rounded-xl object-cover border border-slate-100"
-                    alt={`Photo ${index + 1}`}
-                  />
+                    type="button"
+                    onClick={() => {
+                      setCurrentImageIndex(index);
+                      setIsImageViewerOpen(true);
+                    }}
+                    className="h-24 w-full rounded-xl object-cover border border-slate-100 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                  >
+                    <img
+                      src={photo.url}
+                      className="h-full w-full object-cover"
+                      alt={`Photo ${index + 1}`}
+                    />
+                  </button>
                 ))}
               </div>
 
@@ -621,6 +633,16 @@ export function AdminListingsPage() {
           </div>
         )}
       </div>
+
+      {/* ImageViewer for admin review */}
+      {selectedListing && (
+        <ImageViewer
+          images={selectedListing.photos || []}
+          initialIndex={currentImageIndex}
+          isOpen={isImageViewerOpen}
+          onClose={() => setIsImageViewerOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { RatingSummary } from "../../../reviews/components/RatingSummary";
+import { ImageViewer } from "../../../../shared/components/ImageViewer";
 
 const ROOM_TYPE_LABELS = {
   ENTIRE_PLACE: "شقة كاملة",
@@ -30,6 +32,10 @@ function StatBadge({ icon, label }) {
 }
 
 export function ListingInfo({ listing }) {
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentRoomImages, setCurrentRoomImages] = useState([]);
+
   const location = [listing.city, listing.governorate]
     .filter(Boolean)
     .join(" – ");
@@ -152,11 +158,22 @@ export function ListingInfo({ listing }) {
                   className="overflow-hidden rounded-xl border border-slate-100 bg-slate-50"
                 >
                   {image && (
-                    <img
-                      src={image}
-                      alt={room.roomName}
-                      className="h-28 w-full object-cover"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const roomImages = room.images?.map(img => img.imageUrl) || [];
+                        setCurrentRoomImages(roomImages);
+                        setCurrentImageIndex(0);
+                        setIsImageViewerOpen(true);
+                      }}
+                      className="h-28 w-full overflow-hidden cursor-pointer hover:opacity-80 transition"
+                    >
+                      <img
+                        src={image}
+                        alt={room.roomName}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
                   )}
                   <div className="p-3">
                     <div className="flex items-center justify-between gap-2">
@@ -176,13 +193,24 @@ export function ListingInfo({ listing }) {
                     </p>
                     {room.images?.length > 1 && (
                       <div className="mt-2 flex gap-2 overflow-x-auto">
-                        {room.images.slice(1).map((imageItem) => (
-                          <img
+                        {room.images.slice(1).map((imageItem, idx) => (
+                          <button
                             key={imageItem.id}
-                            src={imageItem.imageUrl}
-                            alt={room.roomName}
-                            className="h-12 w-16 shrink-0 rounded-lg object-cover"
-                          />
+                            type="button"
+                            onClick={() => {
+                              const roomImages = room.images?.map(img => img.imageUrl) || [];
+                              setCurrentRoomImages(roomImages);
+                              setCurrentImageIndex(idx + 1);
+                              setIsImageViewerOpen(true);
+                            }}
+                            className="h-12 w-16 shrink-0 overflow-hidden rounded-lg cursor-pointer hover:opacity-80 transition"
+                          >
+                            <img
+                              src={imageItem.imageUrl}
+                              alt={room.roomName}
+                              className="h-full w-full object-cover"
+                            />
+                          </button>
                         ))}
                       </div>
                     )}
@@ -200,6 +228,14 @@ export function ListingInfo({ listing }) {
           📍 قريب من: {listing.nearbyLandmark}
         </p>
       )}
+
+      {/* ImageViewer for room images */}
+      <ImageViewer
+        images={currentRoomImages}
+        initialIndex={currentImageIndex}
+        isOpen={isImageViewerOpen}
+        onClose={() => setIsImageViewerOpen(false)}
+      />
     </div>
   );
 }

@@ -3,7 +3,9 @@ import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { listingsApi } from "../services/listingsApi";
 import { AmenitiesSelector } from "../components/AmenitiesSelector";
+import { AMENITY_OPTIONS } from "../../../shared/constants/amenities";
 import { PhotoUploader } from "../components/PhotoUploader";
+import { ImageViewer } from "../../../shared/components/ImageViewer";
 
 const propertyTypeOptions = [
   { value: "APARTMENT", label: "شقة" },
@@ -55,14 +57,7 @@ const publishStatusOptions = [
   { value: "SUSPENDED", label: "Archived" },
 ];
 
-const AMENITY_OPTIONS = [
-  { key: "wifi", label: "واي فاي" },
-  { key: "kitchen", label: "مطبخ" },
-  { key: "parking", label: "موقف سيارات" },
-  { key: "air_conditioning", label: "تكييف" },
-  { key: "washing_machine", label: "غسالة" },
-  { key: "workspace", label: "مساحة عمل" },
-];
+// AMENITY_OPTIONS imported from shared constants
 
 const numericListingFields = [
   "monthlyRent",
@@ -128,6 +123,8 @@ export default function EditListingPage() {
   const [selectedAmenities, setSelectedAmenities] = useState([]);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     setActiveSection?.("listings");
@@ -508,13 +505,22 @@ export default function EditListingPage() {
           <FormSection title="الصور ووسائل الراحة">
             {existingPhotos.length > 0 ? (
               <div className="grid gap-2 sm:grid-cols-3">
-                {existingPhotos.slice(0, 6).map((photo) => (
-                  <img
+                {existingPhotos.slice(0, 6).map((photo, index) => (
+                  <button
                     key={photo.id}
-                    src={photo.url}
-                    alt="صورة العقار"
-                    className="h-28 w-full rounded-xl object-cover"
-                  />
+                    type="button"
+                    onClick={() => {
+                      setCurrentImageIndex(index);
+                      setIsImageViewerOpen(true);
+                    }}
+                    className="h-28 w-full rounded-xl object-cover overflow-hidden cursor-pointer hover:opacity-80 transition"
+                  >
+                    <img
+                      src={photo.url}
+                      alt="صورة العقار"
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
                 ))}
               </div>
             ) : null}
@@ -562,6 +568,14 @@ export default function EditListingPage() {
           </div>
         </form>
       </div>
+
+      {/* ImageViewer for existing photos */}
+      <ImageViewer
+        images={existingPhotos}
+        initialIndex={currentImageIndex}
+        isOpen={isImageViewerOpen}
+        onClose={() => setIsImageViewerOpen(false)}
+      />
     </div>
   );
 }
