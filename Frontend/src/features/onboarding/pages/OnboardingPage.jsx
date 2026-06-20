@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { RoleCard } from "../components/RoleCard";
 import { onboardingApi } from "../services/onboardingApi";
 import toast from "react-hot-toast";
 import logo from "../../../../images/logo.png";
+import { getRoleHomePath } from "../../auth/utils/roleRedirect";
 
 export function OnboardingPage() {
   const [selectedRole, setSelectedRole] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { completeGoogleLogin } = useAuth();
+  const { completeGoogleLogin, isAuthenticated, isUserLoading, user } = useAuth();
 
   const roles = [
     {
@@ -26,6 +27,22 @@ export function OnboardingPage() {
       descriptionAr: "أبحث عن سكن للدراسة الجامعية",
     },
   ];
+
+  if (isUserLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        جاري تحميل بيانات المستخدم...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user?.onboardingCompleted) {
+    return <Navigate to={getRoleHomePath(user.role)} replace />;
+  }
 
   const handleSubmit = async () => {
     if (!selectedRole) {

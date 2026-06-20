@@ -35,6 +35,7 @@ const ERROR_TRANSLATIONS = {
   "Only admins can review verifications": "هذه العملية متاحة للمسؤول فقط",
   "Listing not found": "لم يتم العثور على العقار",
   "Listing not found or not available": "لم يتم العثور على العقار أو أنه غير متاح",
+  "Apartment is already saved": "هذه الشقة محفوظة بالفعل",
   "Photo not found": "لم يتم العثور على الصورة",
   "Room not found": "لم يتم العثور على الغرفة",
   "Booking not found": "لم يتم العثور على الحجز",

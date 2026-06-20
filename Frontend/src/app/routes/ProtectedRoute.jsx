@@ -3,14 +3,20 @@ import { useAuth } from "../../features/auth/hooks/useAuth";
 import { getRoleHomePath } from "../../features/auth/utils/roleRedirect";
 
 export function ProtectedRoute({ children, allowedRoles }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isUserLoading } = useAuth();
 
-  // المستخدم مش عامل login
+  if (isUserLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        جاري تحميل بيانات المستخدم...
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // التوكن موجود ولسه بنجيب بيانات المستخدم من getMe
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -19,16 +25,11 @@ export function ProtectedRoute({ children, allowedRoles }) {
     );
   }
 
-  // لسه مكمّلش اختيار GUEST أو HOST
   if (!user.onboardingCompleted) {
     return <Navigate to="/onboarding" replace />;
   }
 
-  // المستخدم مسجل دخول لكن الـ role مش مسموح له
-  if (
-    allowedRoles?.length &&
-    !allowedRoles.includes(user.role)
-  ) {
+  if (allowedRoles?.length && !allowedRoles.includes(user.role)) {
     return <Navigate to={getRoleHomePath(user.role)} replace />;
   }
 

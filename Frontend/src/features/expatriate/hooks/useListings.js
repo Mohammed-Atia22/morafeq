@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { expatriateListingsApi } from "../services/expatriateListingsApi";
+import { favoritesApi } from "../../favorites/services/favoritesApi";
 
 /**
  * Manages fetching listings with optional filters.
@@ -17,7 +18,18 @@ export function useListings() {
 
     try {
       const result = await expatriateListingsApi.search(filters);
-      setListings(result.data ?? []);
+      const nextListings = result.data ?? [];
+      const statuses =
+        nextListings.length > 0
+          ? await favoritesApi.getStatuses(nextListings.map((listing) => listing.id))
+          : { data: {} };
+
+      setListings(
+        nextListings.map((listing) => ({
+          ...listing,
+          isFavorited: Boolean(statuses.data?.[listing.id]),
+        })),
+      );
       setMeta(result.meta ?? null);
     } catch (err) {
       setError(err.message || "فشل في تحميل العقارات");

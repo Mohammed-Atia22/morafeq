@@ -26,6 +26,7 @@ import { OwnerMessagesPage } from "./features/owner/pages/OwnerMessagesPage";
 import { OwnerSettingsPage } from "./features/owner/pages/OwnerSettingsPage";
 
 import { ExpatriateHomePage } from "./features/expatriate/pages/ExpatriateHomePage";
+import { AIAssistant } from "./features/ai/components/AIAssistant";
 import { ExpatriateSearchPage } from "./features/expatriate/pages/ExpatriateSearchPage";
 import { ExpatriateListingDetailPage } from "./features/expatriate/pages/ExpatriateListingDetailPage";
 import { ExpatriateLocationInsightPage } from "./features/expatriate/pages/ExpatriateLocationInsightPage";
@@ -50,6 +51,7 @@ import { ExpatriateBookingsPage } from "./features/expatriate/pages/ExpatriateBo
 import BookingDetailPage from "./features/bookings/pages/BookingDetailPage";
 import { PublicHostProfilePage } from "./features/profile/pages/PublicHostProfilePage";
 import { PublicGuestProfilePage } from "./features/profile/pages/PublicGuestProfilePage";
+import { FavoritesPage } from "./features/favorites/pages/FavoritesPage";
 
 function App() {
   return (
@@ -91,6 +93,8 @@ function App() {
 
           <Route path="profile" element={<ProfilePage />} />
 
+          <Route path="favorites" element={<FavoritesPage />} />
+
           <Route path="add" element={<AddListingPage />} />
 
           <Route path="listings/:id/edit" element={<EditListingPage />} />
@@ -126,6 +130,8 @@ function App() {
           />
 
           <Route path="profile" element={<ProfilePage />} />
+
+          <Route path="favorites" element={<FavoritesPage />} />
 
           <Route path="bookings" element={<ExpatriateBookingsPage />} />
 
@@ -185,6 +191,7 @@ function App() {
         {/* Unknown routes */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <AIAssistant />
       <Toaster />
     </AuthProvider>
   );
