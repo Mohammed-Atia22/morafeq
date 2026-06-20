@@ -13,6 +13,7 @@ import { UserRole, VerificationStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as CryptoJS from 'crypto-js';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
+import { SetPreferencesDto } from './dto/set-preferences.dto';
 
 @Injectable()
 export class UsersService {
@@ -330,4 +331,57 @@ export class UsersService {
       refreshToken: tokens.refreshToken,
     };
   }
+
+  // ─── Set/replace all preferences ───────────
+
+async setPreferences(userId: number, dto: SetPreferencesDto) {
+  // replace strategy: delete all existing, insert the new set
+  // simplest and safest for a "select your tags" UI
+  await this.prisma.$transaction([
+    this.prisma.userPreference.deleteMany({
+      where: { userId },
+    }),
+    this.prisma.userPreference.createMany({
+      data: dto.preferenceKeys.map((preferenceKey) => ({
+        userId,
+        preferenceKey,
+      })),
+    }),
+  ]);
+
+  return this.getPreferences(userId);
+}
+
+// ─── Get current preferences ───────────────
+
+async getPreferences(userId: number) {
+  const preferences = await this.prisma.userPreference.findMany({
+    where: { userId },
+    select: { preferenceKey: true },
+  });
+
+  return preferences.map((p) => p.preferenceKey);
+}
+
+// ─── Add a single preference (optional convenience) ──
+
+async addPreference(userId: number, preferenceKey: string) {
+  return this.prisma.userPreference.upsert({
+    where: {
+      userId_preferenceKey: { userId, preferenceKey },
+    },
+    update: {},
+    create: { userId, preferenceKey },
+  });
+}
+
+// ─── Remove a single preference ────────────
+
+async removePreference(userId: number, preferenceKey: string) {
+  await this.prisma.userPreference.deleteMany({
+    where: { userId, preferenceKey },
+  });
+
+  return { message: 'Preference removed' };
+}
 }

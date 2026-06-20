@@ -13,6 +13,7 @@ model User {
   passwordHash         String?               @db.VarChar(255)
   firstName            String                @db.VarChar(100)
   lastName             String                @db.VarChar(100)
+  age                   Int?                   @db.UnsignedInt
   avatarUrl            String?               @db.VarChar(500)
   phone                String?               @db.Text
   phoneCountry         String?               @db.VarChar(2)
@@ -40,11 +41,23 @@ model User {
   disputeConversations DisputeConversation[] @relation("DisputeConversationParticipant")
   disputeMessages      DisputeMessage[]      @relation("DisputeMessageSender")
   favorites            Favorite[]
+  preferences UserPreference[]
 
   @@index([email])
   @@index([phoneCountry])
   @@index([phoneCountryCode])
   @@map("users")
+}
+
+model UserPreference {
+  id            Int    @id @default(autoincrement()) @db.UnsignedInt
+  userId        Int    @db.UnsignedInt
+  preferenceKey String @db.VarChar(50)
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, preferenceKey])
+  @@index([userId])
+  @@map("user_preferences")
 }
 
 model Verification {
