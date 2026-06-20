@@ -19,6 +19,7 @@ import {
   forgetDto,
   RegisterDto,
   ResendOtpDto,
+  ResetOtpDto,
   resetDto,
 } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -88,6 +89,12 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() body: resetDto) {
     return this.authService.resetPassword(body);
+  }
+
+  @Patch('verify-reset-otp')
+  @HttpCode(HttpStatus.OK)
+  async verifyResetOtp(@Body() body: ResetOtpDto) {
+    return this.authService.verifyResetOtp(body);
   }
 
   // ─── Resend OTP ───────────────────────────

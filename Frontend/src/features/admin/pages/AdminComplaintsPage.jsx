@@ -21,7 +21,7 @@ export function AdminComplaintsPage() {
       const data = await adminApi.getComplaints();
       setComplaints(data || []);
     } catch (err) {
-      setError(err.message || "Failed to load complaints");
+      setError(err.message || "تعذر تحميل الشكاوى");
       console.error(err);
     } finally {
       setLoading(false);

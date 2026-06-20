@@ -42,8 +42,8 @@ export function ForgotPasswordPage() {
   return (
     <AuthLayout>
       <AuthCard
-        title="نسيت كلمة المرور"
-        subtitle="سنرسل رمز إعادة التعيين إلى بريدك الإلكتروني"
+        title="إعادة تعيين كلمة المرور"
+        subtitle="أدخل بريدك الإلكتروني لنرسل لك رمز التحقق"
       >
         <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
           <AuthMessage>{serverError}</AuthMessage>
@@ -68,7 +68,7 @@ export function ForgotPasswordPage() {
             disabled={isSubmitting}
             className="h-[52px] w-full rounded-xl bg-[#075ed8] text-base font-black text-white shadow-lg shadow-blue-700/25 transition hover:bg-[#0451bd] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isSubmitting ? "جاري إرسال الرمز..." : "إرسال رمز التعيين"}
+            {isSubmitting ? "جاري إرسال الرمز..." : "إرسال رمز التحقق"}
           </button>
 
           <Link

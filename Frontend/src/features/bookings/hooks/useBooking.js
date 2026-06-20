@@ -16,7 +16,7 @@ export function useBooking() {
       setBookings(data || []);
       return data;
     } catch (err) {
-      setError(err.message || "Failed to load bookings");
+      setError(err.message || "تعذر تحميل الحجوزات");
       console.error(err);
     } finally {
       setLoading(false);
@@ -38,7 +38,7 @@ export function useBooking() {
       setBookings((prev) => [res, ...prev]);
       return res;
     } catch (err) {
-      setError(err.message || "Failed to create booking");
+      setError(err.message || "تعذر إنشاء الحجز");
       toast.error(err.message || "فشل إرسال طلب الحجز");
       throw err;
     } finally {
@@ -58,7 +58,7 @@ export function useBooking() {
       );
       return res;
     } catch (err) {
-      setError(err.message || "Failed to confirm receipt");
+      setError(err.message || "تعذر تأكيد الاستلام");
       toast.error(err.message || "فشل تأكيد الاستلام");
       throw err;
     } finally {
@@ -78,7 +78,7 @@ export function useBooking() {
       );
       return res;
     } catch (err) {
-      setError(err.message || "Failed to report problem");
+      setError(err.message || "تعذر إرسال الشكوى");
       toast.error(err.message || "فشل تقديم الشكوى");
       throw err;
     } finally {
@@ -99,7 +99,7 @@ export function useBooking() {
       );
       return res;
     } catch (err) {
-      setError(err.message || "Failed to cancel booking");
+      setError(err.message || "تعذر إلغاء الحجز");
       toast.error(err.message || "فشل إلغاء الحجز");
       throw err;
     } finally {
@@ -120,7 +120,7 @@ export function useBooking() {
       );
       return res;
     } catch (err) {
-      setError(err.message || "Failed to continue booking");
+      setError(err.message || "تعذر متابعة الحجز");
       toast.error(err.message || "فشل متابعة الحجز");
       throw err;
     } finally {
@@ -141,7 +141,7 @@ export function useBooking() {
       );
       return res;
     } catch (err) {
-      setError(err.message || "Failed to cancel after dispute");
+      setError(err.message || "تعذر إلغاء الحجز بعد النزاع");
       toast.error(err.message || "فشل إلغاء الحجز");
       throw err;
     } finally {

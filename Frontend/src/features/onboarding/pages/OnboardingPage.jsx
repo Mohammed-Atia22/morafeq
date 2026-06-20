@@ -4,6 +4,7 @@ import { useAuth } from "../../auth/hooks/useAuth";
 import { RoleCard } from "../components/RoleCard";
 import { onboardingApi } from "../services/onboardingApi";
 import toast from "react-hot-toast";
+import logo from "../../../../images/logo.png";
 
 export function OnboardingPage() {
   const [selectedRole, setSelectedRole] = useState(null);
@@ -60,12 +61,7 @@ export function OnboardingPage() {
       <div className="w-full max-w-2xl">
         {/* Logo Section */}
         <div className="mb-8 flex flex-col items-center justify-center">
-          <div className="mb-2 flex items-center justify-center gap-2">
-            <span className="text-3xl font-bold text-slate-800">سكن</span>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500">
-              <span className="text-lg font-bold text-white">س</span>
-            </div>
-          </div>
+          <img src={logo} alt="مرافق" className="h-20 w-auto object-contain" />
         </div>
 
         {/* Main Card */}

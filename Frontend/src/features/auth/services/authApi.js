@@ -26,6 +26,11 @@ export const authApi = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+  verifyResetOtp: (payload) =>
+    apiRequest("/auth/verify-reset-otp", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   resendOtp: (payload) =>
     apiRequest("/auth/resend-otp", {
       method: "POST",
