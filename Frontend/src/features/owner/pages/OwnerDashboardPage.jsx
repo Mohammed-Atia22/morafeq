@@ -18,7 +18,7 @@ export function OwnerPage() {
   const { user, logout } = useOutletContext();
   const navigate = useNavigate();
   const location = useLocation();
-  const [activeSection, setActiveSection] = useState("listings");
+  const [activeSection, setActiveSection] = useState("dashboard");
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const handleUnauthorized = useCallback(() => {

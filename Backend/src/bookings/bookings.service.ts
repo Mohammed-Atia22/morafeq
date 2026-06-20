@@ -246,15 +246,6 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           'تمت الموافقة على طلب الحجز الخاص بك. يرجى إكمال الدفع خلال ساعة واحدة، وإلا سيتم إلغاء الحجز تلقائيا.',
         );
 
-        await this.createBookingMessage(
-          tx,
-          booking.guestId,
-          booking.listing.hostId,
-          booking.listingId,
-          'تم حجز مكان جديد.',
-          booking.guestId,
-        );
-
         return updatedBooking;
       });
     }
