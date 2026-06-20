@@ -10,6 +10,8 @@ const STEPS = [
 export function ProfileCompleteness({ profile, completeness }) {
   if (!profile) return null;
 
+  const isVerificationApproved = profile.verificationStatus === "APPROVED";
+
   const colorClass =
     completeness === 100
       ? "bg-emerald-500"
@@ -19,12 +21,19 @@ export function ProfileCompleteness({ profile, completeness }) {
 
   const label =
     completeness === 100
-      ? "ملفك مكتمل 🎉"
-      : completeness >= 60
+      ? "ملفك مكتمل بالكامل"
+      : completeness === 90 && !isVerificationApproved
+        ? "ملفك مكتمل بانتظار اعتماد التوثيق"
+        : completeness >= 60
         ? "ملفك في طريقه للاكتمال"
         : "أكمل ملفك لنتائج أفضل";
 
-  const missing = STEPS.filter((s) => !profile[s.key]);
+  const missing = [
+    ...STEPS.filter((s) => !profile[s.key]),
+    ...(!isVerificationApproved
+      ? [{ key: "verification", label: "اعتماد التوثيق" }]
+      : []),
+  ];
 
   return (
     <div className="rounded-2xl bg-white px-6 py-5 shadow-sm ring-1 ring-slate-100">
@@ -75,7 +84,7 @@ export function ProfileCompleteness({ profile, completeness }) {
 
       {completeness === 100 && (
         <p className="mt-3 text-xs text-emerald-600 font-semibold">
-          ✅ ملفك مكتمل بالكامل — ستحصل على نتائج بحث أفضل
+          ملفك مكتمل بالكامل وستحصل على نتائج بحث أفضل
         </p>
       )}
     </div>

@@ -1,6 +1,30 @@
 import { useState, useEffect, useCallback } from "react";
 import { usersApi } from "../services/usersApi";
 
+const normalizeDialCode = (dialCode) => {
+  if (!dialCode) return "";
+  return dialCode.startsWith("+") ? dialCode : `+${dialCode}`;
+};
+
+const buildProfileForm = (data) => {
+  const phoneCountryCode = normalizeDialCode(data.phoneCountryCode);
+  const phone = data.phone ?? "";
+  const localPhone =
+    phoneCountryCode && phone.startsWith(phoneCountryCode)
+      ? phone.slice(phoneCountryCode.length)
+      : phone.replace(/^\+/, "");
+
+  return {
+    firstName:        data.firstName        ?? "",
+    lastName:         data.lastName         ?? "",
+    bio:              data.bio              ?? "",
+    phone:            localPhone,
+    phoneCountry:     data.phoneCountry     ?? "",
+    phoneCountryCode,
+    gender:           data.gender           ?? "",
+  };
+};
+
 /**
  * Manages all profile operations:
  * - fetch full profile from /users/me
@@ -28,15 +52,7 @@ export function useProfile() {
     try {
       const data = await usersApi.getMe();
       setProfile(data);
-      setForm({
-        firstName:        data.firstName        ?? "",
-        lastName:         data.lastName         ?? "",
-        bio:              data.bio              ?? "",
-        phone:            data.phone            ?? "",
-        phoneCountry:     data.phoneCountry     ?? "",
-        phoneCountryCode: data.phoneCountryCode ?? "",
-        gender:           data.gender           ?? "",
-      });
+      setForm(buildProfileForm(data));
       return data;
     } catch (err) {
       setError(err.message || "ÙØ´Ù„ ÙÙŠ ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ");
@@ -58,15 +74,7 @@ export function useProfile() {
         if (!cancelled) {
           setProfile(data);
           // initialise form with fetched values
-          setForm({
-            firstName:        data.firstName        ?? "",
-            lastName:         data.lastName         ?? "",
-            bio:              data.bio              ?? "",
-            phone:            data.phone            ?? "",
-            phoneCountry:     data.phoneCountry     ?? "",
-            phoneCountryCode: data.phoneCountryCode ?? "",
-            gender:           data.gender           ?? "",
-          });
+          setForm(buildProfileForm(data));
         }
       } catch (err) {
         if (!cancelled) setError(err.message || "فشل في تحميل الملف الشخصي");
@@ -157,7 +165,11 @@ export function useProfile() {
           profile.gender,
         ];
         const filled = fields.filter(Boolean).length;
-        return Math.round((filled / fields.length) * 100);
+        const profileFieldsScore = Math.round((filled / fields.length) * 90);
+        const verificationScore =
+          profile.verificationStatus === "APPROVED" ? 10 : 0;
+
+        return Math.min(100, profileFieldsScore + verificationScore);
       })()
     : 0;
 

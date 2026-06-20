@@ -182,7 +182,7 @@ export class RegisterDto {
   @IsNotEmpty({ message: 'رقم الهاتف مطلوب' })
   @MaxLength(20, { message: 'رقم الهاتف يجب ألا يزيد عن 20 رقم' })
   @Matches(/^\+[1-9]\d{7,14}$/, {
-    message: 'رقم الهاتف يجب أن يكون بصيغة دولية صحيحة',
+    message: 'ادخل رقم هاتف صحيح',
   })
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim() : value,
