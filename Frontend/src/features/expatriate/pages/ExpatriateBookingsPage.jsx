@@ -245,21 +245,38 @@ export function ExpatriateBookingsPage() {
       ) : bookings.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white py-16 text-center shadow-sm">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-blue-50 text-blue-600 mb-4">
-            <svg className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M21 20.25V3c0-.621-.504-1.125-1.125-1.125H4.125C3.504 1.875 3 2.379 3 3v17.25m18 0V21m-18 0v-1.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3V1.875c0-.621.504-1.125 1.125-1.125h15.75c.621 0 1.125.504 1.125 1.125V3M7.5 6h9m-9 3.75h9m-9 3.75h3" />
+            <svg
+              className="h-8 w-8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M21 20.25V3c0-.621-.504-1.125-1.125-1.125H4.125C3.504 1.875 3 2.379 3 3v17.25m18 0V21m-18 0v-1.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3V1.875c0-.621.504-1.125 1.125-1.125h15.75c.621 0 1.125.504 1.125 1.125V3M7.5 6h9m-9 3.75h9m-9 3.75h3"
+              />
             </svg>
           </div>
-          <h3 className="text-base font-extrabold text-slate-800">لا توجد حجوزات حتى الآن</h3>
-          <p className="mt-1 text-xs font-semibold text-slate-400">ابدأ بالبحث عن شقق وتقديم طلب حجز.</p>
+          <h3 className="text-base font-extrabold text-slate-800">
+            لا توجد حجوزات حتى الآن
+          </h3>
+          <p className="mt-1 text-xs font-semibold text-slate-400">
+            ابدأ بالبحث عن شقق وتقديم طلب حجز.
+          </p>
         </div>
       ) : (
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {bookings.map((booking) => {
             const badge = getStatusBadge(booking.status);
-            const coverPhoto = booking.listing?.photos?.[0]?.url || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=300&h=200&fit=crop";
+            const coverPhoto =
+              booking.listing?.photos?.[0]?.url ||
+              "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=300&h=200&fit=crop";
             const expiresAt = getReservationExpiry(booking);
             const remainingTime = formatRemainingTime(expiresAt, now);
-            const selectedRoomName = booking.selectedRoomName || booking.room?.roomName;
+            const selectedRoomName =
+              booking.selectedRoomName || booking.room?.roomName;
             const invoiceBreakdown =
               paymentBreakdowns[booking.id] ||
               normalizePaymentBreakdown(booking.payment) ||
@@ -290,7 +307,9 @@ export function ExpatriateBookingsPage() {
                     className="h-full w-full object-cover"
                   />
                   <div className="absolute right-3 top-3">
-                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold text-white shadow backdrop-blur-md ${badge.className}`}>
+                    <span
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold text-white shadow backdrop-blur-md ${badge.className}`}
+                    >
                       {badge.text}
                     </span>
                   </div>
@@ -309,16 +328,23 @@ export function ExpatriateBookingsPage() {
 
                   <div className="grid grid-cols-2 gap-3 text-xs font-semibold text-slate-600">
                     <div>
-                      <span className="text-slate-400 block">قيمة الإيجار:</span>
+                      <span className="text-slate-400 block">
+                        قيمة الإيجار:
+                      </span>
                       <span className="font-extrabold text-slate-800">
-                        {booking.listing?.monthlyRent?.toLocaleString("ar-EG")} ج.م / شهر
+                        {booking.listing?.monthlyRent?.toLocaleString("ar-EG")}{" "}
+                        ج.م / شهر
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">تاريخ الدخول المفضل:</span>
+                      <span className="text-slate-400 block">
+                        تاريخ الدخول المفضل:
+                      </span>
                       <span className="font-extrabold text-slate-800">
                         {booking.preferredMoveInDate
-                          ? new Date(booking.preferredMoveInDate).toLocaleDateString("ar-EG")
+                          ? new Date(
+                              booking.preferredMoveInDate,
+                            ).toLocaleDateString("ar-EG")
                           : "غير محدد"}
                       </span>
                     </div>
@@ -377,13 +403,24 @@ export function ExpatriateBookingsPage() {
                   onClick={(event) => event.stopPropagation()}
                   onKeyDown={(event) => event.stopPropagation()}
                 >
+                  <button
+                    onClick={() =>
+                      navigate(`/expatriate/bookings/${booking.id}`)
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-100 transition shadow cursor-pointer text-center"
+                  >
+                    عرض تفاصيل الحجز
+                  </button>
+
                   {booking.status === "PENDING_PAYMENT" && (
                     <button
                       onClick={() => handlePayment(booking.id, booking)}
                       disabled={paymentLoading}
                       className="w-full rounded-xl bg-blue-600 py-2.5 text-xs font-black text-white hover:bg-blue-700 transition shadow cursor-pointer text-center"
                     >
-                      {paymentLoading ? "جاري تحضير بوابة الدفع..." : "ادفع الآن"}
+                      {paymentLoading
+                        ? "جاري تحضير بوابة الدفع..."
+                        : "ادفع الآن"}
                     </button>
                   )}
 
@@ -402,7 +439,9 @@ export function ExpatriateBookingsPage() {
                   {booking.status === "CHECK_IN_PENDING" && (
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => confirmReceipt(booking.id).then(() => fetchBookings())}
+                        onClick={() =>
+                          confirmReceipt(booking.id).then(() => fetchBookings())
+                        }
                         className="rounded-lg bg-emerald-600 py-2 text-xs font-black text-white hover:bg-emerald-700 transition cursor-pointer text-center"
                       >
                         كل شيء ممتاز
@@ -419,7 +458,9 @@ export function ExpatriateBookingsPage() {
                     </div>
                   )}
 
-                  {["PENDING_HOST_APPROVAL", "PENDING_PAYMENT"].includes(booking.status) && (
+                  {["PENDING_HOST_APPROVAL", "PENDING_PAYMENT"].includes(
+                    booking.status,
+                  ) && (
                     <button
                       onClick={() => {
                         setSelectedBookingId(booking.id);
@@ -438,7 +479,13 @@ export function ExpatriateBookingsPage() {
                     />
                   )}
 
-                  {!["PENDING_PAYMENT", "CHECK_IN_PENDING", "PENDING_HOST_APPROVAL", "DISPUTE_RESOLVED_FOR_HOST", "COMPLETED"].includes(booking.status) && (
+                  {![
+                    "PENDING_PAYMENT",
+                    "CHECK_IN_PENDING",
+                    "PENDING_HOST_APPROVAL",
+                    "DISPUTE_RESOLVED_FOR_HOST",
+                    "COMPLETED",
+                  ].includes(booking.status) && (
                     <div className="text-center py-1.5 text-xs font-bold text-slate-400">
                       حالة الحجز مغلقة
                     </div>
@@ -457,23 +504,42 @@ export function ExpatriateBookingsPage() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">بوابة الدفع الآمنة (Paymob)</h3>
-                <p className="text-[10px] font-bold text-slate-400 mt-0.5">يرجى إدخال بيانات البطاقة لإتمام حجز العقار</p>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  بوابة الدفع الآمنة (Paymob)
+                </h3>
+                <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                  يرجى إدخال بيانات البطاقة لإتمام حجز العقار
+                </p>
               </div>
               <button
                 onClick={handleClosePayment}
                 className="rounded-lg p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-600 transition cursor-pointer"
               >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
             {/* Iframe */}
-            <iframe src={iframeUrl} className="flex-1 w-full border-none" title="Paymob Checkout Window" />
+            <iframe
+              src={iframeUrl}
+              className="flex-1 w-full border-none"
+              title="Paymob Checkout Window"
+            />
             {/* Footer */}
             <div className="border-t border-slate-100 bg-slate-50 px-6 py-3.5 text-center text-xs font-semibold text-slate-500">
-              يرجى عدم إغلاق الصفحة. سيتم تحديث حالة حجزك تلقائياً بعد نجاح الدفع.
+              يرجى عدم إغلاق الصفحة. سيتم تحديث حالة حجزك تلقائياً بعد نجاح
+              الدفع.
             </div>
           </div>
         </div>
@@ -483,13 +549,18 @@ export function ExpatriateBookingsPage() {
       {showProblemModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl text-right">
-            <h3 className="text-lg font-black text-slate-900 mb-2">تقديم شكوى وإيقاف تحرير الدفعة</h3>
+            <h3 className="text-lg font-black text-slate-900 mb-2">
+              تقديم شكوى وإيقاف تحرير الدفعة
+            </h3>
             <p className="text-xs font-semibold text-slate-500 mb-4">
-              سيتم إرسال المشكلة إلى إدارة المنصة لمراجعتها وإصدار قرار بالاسترجاع أو التحويل المباشر.
+              سيتم إرسال المشكلة إلى إدارة المنصة لمراجعتها وإصدار قرار
+              بالاسترجاع أو التحويل المباشر.
             </p>
             <form onSubmit={submitProblem} className="space-y-4">
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-600">عنوان المشكلة</label>
+                <label className="block text-xs font-bold text-slate-600">
+                  عنوان المشكلة
+                </label>
                 <input
                   type="text"
                   required
@@ -500,7 +571,9 @@ export function ExpatriateBookingsPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-600">تفاصيل المشكلة والوصف</label>
+                <label className="block text-xs font-bold text-slate-600">
+                  تفاصيل المشكلة والوصف
+                </label>
                 <textarea
                   placeholder="يرجى كتابة التفاصيل هنا لمساعدتنا في التحقق الفوري..."
                   rows={4}
@@ -538,13 +611,17 @@ export function ExpatriateBookingsPage() {
       {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl text-right">
-            <h3 className="text-base font-black text-slate-900 mb-2">تأكيد إلغاء الحجز</h3>
+            <h3 className="text-base font-black text-slate-900 mb-2">
+              تأكيد إلغاء الحجز
+            </h3>
             <p className="text-xs font-semibold text-slate-500 mb-4">
               هل أنت متأكد من رغبتك في إلغاء طلب حجز هذا العقار؟
             </p>
             <form onSubmit={submitCancel} className="space-y-4">
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-600">سبب الإلغاء</label>
+                <label className="block text-xs font-bold text-slate-600">
+                  سبب الإلغاء
+                </label>
                 <input
                   type="text"
                   required
@@ -591,7 +668,9 @@ export function ExpatriateBookingsPage() {
         }}
         onCancelRequest={async () => {
           const result = await cancelAfterDispute(disputeBooking.id);
-          const settlement = buildDisputeSettlementPreview(disputeBooking?.payment) || {
+          const settlement = buildDisputeSettlementPreview(
+            disputeBooking?.payment,
+          ) || {
             totalAmount: result?.settlement?.totalPaid,
             expectedRefund: result?.settlement?.guestRefund,
             hostCompensation: result?.settlement?.hostCompensation,

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UploadsService } from '../uploads/uploads.service';
@@ -11,6 +12,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { UserRole, VerificationStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as CryptoJS from 'crypto-js';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 @Injectable()
 export class UsersService {
@@ -58,7 +60,7 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
 
     const currentVerificationStatus =
-      user.verification?.status ?? user.verificationStatus;
+      user.verification?.status ?? VerificationStatus.NOT_STARTED;
 
     if (currentVerificationStatus !== user.verificationStatus) {
       await this.prisma.user.update({
@@ -70,13 +72,8 @@ export class UsersService {
     }
 
     if (user.phone) {
-  const bytes = CryptoJS.AES.decrypt(
-    user.phone,
-    process.env.PHONE_CRYPTO_SECRET!,
-  );
-
-  user.phone = bytes.toString(CryptoJS.enc.Utf8);
-}
+      user.phone = this.decryptPhoneForDisplay(user.phone);
+    }
 
 
     return user;
@@ -100,25 +97,46 @@ export class UsersService {
         _count: {
           select: { listings: true, reviewsReceived: true },
         },
+        verification: {
+          select: {
+            status: true,
+          },
+        },
       },
     });
 
     if (!user) throw new NotFoundException('User not found');
 
-    return user;
+    const currentVerificationStatus =
+      user.verification?.status ?? VerificationStatus.NOT_STARTED;
+
+    if (currentVerificationStatus !== user.verificationStatus) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { verificationStatus: currentVerificationStatus },
+      });
+    }
+
+    return {
+      ...user,
+      verificationStatus: currentVerificationStatus,
+      verification: undefined,
+    };
   }
 
   // ─── Update profile ────────────────────────
 
   async updateProfile(userId: number, dto: UpdateProfileDto) {
+    const phoneUpdate = dto.phone
+      ? await this.buildPhoneUpdate(userId, dto.phone, dto.phoneCountry)
+      : {};
+
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
         ...(dto.firstName && { firstName: dto.firstName }),
         ...(dto.lastName && { lastName: dto.lastName }),
-        ...(dto.phone && { phone: dto.phone }),
-        ...(dto.phoneCountry && { phoneCountry: dto.phoneCountry }), // ← added
-        ...(dto.phoneCountryCode && { phoneCountryCode: dto.phoneCountryCode }), // ← added
+        ...phoneUpdate,
         ...(dto.gender && { gender: dto.gender }), // ← added
         ...(dto.bio !== undefined && { bio: dto.bio }),
       },
@@ -139,7 +157,76 @@ export class UsersService {
       },
     });
 
+    if (updated.phone) {
+      updated.phone = this.decryptPhoneForDisplay(updated.phone);
+    }
+
     return updated;
+  }
+
+  private decryptPhoneForDisplay(phone: string) {
+    const phoneCryptoSecret =
+      process.env.PHONE_CRYPTO_SECRET ?? 'dev_phone_crypto_secret';
+
+    const decrypted = CryptoJS.AES.decrypt(
+      phone,
+      phoneCryptoSecret,
+    ).toString(CryptoJS.enc.Utf8);
+
+    if (decrypted) return decrypted;
+
+    // Recover numbers saved before profile updates used phone encryption.
+    return /^[+\d]/.test(phone) ? phone : '';
+  }
+
+  private async buildPhoneUpdate(
+    userId: number,
+    phone: string,
+    country?: string,
+  ) {
+    const rawPhone = phone.trim();
+    const normalizedCountry =
+      country?.trim().toUpperCase() || undefined;
+    const phoneNumber = rawPhone.startsWith('+')
+      ? parsePhoneNumberFromString(rawPhone)
+      : parsePhoneNumberFromString(rawPhone, normalizedCountry as any);
+
+    if (!phoneNumber || !phoneNumber.isValid()) {
+      throw new BadRequestException('ادخل رقم هاتف صحيح');
+    }
+
+    const normalizedPhone = phoneNumber.number;
+    const phoneCountry = phoneNumber.country ?? normalizedCountry ?? null;
+    const phoneCountryCode = `+${phoneNumber.countryCallingCode}`;
+    const phoneCryptoSecret =
+      process.env.PHONE_CRYPTO_SECRET ?? 'dev_phone_crypto_secret';
+    const phoneHashSecret =
+      process.env.PHONE_HASH_SECRET ?? 'dev_phone_hash_secret';
+    const phoneHash = CryptoJS.HmacSHA256(
+      normalizedPhone,
+      phoneHashSecret,
+    ).toString();
+
+    const existingPhone = await this.prisma.user.findFirst({
+      where: {
+        phoneHash,
+        id: { not: userId },
+      },
+    });
+
+    if (existingPhone) {
+      throw new ConflictException('رقم الهاتف مسجل بالفعل');
+    }
+
+    return {
+      phone: CryptoJS.AES.encrypt(
+        normalizedPhone,
+        phoneCryptoSecret,
+      ).toString(),
+      phoneCountry,
+      phoneCountryCode,
+      phoneHash,
+    };
   }
 
   // ─── Upload avatar ─────────────────────────

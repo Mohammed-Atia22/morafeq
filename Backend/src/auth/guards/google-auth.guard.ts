@@ -1,6 +1,5 @@
 /* eslint-disable prettier/prettier */
-import type { ExecutionContext } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
+import { ExecutionContext, Injectable } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
@@ -10,7 +9,7 @@ export class GoogleAuthGuard extends AuthGuard('google') {
     const response = context.switchToHttp().getResponse();
 
     if (request.query?.error) {
-      response.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`);
+      response.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/register`);
       return false;
     }
 

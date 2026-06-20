@@ -4,6 +4,7 @@ import { useDestinationSearch } from "../hooks/useDestinationSearch";
 import LocationPickerMap from "../../../shared/components/maps/LocationPickerMap";
 import { ListingsGrid } from "../components/home/ListingsGrid";
 import { AmenitiesSelector } from "../../listings/components/AmenitiesSelector";
+import { AMENITY_OPTIONS } from "../../../shared/constants/amenities";
 import { useSearchSuggestions } from "../hooks/useSearchSuggestions";
 
 const ROOM_TYPES = [
@@ -33,15 +34,6 @@ const RADIUS_OPTIONS = [
   { value: 3, label: "3 كم" },
   { value: 5, label: "5 كم" },
   { value: 10, label: "10 كم" },
-];
-
-const AMENITY_OPTIONS = [
-  { key: "wifi", label: "واي فاي" },
-  { key: "kitchen", label: "مطبخ" },
-  { key: "parking", label: "موقف سيارات" },
-  { key: "air_conditioning", label: "تكيف" },
-  { key: "washing_machine", label: "غسالة" },
-  { key: "workspace", label: "مكان للعمل" },
 ];
 
 function FilterLabel({ children }) {

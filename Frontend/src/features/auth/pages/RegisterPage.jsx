@@ -7,7 +7,11 @@ import { AuthMessage } from "../components/AuthMessage";
 import { FormField, inputClass } from "../components/FormField";
 import { GoogleButton } from "../components/GoogleButton";
 import { authApi } from "../services/authApi";
-import { getCountries, getCountryCallingCode } from "libphonenumber-js";
+import {
+  getCountries,
+  getCountryCallingCode,
+  parsePhoneNumberFromString,
+} from "libphonenumber-js";
 import toast from "react-hot-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
@@ -18,7 +22,9 @@ const nameRegex =
 const registrationErrorMessages = {
   "This email is already registered": "هذا البريد الإلكتروني مسجل بالفعل",
   "This phone number is already registered": "رقم الهاتف مسجل بالفعل",
-  "Invalid phone number": "رقم الهاتف غير صحيح",
+  "Invalid phone number": "ادخل رقم هاتف صحيح",
+  "رقم الهاتف غير صحيح": "ادخل رقم هاتف صحيح",
+  "ادخل رقم هاتف صحيح": "ادخل رقم هاتف صحيح",
   "Registration failed": "فشل إنشاء الحساب. حاول مرة أخرى.",
   "Please provide a valid email": "أدخل بريد إلكتروني صحيح",
   "Password is required": "كلمة المرور مطلوبة",
@@ -44,7 +50,7 @@ const registrationErrorMessages = {
   "Phone is required": "رقم الهاتف مطلوب",
   "Phone must not exceed 20 characters": "رقم الهاتف يجب ألا يزيد عن 20 رقم",
   "Phone must be in international format, e.g. +201001234567":
-    "رقم الهاتف يجب أن يكون بصيغة دولية صحيحة",
+    "ادخل رقم هاتف صحيح",
 };
 
 const translateRegistrationError = (message) => {
@@ -53,6 +59,15 @@ const translateRegistrationError = (message) => {
   }
 
   return registrationErrorMessages[message] || message || "فشل إنشاء الحساب. حاول مرة أخرى.";
+};
+
+const getDialCode = (country) => `+${getCountryCallingCode(country)}`;
+
+const getValidPhoneNumber = (country, localPhone) => {
+  const digits = localPhone.trim();
+  const phoneNumber = parsePhoneNumberFromString(digits, country);
+
+  return phoneNumber?.isValid() ? phoneNumber : null;
 };
 
 const schema = zod
@@ -89,13 +104,17 @@ const schema = zod
     countryCode: zod
       .string()
       .nonempty("كود الدولة مطلوب")
-      .regex(/^\+\d{1,4}$/, "كود الدولة غير صحيح"),
+      .refine((country) => getCountries().includes(country), {
+        message: "كود الدولة غير صحيح",
+      }),
 
     phoneNumber: zod
       .string()
       .trim()
       .nonempty("رقم الهاتف مطلوب")
-      .regex(/^\d{7,14}$/, "رقم الهاتف يجب أن يحتوي على أرقام فقط"),
+      .regex(/^\d+$/, "رقم الهاتف يجب أن يحتوي على أرقام فقط")
+      .min(7, "ادخل رقم هاتف صحيح")
+      .max(14, "ادخل رقم هاتف صحيح"),
 
     gender: zod.enum(["male", "female"], {
       message: "اختر النوع",
@@ -115,6 +134,20 @@ const schema = zod
   .refine((data) => data.password === data.confirmPassword, {
     message: "كلمتا المرور غير متطابقتين",
     path: ["confirmPassword"],
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.countryCode &&
+      getCountries().includes(data.countryCode) &&
+      /^\d{7,14}$/.test(data.phoneNumber) &&
+      !getValidPhoneNumber(data.countryCode, data.phoneNumber)
+    ) {
+      ctx.addIssue({
+        code: zod.ZodIssueCode.custom,
+        message: "ادخل رقم هاتف صحيح",
+        path: ["phoneNumber"],
+      });
+    }
   });
 
 export function RegisterPage() {
@@ -123,10 +156,11 @@ export function RegisterPage() {
   const {
     register,
     handleSubmit,
-    getValues,
     formState: { errors, isSubmitting },
   } = useForm({
-    defaultValues: { gender: "male" },
+    defaultValues: { countryCode: "EG", gender: "male" },
+    mode: "onChange",
+    reValidateMode: "onChange",
     resolver: zodResolver(schema),
   });
 
@@ -136,20 +170,21 @@ export function RegisterPage() {
     .map((country) => ({
       country,
       name: regionNames.of(country) || country,
-      code: `+${getCountryCallingCode(country)}`,
+      code: getDialCode(country),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "ar"));
 
   const onSubmit = async (values) => {
     setServerError("");
     try {
-      const localPhone = values.phoneNumber
-        .replace(/\D/g, "")
-        .replace(/^0+/, "");
+      const phoneNumber = getValidPhoneNumber(
+        values.countryCode,
+        values.phoneNumber,
+      );
 
       const payload = {
         ...values,
-        phone: `${values.countryCode}${localPhone}`,
+        phone: phoneNumber.number,
       };
 
       delete payload.countryCode;
@@ -226,7 +261,7 @@ export function RegisterPage() {
                 <option value="">Code</option>
 
                 {countryCodes.map((item) => (
-                  <option key={item.country} value={item.code}>
+                  <option key={item.country} value={item.country}>
                     {item.name} {item.code}
                   </option>
                 ))}
@@ -238,7 +273,11 @@ export function RegisterPage() {
                 inputMode="numeric"
                 dir="ltr"
                 placeholder="1001234567"
-                {...register("phoneNumber")}
+                {...register("phoneNumber", {
+                  onChange: (event) => {
+                    event.target.value = event.target.value.replace(/\D/g, "");
+                  },
+                })}
               />
             </div>
           </FormField>

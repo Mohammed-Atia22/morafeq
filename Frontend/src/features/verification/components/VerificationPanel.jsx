@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { VerificationBadge } from "./VerificationBadge";
+import { ImageUploader } from "../../../shared/components/ImageUploader";
 
 const STATUS_TEXT = {
   NOT_STARTED: "ارفع مستندات الهوية لتتمكن من الحجز ونشر الشقق.",
@@ -8,21 +9,6 @@ const STATUS_TEXT = {
   REJECTED: "تم رفض طلب التوثيق. راجع السبب ثم حاول مرة أخرى.",
 };
 
-function FileField({ label, onChange }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-bold text-slate-600">
-        {label}
-      </span>
-      <input
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        onChange={(event) => onChange(event.target.files?.[0] ?? null)}
-        className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 file:ml-3 file:rounded-lg file:border-0 file:bg-[#1752F0] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white"
-      />
-    </label>
-  );
-}
 
 export function VerificationPanel({
   verification,
@@ -120,9 +106,45 @@ export function VerificationPanel({
       {canUpload && (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            <FileField label="وجه البطاقة" onChange={setIdFront} />
-            <FileField label="ظهر البطاقة" onChange={setIdBack} />
-            <FileField label="صورة شخصية مع البطاقة" onChange={setSelfie} />
+            <div>
+              <ImageUploader
+                images={idFront ? [idFront] : []}
+                onImagesChange={(newImages) => setIdFront(newImages[0] || null)}
+                onRemove={() => setIdFront(null)}
+                maxImages={1}
+                maxSize={5 * 1024 * 1024}
+                title="وجه البطاقة"
+                helperText="ارفع صورة واضحة لوجه بطاقة الهوية"
+                uploadText="رفع وجه البطاقة"
+                required
+              />
+            </div>
+            <div>
+              <ImageUploader
+                images={idBack ? [idBack] : []}
+                onImagesChange={(newImages) => setIdBack(newImages[0] || null)}
+                onRemove={() => setIdBack(null)}
+                maxImages={1}
+                maxSize={5 * 1024 * 1024}
+                title="ظهر البطاقة"
+                helperText="ارفع صورة واضحة لظهر بطاقة الهوية"
+                uploadText="رفع ظهر البطاقة"
+                required
+              />
+            </div>
+            <div>
+              <ImageUploader
+                images={selfie ? [selfie] : []}
+                onImagesChange={(newImages) => setSelfie(newImages[0] || null)}
+                onRemove={() => setSelfie(null)}
+                maxImages={1}
+                maxSize={5 * 1024 * 1024}
+                title="صورة شخصية مع البطاقة"
+                helperText="ارفع صورة شخصية واضحة مع بطاقة الهوية"
+                uploadText="رفع الصورة الشخصية"
+                required
+              />
+            </div>
           </div>
           <button
             type="submit"

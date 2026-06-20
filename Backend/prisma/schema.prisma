@@ -96,11 +96,12 @@ model Listing {
   propertyType PropertyType
   roomType     RoomType
 
-  streetName      String  @db.VarChar(255)
-  buildingNumber  String? @db.VarChar(50)
-  floorNumber     String? @db.VarChar(50)
-  apartmentNumber String? @db.VarChar(50)
-  nearbyLandmark  String? @db.VarChar(255)
+  streetName          String  @db.VarChar(255)
+  buildingNumber      String? @db.VarChar(50)
+  floorNumber         String? @db.VarChar(50)
+  apartmentNumber     String? @db.VarChar(50)
+  nearbyLandmark      String? @db.VarChar(255)
+  arrivalInstructions String? @db.Text
 
   city        String @db.VarChar(100)
   governorate String @db.VarChar(100)
@@ -506,12 +507,8 @@ model DisputeMessage {
   @@index([conversationId, createdAt])
   @@index([senderId])
   @@map("dispute_messages")
-<<<<<<< HEAD
-  }
-=======
 }
 
->>>>>>> 3ff627903e9634a92daaa5337a3c96aa20e3ba2e
 model ListingVector {
   id        Int @id @default(autoincrement()) @db.UnsignedInt
   listingId Int @unique @db.UnsignedInt
@@ -530,6 +527,28 @@ model ListingVector {
   listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@map("listing_vectors")
+}
+
+model ChatSession {
+  id        String        @id @default(uuid())
+  userId    Int? // Optional: link to your Student/User table if you have one
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  sessionId String   @map("session_id")
+  role      String // Custom validation in code: "user" | "model"
+  text      String   @db.Text // Text type to handle long AI or context strings
+  createdAt DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
 }
 
 enum UserRole {

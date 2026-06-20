@@ -235,6 +235,21 @@ export class SearchService {
       const allListingsWithCapacity =
         await this.attachCapacityToListings(allListings);
 
+      // Calculate average ratings for all listings
+      const listingIds = allListingsWithCapacity.map(l => l.id);
+      const avgRatings = await this.prisma.review.groupBy({
+        by: ['listingId'],
+        where: {
+          listingId: { in: listingIds },
+          isVisible: true,
+        },
+        _avg: { rating: true },
+      });
+
+      const ratingMap = new Map(
+        avgRatings.map(r => [r.listingId, r._avg.rating ?? 0])
+      );
+
       const listingsWithDistance = allListingsWithCapacity
         .map((listing) => {
           const listingLat = Number(listing.lat);
@@ -259,6 +274,7 @@ export class SearchService {
           return {
             ...listing,
             distanceKm: Number(distanceKm.toFixed(2)),
+            averageRating: ratingMap.get(listing.id) ?? 0,
           };
         })
         .filter((listing) => {
@@ -361,8 +377,28 @@ export class SearchService {
 
     const listingsWithCapacity = await this.attachCapacityToListings(listings);
 
+    // Calculate average ratings for paginated listings
+    const listingIds = listingsWithCapacity.map(l => l.id);
+    const avgRatings = await this.prisma.review.groupBy({
+      by: ['listingId'],
+      where: {
+        listingId: { in: listingIds },
+        isVisible: true,
+      },
+      _avg: { rating: true },
+    });
+
+    const ratingMap = new Map(
+      avgRatings.map(r => [r.listingId, r._avg.rating ?? 0])
+    );
+
+    const listingsWithRatings = listingsWithCapacity.map(listing => ({
+      ...listing,
+      averageRating: ratingMap.get(listing.id) ?? 0,
+    }));
+
     return {
-      data: listingsWithCapacity.filter((listing) => !(listing as any).isFull),
+      data: listingsWithRatings.filter((listing) => !(listing as any).isFull),
       meta: {
         total,
         page,

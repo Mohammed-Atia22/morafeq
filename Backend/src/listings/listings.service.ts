@@ -88,6 +88,7 @@ export class ListingsService {
         floorNumber: dto.floorNumber,
         apartmentNumber: dto.apartmentNumber,
         nearbyLandmark: dto.nearbyLandmark,
+        arrivalInstructions: dto.arrivalInstructions,
 
         city: dto.city,
         governorate: dto.governorate,
@@ -197,9 +198,7 @@ export class ListingsService {
       roomType?: string;
       rooms?: any[];
     },
-  >(
-    listings: T[],
-  ) {
+  >(listings: T[]) {
     if (listings.length === 0) {
       return listings;
     }
@@ -239,10 +238,10 @@ export class ListingsService {
       roomType?: string;
       rooms?: any[];
     },
-  >(
-    listing: T,
-  ) {
-    const [listingWithCapacity] = await this.attachCapacityToListings([listing]);
+  >(listing: T) {
+    const [listingWithCapacity] = await this.attachCapacityToListings([
+      listing,
+    ]);
     return listingWithCapacity;
   }
 
@@ -599,6 +598,10 @@ export class ListingsService {
       include: { area: true },
     });
 
+    const shouldRequireReview =
+      currentListing?.status === ListingStatus.APPROVED &&
+      Object.keys(dto).length > 0;
+
     let areaId: number | undefined;
     if (
       dto.areaName !== undefined ||
@@ -662,6 +665,10 @@ export class ListingsService {
 
         ...(dto.nearbyLandmark !== undefined && {
           nearbyLandmark: dto.nearbyLandmark,
+        }),
+
+        ...(dto.arrivalInstructions !== undefined && {
+          arrivalInstructions: dto.arrivalInstructions,
         }),
 
         ...(dto.city !== undefined && {
@@ -772,6 +779,12 @@ export class ListingsService {
         ...(dto.status !== undefined && {
           status: dto.status,
         }),
+
+        ...(shouldRequireReview && {
+          status: ListingStatus.PENDING_APPROVAL,
+          submittedAt: new Date(),
+          approvedAt: null,
+        }),
       },
 
       include: {
@@ -787,140 +800,134 @@ export class ListingsService {
 
   // ─── Submit listing for admin review ──────
 
-async submit(id: number, hostId: number) {
-  const listing = await this.verifyOwnership(id, hostId);
-  await this.ensureHostCanPublish(hostId);
+  async submit(id: number, hostId: number) {
+    const listing = await this.verifyOwnership(id, hostId);
+    await this.ensureHostCanPublish(hostId);
 
-  // must have at least one photo before submitting
-  if (
-    listing.status === ListingStatus.ACTIVE ||
-    listing.status === ListingStatus.APPROVED
-  ) {
-    throw new BadRequestException(
-      'This listing is already active',
-    );
+    // must have at least one photo before submitting
+    if (
+      listing.status === ListingStatus.ACTIVE ||
+      listing.status === ListingStatus.APPROVED
+    ) {
+      throw new BadRequestException('This listing is already active');
+    }
+
+    if (listing.status === ListingStatus.SUSPENDED) {
+      throw new ForbiddenException(
+        'This listing has been suspended and cannot be resubmitted',
+      );
+    }
+
+    // check photos exist
+    const photoCount = await this.prisma.listingPhoto.count({
+      where: { listingId: id },
+    });
+
+    if (photoCount === 0) {
+      throw new BadRequestException(
+        'Please upload at least one photo before submitting',
+      );
+    }
+
+    return this.prisma.listing.update({
+      where: { id },
+      data: {
+        status: ListingStatus.PENDING_APPROVAL,
+        submittedAt: new Date(),
+        approvedAt: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        submittedAt: true,
+        approvedAt: true,
+      },
+    });
   }
-
-  if (listing.status === ListingStatus.SUSPENDED) {
-    throw new ForbiddenException(
-      'This listing has been suspended and cannot be resubmitted',
-    );
-  }
-
-  // check photos exist
-  const photoCount = await this.prisma.listingPhoto.count({
-    where: { listingId: id },
-  });
-
-  if (photoCount === 0) {
-    throw new BadRequestException(
-      'Please upload at least one photo before submitting',
-    );
-  }
-
-  return this.prisma.listing.update({
-    where: { id },
-    data: {
-      status:      ListingStatus.PENDING_APPROVAL,
-      submittedAt: new Date(),
-      approvedAt:  null,
-    },
-    select: {
-      id:          true,
-      title:       true,
-      status:      true,
-      submittedAt: true,
-      approvedAt:  true,
-    },
-  });
-}
 
   // ─── Upload photos ─────────────────────────
 
-  async uploadPhotos(
-  id: number,
-  hostId: number,
-  files: Express.Multer.File[],
-) {
-  await this.verifyOwnership(id, hostId);
+  async uploadPhotos(id: number, hostId: number, files: Express.Multer.File[]) {
+    await this.verifyOwnership(id, hostId);
 
-  if (!files?.length) {
-    throw new BadRequestException('Please upload at least one photo');
+    if (!files?.length) {
+      throw new BadRequestException('Please upload at least one photo');
+    }
+
+    const existingCount = await this.prisma.listingPhoto.count({
+      where: { listingId: id },
+    });
+
+    if (existingCount + files.length > 20) {
+      throw new BadRequestException('Maximum 20 photos allowed per listing');
+    }
+
+    // upload all files to ImageBB in parallel
+    const uploadPromises = files.map((file, index) =>
+      this.uploads.uploadImage(file, 'listings').then((result) => ({
+        listingId: id,
+        url: result.url,
+        deleteUrl: result.deleteUrl,
+        sortOrder: existingCount + index,
+        isCover: existingCount === 0 && index === 0,
+      })),
+    );
+
+    const photoData = await Promise.all(uploadPromises);
+
+    await this.prisma.listingPhoto.createMany({ data: photoData });
+
+    return this.prisma.listingPhoto.findMany({
+      where: { listingId: id },
+      orderBy: { sortOrder: 'asc' },
+    });
   }
-
-  const existingCount = await this.prisma.listingPhoto.count({
-    where: { listingId: id },
-  });
-
-  if (existingCount + files.length > 20) {
-    throw new BadRequestException('Maximum 20 photos allowed per listing');
-  }
-
-  // upload all files to ImageBB in parallel
-  const uploadPromises = files.map((file, index) =>
-    this.uploads.uploadImage(file, 'listings').then((result) => ({
-      listingId: id,
-      url:       result.url,
-      deleteUrl: result.deleteUrl,
-      sortOrder: existingCount + index,
-      isCover:   existingCount === 0 && index === 0,
-    })),
-  );
-
-  const photoData = await Promise.all(uploadPromises);
-
-  await this.prisma.listingPhoto.createMany({ data: photoData });
-
-  return this.prisma.listingPhoto.findMany({
-    where:   { listingId: id },
-    orderBy: { sortOrder: 'asc' },
-  });
-}
 
   // ─── Delete photo ──────────────────────────
 
   async deletePhoto(listingId: number, photoId: number, hostId: number) {
-  await this.verifyOwnership(listingId, hostId);
+    await this.verifyOwnership(listingId, hostId);
 
-  const photo = await this.prisma.listingPhoto.findFirst({
-    where: { id: photoId, listingId },
-    select: {
-      id: true,
-      listingId: true,
-      url: true,
-      thumbnailUrl: true,
-      sortOrder: true,
-      isCover: true,
-      createdAt: true,
-      deleteUrl: true,
-    },
-  });
-
-  if (!photo) throw new NotFoundException('Photo not found');
-
-  // delete from ImageBB using stored deleteUrl
-  await this.uploads.deleteImage(photo.deleteUrl);
-
-  // delete from database
-  await this.prisma.listingPhoto.delete({ where: { id: photoId } });
-
-  // if deleted photo was the cover, promote the next photo
-  if (photo.isCover) {
-    const next = await this.prisma.listingPhoto.findFirst({
-      where:   { listingId },
-      orderBy: { sortOrder: 'asc' },
+    const photo = await this.prisma.listingPhoto.findFirst({
+      where: { id: photoId, listingId },
+      select: {
+        id: true,
+        listingId: true,
+        url: true,
+        thumbnailUrl: true,
+        sortOrder: true,
+        isCover: true,
+        createdAt: true,
+        deleteUrl: true,
+      },
     });
 
-    if (next) {
-      await this.prisma.listingPhoto.update({
-        where: { id: next.id },
-        data:  { isCover: true },
-      });
-    }
-  }
+    if (!photo) throw new NotFoundException('Photo not found');
 
-  return { message: 'Photo deleted successfully' };
-}
+    // delete from ImageBB using stored deleteUrl
+    await this.uploads.deleteImage(photo.deleteUrl);
+
+    // delete from database
+    await this.prisma.listingPhoto.delete({ where: { id: photoId } });
+
+    // if deleted photo was the cover, promote the next photo
+    if (photo.isCover) {
+      const next = await this.prisma.listingPhoto.findFirst({
+        where: { listingId },
+        orderBy: { sortOrder: 'asc' },
+      });
+
+      if (next) {
+        await this.prisma.listingPhoto.update({
+          where: { id: next.id },
+          data: { isCover: true },
+        });
+      }
+    }
+
+    return { message: 'Photo deleted successfully' };
+  }
 
   // ─── Set amenities ─────────────────────────
 
@@ -1005,22 +1012,22 @@ async submit(id: number, hostId: number) {
   // ─── Private: verify ownership ─────────────
 
   private async verifyOwnership(listingId: number, hostId: number) {
-  const listing = await this.prisma.listing.findFirst({
-    where: { id: listingId, isDeleted: false },
-  });
+    const listing = await this.prisma.listing.findFirst({
+      where: { id: listingId, isDeleted: false },
+    });
 
-  if (!listing) {
-    throw new NotFoundException('Listing not found');
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (listing.hostId !== hostId) {
+      throw new ForbiddenException(
+        'You do not have permission to modify this listing',
+      );
+    }
+
+    return listing; // ← make sure this line exists
   }
-
-  if (listing.hostId !== hostId) {
-    throw new ForbiddenException(
-      'You do not have permission to modify this listing',
-    );
-  }
-
-  return listing; // ← make sure this line exists
-}
 
   // ─── Soft delete ───────────────────────────
 

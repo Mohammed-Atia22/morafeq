@@ -3,7 +3,9 @@ import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { listingsApi } from "../services/listingsApi";
 import { AmenitiesSelector } from "../components/AmenitiesSelector";
+import { AMENITY_OPTIONS } from "../../../shared/constants/amenities";
 import { PhotoUploader } from "../components/PhotoUploader";
+import { ImageViewer } from "../../../shared/components/ImageViewer";
 
 const propertyTypeOptions = [
   { value: "APARTMENT", label: "شقة" },
@@ -49,20 +51,16 @@ const statusOptions = [
 ];
 
 const publishStatusOptions = [
-  { value: "DRAFT", label: "Draft" },
-  { value: "ACTIVE", label: "Active" },
-  { value: "INACTIVE", label: "Rented" },
-  { value: "SUSPENDED", label: "Archived" },
+  { value: "DRAFT", label: "مسودة" },
+  { value: "ACTIVE", label: "متاحة" },
+  { value: "INACTIVE", label: "مؤجرة" },
+  { value: "PENDING_APPROVAL", label: "قيد المراجعة" },
+  { value: "APPROVED", label: "معتمدة" },
+  { value: "REJECTED", label: "مرفوضة" },
+  { value: "SUSPENDED", label: "موقوفة" },
 ];
 
-const AMENITY_OPTIONS = [
-  { key: "wifi", label: "واي فاي" },
-  { key: "kitchen", label: "مطبخ" },
-  { key: "parking", label: "موقف سيارات" },
-  { key: "air_conditioning", label: "تكييف" },
-  { key: "washing_machine", label: "غسالة" },
-  { key: "workspace", label: "مساحة عمل" },
-];
+// AMENITY_OPTIONS imported from shared constants
 
 const numericListingFields = [
   "monthlyRent",
@@ -98,6 +96,7 @@ const listingToForm = (listing) => ({
   areaName: listing.area?.name || listing.areaName || "",
   googleFormattedAddress: listing.googleFormattedAddress || "",
   locationPrivacy: listing.locationPrivacy || "APPROXIMATE",
+  arrivalInstructions: listing.arrivalInstructions || "",
   monthlyRent: listing.monthlyRent ?? "",
   depositAmount: listing.depositAmount ?? 0,
   currency: listing.currency || "EGP",
@@ -128,6 +127,10 @@ export default function EditListingPage() {
   const [selectedAmenities, setSelectedAmenities] = useState([]);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [originalStatus, setOriginalStatus] = useState("");
+  const [showApprovalWarning, setShowApprovalWarning] = useState(false);
 
   useEffect(() => {
     setActiveSection?.("listings");
@@ -143,6 +146,7 @@ export default function EditListingPage() {
         if (!ignore) {
           setForm(listingToForm(listing));
           setListingTitle(listing.title || "");
+          setOriginalStatus(listing.status || "");
           setSelectedAmenities(
             listing.amenities?.map((item) => item.amenityKey) ?? [],
           );
@@ -214,8 +218,7 @@ export default function EditListingPage() {
   const saveListingAmenities = async (listingId, amenities) =>
     listingsApi.setAmenities(listingId, amenities);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const submitChanges = async () => {
     setSaving(true);
 
     try {
@@ -246,6 +249,17 @@ export default function EditListingPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (originalStatus === "APPROVED" && !showApprovalWarning) {
+      setShowApprovalWarning(true);
+      return;
+    }
+
+    await submitChanges();
   };
 
   if (loading) {
@@ -503,18 +517,33 @@ export default function EditListingPage() {
               value={form.googleFormattedAddress}
               onChange={(value) => updateField("googleFormattedAddress", value)}
             />
+            <EditField
+              label="تعليمات الوصول (اختياري)"
+              type="textarea"
+              value={form.arrivalInstructions}
+              onChange={(value) => updateField("arrivalInstructions", value)}
+            />
           </FormSection>
 
           <FormSection title="الصور ووسائل الراحة">
             {existingPhotos.length > 0 ? (
               <div className="grid gap-2 sm:grid-cols-3">
-                {existingPhotos.slice(0, 6).map((photo) => (
-                  <img
+                {existingPhotos.slice(0, 6).map((photo, index) => (
+                  <button
                     key={photo.id}
-                    src={photo.url}
-                    alt="صورة العقار"
-                    className="h-28 w-full rounded-xl object-cover"
-                  />
+                    type="button"
+                    onClick={() => {
+                      setCurrentImageIndex(index);
+                      setIsImageViewerOpen(true);
+                    }}
+                    className="h-28 w-full rounded-xl object-cover overflow-hidden cursor-pointer hover:opacity-80 transition"
+                  >
+                    <img
+                      src={photo.url}
+                      alt="صورة العقار"
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
                 ))}
               </div>
             ) : null}
@@ -562,6 +591,45 @@ export default function EditListingPage() {
           </div>
         </form>
       </div>
+
+      {showApprovalWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-6 text-right shadow-2xl">
+            <h2 className="text-xl font-black text-[#172033]">تنبيه</h2>
+            <p className="mt-4 text-sm leading-7 text-slate-600">
+              عند تعديل هذا العقار سيتم إخفاؤه مؤقتاً من قائمة العقارات حتى تتم
+              مراجعة التعديلات والموافقة عليها من قبل الإدارة.
+            </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowApprovalWarning(false)}
+                className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowApprovalWarning(false);
+                  submitChanges();
+                }}
+                className="h-11 rounded-xl bg-[#0b62d8] px-5 text-sm font-black text-white transition hover:bg-[#0754bd]"
+              >
+                موافقة والمتابعة
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ImageViewer for existing photos */}
+      <ImageViewer
+        images={existingPhotos}
+        initialIndex={currentImageIndex}
+        isOpen={isImageViewerOpen}
+        onClose={() => setIsImageViewerOpen(false)}
+      />
     </div>
   );
 }

@@ -61,7 +61,7 @@ export function AdminSidebar({ user, logout }) {
     <div className="flex h-full flex-col bg-white">
       {/* Logo / Brand Header */}
       <div className="flex items-center gap-3 border-b border-slate-100 p-5">
-        <img src={logo} alt="مرافق" className="h-11 w-auto object-contain" />
+        <img src={logo} alt="مرافق" className="h-9 w-auto" />
         <div>
           <div className="text-sm font-black text-slate-900 leading-tight">مرافق</div>
           <div className="text-[10px] font-bold text-slate-400 leading-tight">لوحة الإدارة</div>

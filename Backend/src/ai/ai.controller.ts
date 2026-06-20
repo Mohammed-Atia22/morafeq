@@ -1,21 +1,66 @@
-// import { Controller, Post, Body, Param, ParseIntPipe, HttpCode, HttpStatus } from '@nestjs/common';
-// import { RagService } from './ai.service';
+// import { Controller, Post, Body, Param, Query, ParseIntPipe, HttpCode, HttpStatus, NotFoundException } from '@nestjs/common';
+// import { RagService } from './ai.service'; // Ensure this matches your filenames
+// import { PrismaService } from '../prisma/prisma.service';
 
 // @Controller('rag')
 // export class RagController {
-//   constructor(private readonly ragService: RagService) {}
+//   constructor(
+//     private readonly ragService: RagService,
+//     private readonly prisma: PrismaService,
+//   ) {}
 
 //   /**
-//    * Endpoint for conversational student searches.
+//    * Endpoint for conversational student searches supporting optional continuous session routing.
 //    * POST /rag/ask
+//    * Query parameters: ?sessionId=your-uuid-here
 //    */
 //   @Post('ask')
 //   @HttpCode(HttpStatus.OK)
-//   async askHousingAssistant(@Body('query') query: string) {
-//     const aiAnswer = await this.ragService.generateRAGResponse(query);
+//   async askHousingAssistant(
+//     @Body('query') query: string,
+//     @Query('sessionId') sessionId?: string,
+//   ) {
+//     let activeSessionId = sessionId;
+//     let history: { role: 'user' | 'model'; text: string }[] = [];
+
+//     // 1. If a sessionId is specified, grab past thread lines
+//     if (activeSessionId) {
+//       const session = await this.prisma.chatSession.findUnique({
+//         where: { id: activeSessionId },
+//         include: { messages: { orderBy: { createdAt: 'asc' } } },
+//       });
+
+//       if (!session) {
+//         throw new NotFoundException(`Chat session with ID ${activeSessionId} not found.`);
+//       }
+
+//       history = session.messages.map((m) => ({
+//         role: m.role as 'user' | 'model',
+//         text: m.text,
+//       }));
+//     } else {
+//       // 2. If no sessionId passed, instantiate a new conversational database token
+//       const newSession = await this.prisma.chatSession.create({ data: {} });
+//       activeSessionId = newSession.id;
+//     }
+
+//     // 3. Process context-aware pipeline calculations
+//     const aiAnswer = await this.ragService.generateRAGResponse(query, history);
+
+//     // 4. Save thread logs into database (atomic operations grouped in transaction)
+//     await this.prisma.$transaction([
+//       this.prisma.chatMessage.create({
+//         data: { sessionId: activeSessionId, role: 'user', text: query },
+//       }),
+//       this.prisma.chatMessage.create({
+//         data: { sessionId: activeSessionId, role: 'model', text: aiAnswer },
+//       }),
+//     ]);
+
 //     return {
 //       success: true,
 //       data: {
+//         sessionId: activeSessionId,
 //         response: aiAnswer,
 //       },
 //     };
