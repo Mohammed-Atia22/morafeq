@@ -1,12 +1,11 @@
 import { Link } from 'react-router-dom'
+import logo from "../../../../images/logo.png";
 
 export function AuthCard({ title, subtitle, activeTab, children, footer }) {
   return (
     <section className="w-full max-w-[466px] overflow-hidden rounded-[26px] bg-white shadow-2xl shadow-black/30">
       <div className="bg-[#075ed8] px-8 pb-6 pt-8 text-center text-white">
-        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-white/25 bg-white/15 text-2xl font-black">
-          M
-        </div>
+        <img src={logo} alt="مرافق" className="mx-auto h-14 w-auto" />
         <h1 className="mt-4 text-2xl font-black leading-tight">{title}</h1>
         <p className="mt-2 text-sm font-medium text-blue-100">{subtitle}</p>
 

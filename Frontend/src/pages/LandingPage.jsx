@@ -8,6 +8,7 @@ import studentImage from "../../images/std.png";
 import personOne from "../../images/person 1.jpg";
 import personTwo from "../../images/person 2.jpg";
 import personThree from "../../images/person 3.jpg";
+import logo from "../../images/logo.png";
 
 const heroFeatures = [
   { label: "شقق موثقة", icon: ShieldIcon },
@@ -580,9 +581,7 @@ function Footer() {
       <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
         <div>
           <Link to="/" className="inline-flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#075fd6] text-2xl font-black">
-              م
-            </span>
+            <img src={logo} alt="مرافق" className="h-11 w-auto" />
             <span className="text-3xl font-black">مرافق</span>
           </Link>
           <p className="mt-4 max-w-xs text-xl font-semibold leading-9 text-slate-300">

@@ -59,12 +59,12 @@ export class AuthService {
     const phoneNumber = parsePhoneNumberFromString(phone.trim());
 
     if (!phoneNumber || !phoneNumber.isValid()) {
-      throw new BadRequestException('رقم الهاتف غير صحيح');
+      throw new BadRequestException('ادخل رقم هاتف صحيح');
     }
 
     const normalizedPhone = phoneNumber.number;
     const phoneCountry = phoneNumber.country ?? null;
-    const phoneCountryCode = phoneNumber.countryCallingCode;
+    const phoneCountryCode = `+${phoneNumber.countryCallingCode}`;
 
     const phoneCryptoSecret =
       process.env.PHONE_CRYPTO_SECRET ?? 'dev_phone_crypto_secret';
@@ -425,7 +425,7 @@ export class AuthService {
     }
 
     const currentVerificationStatus =
-      user.verification?.status ?? user.verificationStatus;
+      user.verification?.status ?? VerificationStatus.NOT_STARTED;
 
     if (currentVerificationStatus !== user.verificationStatus) {
       await this.prisma.user.update({

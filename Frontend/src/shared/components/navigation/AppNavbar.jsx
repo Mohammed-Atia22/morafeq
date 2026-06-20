@@ -1,6 +1,7 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
-import logo from "../../../../images/logo.png";
+import logo1 from "../../../../images/logo 1.png";
+import logo2 from "../../../../images/logo 2.png";
 
 function BellIcon({ className }) {
   return (
@@ -56,7 +57,10 @@ export function AppNavbar() {
       >
         <nav className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-4 sm:px-8">
           <Link to="/" className="flex items-center gap-3">
-            <img src={logo} alt="مرافق" className="h-12 w-auto" />
+            <div className="flex items-center gap-2">
+              <img src={logo1} alt="مرافق" className="h-16 w-auto" />
+              <img src={logo2} alt="مرافق" className="h-16 w-auto" />
+            </div>
           </Link>
 
           <div className="hidden items-center gap-10 lg:flex">
@@ -142,7 +146,10 @@ export function AppNavbar() {
     >
       <nav className="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-5 sm:px-8">
         <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="مرافق" className="h-11 w-auto" />
+          <div className="flex items-center gap-2">
+            <img src={logo1} alt="مرافق" className="h-12 w-auto" />
+            <img src={logo2} alt="مرافق" className="h-12 w-auto" />
+          </div>
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
