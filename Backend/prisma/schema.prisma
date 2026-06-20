@@ -464,7 +464,6 @@ model Message {
   @@map("messages")
 }
 
-<<<<<<< HEAD
 model DisputeConversation {
   id Int @id @default(autoincrement()) @db.UnsignedInt
 
@@ -507,7 +506,7 @@ model DisputeMessage {
   @@index([conversationId, createdAt])
   @@index([senderId])
   @@map("dispute_messages")
-=======
+  }
 model ListingVector {
   id         Int      @id @default(autoincrement()) @db.UnsignedInt
   listingId  Int      @unique @db.UnsignedInt
@@ -526,7 +525,6 @@ model ListingVector {
   listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@map("listing_vectors")
->>>>>>> f3179c69312b7b382f1ee3be5785c213b94f0b83
 }
 
 enum UserRole {
