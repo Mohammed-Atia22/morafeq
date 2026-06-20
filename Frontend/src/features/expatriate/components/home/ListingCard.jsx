@@ -24,7 +24,11 @@ function AmenityTag({ label }) {
   );
 }
 
-export function ListingCard({ listing }) {
+export function ListingCard({
+  listing,
+  onFavoriteToggle,
+  favoritePending = false,
+}) {
   const navigate = useNavigate();
 
   const coverPhoto = listing.photos?.[0]?.url;
@@ -44,6 +48,10 @@ export function ListingCard({ listing }) {
     .join(" – ");
 
   const handleClick = () => navigate(`/expatriate/listings/${listing.id}`);
+  const handleFavoriteClick = (event) => {
+    event.stopPropagation();
+    onFavoriteToggle?.(listing);
+  };
 
   return (
     <div
@@ -84,6 +92,27 @@ export function ListingCard({ listing }) {
           <span className="absolute left-2 top-2 rounded-full bg-[#1752F0]/90 px-2.5 py-1 text-[11px] font-bold text-white shadow backdrop-blur">
             {listing.distanceKm} كم
           </span>
+        )}
+
+        {onFavoriteToggle && (
+          <button
+            type="button"
+            onClick={handleFavoriteClick}
+            disabled={favoritePending}
+            aria-label={
+              listing.isFavorited
+                ? "إزالة من الشقق المحفوظة"
+                : "حفظ الشقة"
+            }
+            title={
+              listing.isFavorited
+                ? "إزالة من الشقق المحفوظة"
+                : "حفظ الشقة"
+            }
+            className="absolute left-2 bottom-2 grid h-10 w-10 place-items-center rounded-full bg-white/95 text-xl shadow-md ring-1 ring-slate-200 transition hover:scale-105 disabled:cursor-wait disabled:opacity-70"
+          >
+            {listing.isFavorited ? "❤️" : "♡"}
+          </button>
         )}
       </div>
 

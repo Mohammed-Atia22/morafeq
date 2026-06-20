@@ -39,6 +39,7 @@ model User {
   verification         Verification?
   disputeConversations DisputeConversation[] @relation("DisputeConversationParticipant")
   disputeMessages      DisputeMessage[]      @relation("DisputeMessageSender")
+  favorites            Favorite[]
 
   @@index([email])
   @@index([phoneCountry])
@@ -161,6 +162,7 @@ model Listing {
   bookings           Booking[]
   reviews            Review[]
   vectorInsight      ListingVector?
+  favorites          Favorite[]
 
   @@index([hostId])
   @@index([areaId])
@@ -251,6 +253,21 @@ model ListingAmenity {
   @@unique([listingId, amenityKey])
   @@index([listingId])
   @@map("listing_amenities")
+}
+
+model Favorite {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  userId    Int      @db.UnsignedInt
+  listingId Int      @db.UnsignedInt
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([userId])
+  @@index([listingId])
+  @@map("favorites")
 }
 
 model Booking {
