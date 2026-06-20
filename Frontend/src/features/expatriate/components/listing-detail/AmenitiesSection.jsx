@@ -1,5 +1,5 @@
 // Human-readable labels for common amenity keys
-const AMENITY_LABELS = {
+export const AMENITY_LABELS = {
   wifi: "واي فاي",
   internet: "إنترنت",
   ac: "تكييف هواء",

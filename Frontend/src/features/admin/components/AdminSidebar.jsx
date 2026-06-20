@@ -86,9 +86,9 @@ export function AdminSidebar({ user, logout }) {
           <UsersIcon className="h-4 w-4 text-center" />
           <span>المستخدمين</span>
         </NavLink>
-        <NavLink to="/admin/complaints" className={({ isActive }) => itemClassName(isActive)}>
+        <NavLink to="/admin/disputes" className={({ isActive }) => itemClassName(isActive)}>
           <ScaleIcon className="h-4 w-4 text-center" />
-          <span>الشكاوى والنزاعات</span>
+          <span>النزاعات</span>
         </NavLink>
       </nav>
 

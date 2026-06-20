@@ -40,10 +40,13 @@ import { AdminLayout } from "./app/layouts/AdminLayout";
 import AdminDashboardPage from "./features/admin/pages/AdminDashboardPage";
 import AdminListingsPage from "./features/admin/pages/AdminListingsPage";
 import AdminUsersPage from "./features/admin/pages/AdminUsersPage";
+import AdminDisputesPage from "./features/admin/pages/AdminDisputesPage";
+import AdminDisputeDetailsPage from "./features/admin/pages/AdminDisputeDetailsPage";
+import { MyDisputeConversationsPage } from "./features/dispute-chat/pages/MyDisputeConversationsPage";
+import { DisputeConversationPage } from "./features/dispute-chat/pages/DisputeConversationPage";
 
 import { OwnerRentalRequestsPage } from "./features/owner/pages/OwnerRentalRequestsPage";
 import { ExpatriateBookingsPage } from "./features/expatriate/pages/ExpatriateBookingsPage";
-import { AdminComplaintsPage } from "./features/admin/pages/AdminComplaintsPage";
 import { PublicHostProfilePage } from "./features/profile/pages/PublicHostProfilePage";
 import { PublicGuestProfilePage } from "./features/profile/pages/PublicGuestProfilePage";
 
@@ -171,6 +174,24 @@ return ( <AuthProvider> <Routes>
       />
     </Route>
 
+    {/* Dispute chat routes (guest/host) */}
+    <Route
+      path="dispute-chat"
+      element={
+        <ProtectedRoute allowedRoles={["GUEST", "HOST"]}>
+          <MyDisputeConversationsPage />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="dispute-chat/:conversationId"
+      element={
+        <ProtectedRoute allowedRoles={["GUEST", "HOST"]}>
+          <DisputeConversationPage />
+        </ProtectedRoute>
+      }
+    />
+
     {/* Shared profile route */}
     <Route
       path="profile"
@@ -193,7 +214,9 @@ return ( <AuthProvider> <Routes>
       <Route index element={<AdminDashboardPage />} />
       <Route path="listings" element={<AdminListingsPage />} />
       <Route path="users" element={<AdminUsersPage />} />
-      <Route path="complaints" element={<AdminComplaintsPage />} />
+      <Route path="disputes" element={<AdminDisputesPage />} />
+      <Route path="disputes/:bookingId" element={<AdminDisputeDetailsPage />} />
+      <Route path="complaints" element={<AdminDisputesPage />} />
     </Route>
 
     {/* Unknown routes */}
