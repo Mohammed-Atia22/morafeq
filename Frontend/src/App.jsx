@@ -26,6 +26,7 @@ import { OwnerMessagesPage } from "./features/owner/pages/OwnerMessagesPage";
 import { OwnerSettingsPage } from "./features/owner/pages/OwnerSettingsPage";
 
 import { ExpatriateHomePage } from "./features/expatriate/pages/ExpatriateHomePage";
+import { AIAssistant } from "./features/ai/components/AIAssistant";
 import { ExpatriateSearchPage } from "./features/expatriate/pages/ExpatriateSearchPage";
 import { ExpatriateListingDetailPage } from "./features/expatriate/pages/ExpatriateListingDetailPage";
 import { ExpatriateLocationInsightPage } from "./features/expatriate/pages/ExpatriateLocationInsightPage";
@@ -185,6 +186,7 @@ function App() {
         {/* Unknown routes */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <AIAssistant />
       <Toaster />
     </AuthProvider>
   );
