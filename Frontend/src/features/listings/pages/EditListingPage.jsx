@@ -203,9 +203,14 @@ export default function EditListingPage() {
       toast.error("الصور يجب ألا تتجاوز 5 ميغابايت لكل صورة");
     }
 
-    setSelectedPhotos((currentPhotos) =>
-      [...currentPhotos, ...validFiles].slice(0, 10),
-    );
+    if (event.target.replaceSelection) {
+      setSelectedPhotos(validFiles.slice(0, 10));
+    } else {
+      setSelectedPhotos((currentPhotos) =>
+        [...currentPhotos, ...validFiles].slice(0, 10),
+      );
+    }
+
     event.target.value = "";
   };
 

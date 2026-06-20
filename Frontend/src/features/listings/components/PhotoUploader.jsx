@@ -7,15 +7,15 @@ export function PhotoUploader({
   removeSelectedPhoto,
   required = false,
 }) {
-  // Adapt ImageUploader's onImagesChange to match handlePhotoChange's expected event format
   const handleImagesChange = (newImages) => {
-    // Create a mock event object with target.files property
     const mockEvent = {
       target: {
         files: newImages,
+        replaceSelection: true,
         value: "",
       },
     };
+
     handlePhotoChange(mockEvent);
   };
 

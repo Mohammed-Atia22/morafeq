@@ -311,9 +311,13 @@ export function AddListingForm({ embedded = false, onCreated }) {
       clearErrors("root");
     }
 
-    setSelectedPhotos((currentPhotos) =>
-      [...currentPhotos, ...validFiles].slice(0, 10),
-    );
+    if (event.target.replaceSelection) {
+      setSelectedPhotos(validFiles.slice(0, 10));
+    } else {
+      setSelectedPhotos((currentPhotos) =>
+        [...currentPhotos, ...validFiles].slice(0, 10),
+      );
+    }
 
     event.target.value = "";
   };
