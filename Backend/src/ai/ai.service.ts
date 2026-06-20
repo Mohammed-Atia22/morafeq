@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, InternalServerErrorException } from '@ne
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { GoogleGenAI } from '@google/genai';
-import { PrismaService } from '../prisma/prisma.service'; // Adjust path based on your project structure
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface ChatMessage {
   role: 'user' | 'model';
@@ -57,7 +57,6 @@ export class RagService {
         contents: textChunk,
       });
 
-      // Strict TypeScript Type Guard check
       if (!embeddingResponse.embeddings || embeddingResponse.embeddings.length === 0) {
         throw new InternalServerErrorException('Failed to generate embedding from Google API.');
       }
@@ -71,7 +70,7 @@ export class RagService {
       await this.prisma.listingVector.upsert({
         where: { listingId: listing.id },
         update: {
-          vectorText: vectorValues, 
+          vectorText: vectorValues,
           textChunk: textChunk,
         },
         create: {
@@ -89,7 +88,11 @@ export class RagService {
   /**
    * 2. RETRIEVAL & GENERATION PHASE (Conversational MySQL Edition)
    */
-  async generateRAGResponse(studentQuery: string, history: ChatMessage[] = []): Promise<string> {
+  async generateRAGResponse(
+    studentQuery: string,
+    userId: number,
+    history: ChatMessage[] = [],
+  ): Promise<string> {
     try {
       let searchInterfaceQuery = studentQuery;
 
@@ -120,7 +123,7 @@ export class RagService {
         }
       }
 
-      // Step A2: Vectorize the query (either rewritten or raw initial query)
+      // Step A2: Vectorize the query
       const embeddingResponse = await this.ai.models.embedContent({
         model: 'gemini-embedding-001',
         contents: searchInterfaceQuery,
@@ -133,7 +136,7 @@ export class RagService {
       const queryVector = embeddingResponse.embeddings[0].values;
       const queryVectorString = JSON.stringify(queryVector);
 
-      // Step B: Vector search — top 3 matching listings from MySQL using your exact math lookup
+      // Step B: Vector search — top 3 matching listings from MySQL
       const matches: any[] = await this.prisma.$queryRaw`
         SELECT 
           v.listingId, 
@@ -172,18 +175,37 @@ export class RagService {
           return { listingId: listing.id, services };
         }),
       );
-      
+
       const servicesByListingId = new Map(
         nearbyServicesPerListing.map((s) => [Number(s.listingId), s.services]),
       );
 
-      // Step C: Combine listing text chunk + its live nearby-services context
+      // Step B4: Fetch current tenant profiles + compatibility context
+      const tenantContextPerListing = await Promise.all(
+        listingIds.map(async (listingId) => {
+          const [tenantsProfile, compatibility] = await Promise.all([
+            this.getListingTenantsProfile(listingId),
+            this.getCompatibilitySummary(userId, listingId),
+          ]);
+          return { listingId, tenantsProfile, compatibility };
+        }),
+      );
+
+      const tenantContextByListingId = new Map(
+        tenantContextPerListing.map((t) => [Number(t.listingId), t]),
+      );
+
+      // Step C: Combine text chunks, overpass API services, and user preference analysis
       const extractedContexts = matches
         .map((match) => {
           const services = servicesByListingId.get(Number(match.listingId));
+          const tenantInfo = tenantContextByListingId.get(Number(match.listingId));
+
           return `
             ${match.textChunk}
             Nearby services (live data): ${services ?? 'Not available'}
+            Current tenants profile: ${tenantInfo?.tenantsProfile ?? 'Not available'}
+            Compatibility with asking student: ${tenantInfo?.compatibility ?? 'Not available'}
           `.trim();
         })
         .join('\n\n---\n\n');
@@ -192,7 +214,7 @@ export class RagService {
         return "I couldn't find any student housing options matching your exact parameters right now.";
       }
 
-      // Step D: Format conversation history into structural format required by SDK chats
+      // Step D: Format conversation history for SDK chat format
       const sdkHistory = history.map((msg) => ({
         role: msg.role,
         parts: [{ text: msg.text }],
@@ -201,15 +223,19 @@ export class RagService {
       // Step E: Create Multi-Turn Chat instance
       const systemInstruction = `
         You are an elite student housing assistant.
-        Each listing contains two sources of information:
-        1. Listing information.
-        2. Nearby services information.
+        Each listing contains up to four sources of information:
+        1. Listing information — price, rooms, location, rules.
+        2. Nearby services information — pharmacies, hospitals, universities, restaurants, transport.
+        3. Current tenants profile — age, university, and preference keys of students currently living there.
+        4. Compatibility with asking student — lifestyle match based on matching preference keys.
 
         VERY IMPORTANT:
-        Whenever nearby services information exists, ALWAYS mention it in the answer, even if the user did not explicitly ask about pharmacies or hospitals. Do not ignore nearby services.
-        Include the number of hospitals, pharmacies, universities, restaurants and transport stations if available.
-        Never say nearby services are unavailable unless the context explicitly says so.
-        
+        - Whenever nearby services information exists, ALWAYS mention it, even if not explicitly asked. Include the number of hospitals, pharmacies, universities, restaurants and transport stations if available.
+        - Whenever compatibility information exists and shows shared lifestyle attributes (like roommate habits, sleep schedules, hobbies), ALWAYS highlight this explicitly.
+        - If a listing has high lifestyle matching, highlight it as an excellent choice for shared communal harmony.
+        - If a listing has low compatibility or distinct lifestyle gaps, be transparent about it.
+        - Never say information is unavailable unless the context pool specifically states it.
+
         Answer in Arabic.
       `;
 
@@ -236,13 +262,14 @@ export class RagService {
         - Mention nearby pharmacies.
         - Mention nearby universities.
         - Mention nearby transportation.
+        - Mention current tenant compatibility if relevant to the question.
 
         Answer in Arabic.
 
         Response:
       `;
 
-      // Step F: Send message through the ongoing chat context pipeline
+      // Step F: Execute pipeline transaction via SDK chat instance
       const generationOutput = await chat.sendMessage({
         message: dynamicPrompt,
       });
@@ -254,6 +281,9 @@ export class RagService {
     }
   }
 
+  /**
+   * 3. NEARBY SERVICES (Overpass)
+   */
   private async fetchNearbyServices(lat: number, lng: number, radiusMeters = 10000): Promise<string> {
     const query = `
       [out:json][timeout:15];
@@ -317,5 +347,104 @@ export class RagService {
       console.error('[Overpass Fetch Error] Message:', err?.message);
       return 'Nearby services data is temporarily unavailable.';
     }
+  }
+
+  /**
+   * 4. CURRENT TENANTS PROFILE
+   * Correctly uses 'guest' and 'preferences' matching your schema names.
+   */
+  private async getListingTenantsProfile(listingId: number): Promise<string> {
+    const tenants = await this.prisma.booking.findMany({
+      where: {
+        listingId,
+        status: 'COMPLETED',
+      },
+      select: {
+        guest: {
+          select: {
+            id: true,
+            firstName: true,
+            age: true,
+            preferences: {
+              select: { preferenceKey: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (tenants.length === 0) {
+      return 'No current tenant information available for this listing.';
+    }
+
+    // Deduplicate profiles securely by Guest ID
+    const uniqueGuests = Array.from(
+      new Map(tenants.map((t) => [t.guest.id, t.guest])).values(),
+    );
+
+    const profiles = uniqueGuests.map((g) => {
+      const prefs = g.preferences.map((p) => p.preferenceKey).join(', ') || 'none listed';
+      return `Tenant (${g.firstName}): age ${g.age ?? 'unknown'}, preferences: [${prefs}]`;
+    });
+
+    return profiles.join(' | ');
+  }
+
+  /**
+   * 5. COMPATIBILITY SUMMARY
+   * Correctly checks 'guestId' instead of 'userId' based on your booking schema tracking.
+   */
+  private async getCompatibilitySummary(
+    askingUserId: number,
+    listingId: number,
+  ): Promise<string> {
+    // 1. Get the asking student's own preferences
+    const myPreferences = await this.prisma.userPreference.findMany({
+      where: { userId: askingUserId },
+      select: { preferenceKey: true },
+    });
+    const myKeys = new Set(myPreferences.map((p) => p.preferenceKey));
+
+    if (myKeys.size === 0) {
+      return 'You have not set any preferences yet, so compatibility cannot be calculated.';
+    }
+
+    // 2. Get current tenants of this listing, excluding the asking student themself via guestId
+    const bookings = await this.prisma.booking.findMany({
+      where: {
+        listingId,
+        status: 'COMPLETED',
+        guestId: { not: askingUserId },
+      },
+      select: {
+        guest: {
+          select: {
+            id: true,
+            firstName: true,
+            preferences: { select: { preferenceKey: true } },
+          },
+        },
+      },
+    });
+
+    if (bookings.length === 0) {
+      return 'No current tenants to compare preferences with for this listing.';
+    }
+
+    // Deduplicate guests securely
+    const uniqueGuests = Array.from(
+      new Map(bookings.map((b) => [b.guest.id, b.guest])).values(),
+    );
+
+    // 3. Compute overlap percentage
+    const comparisons = uniqueGuests.map((g) => {
+      const tenantKeys = g.preferences.map((p) => p.preferenceKey);
+      const sharedKeys = tenantKeys.filter((k) => myKeys.has(k));
+      const overlapPercent = Math.round((sharedKeys.length / myKeys.size) * 100);
+
+      return `With Tenant ${g.firstName}: shares ${sharedKeys.length} preference(s) (${sharedKeys.join(', ') || 'none'}) — ${overlapPercent}% match.`;
+    });
+
+    return comparisons.join(' ');
   }
 }

@@ -1,6 +1,19 @@
-import { Controller, Post, Body, Param, Query, ParseIntPipe, HttpCode, HttpStatus, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Param,
+  Query,
+  ParseIntPipe,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  UseGuards,
+} from '@nestjs/common';
 import { RagService } from './ai.service'; // Ensure this matches your filenames
 import { PrismaService } from '../prisma/prisma.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('rag')
 export class RagController {
@@ -15,8 +28,10 @@ export class RagController {
    * Query parameters: ?sessionId=your-uuid-here
    */
   @Post('ask')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async askHousingAssistant(
+    @CurrentUser() user: any,
     @Body('query') query: string,
     @Query('sessionId') sessionId?: string,
   ) {
@@ -44,8 +59,12 @@ export class RagController {
       activeSessionId = newSession.id;
     }
 
-    // 3. Process context-aware pipeline calculations
-    const aiAnswer = await this.ragService.generateRAGResponse(query, history);
+    // 3. Process context-aware pipeline calculations — now passes the authenticated user's id
+    const aiAnswer = await this.ragService.generateRAGResponse(
+      query,
+      user.id,
+      history,
+    );
 
     // 4. Save thread logs into database (atomic operations grouped in transaction)
     await this.prisma.$transaction([

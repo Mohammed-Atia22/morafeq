@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Patch,
+  Put,
   Post,
   Body,
   Param,
@@ -21,6 +22,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { SetPreferencesDto } from './dto/set-preferences.dto';
+import { VALID_PREFERENCE_KEYS } from './constants/preference-keys';
 
 @Controller('users')
 export class UsersController {
@@ -106,4 +109,37 @@ export class UsersController {
   getPublicProfile(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.getPublicProfile(id);
   }
+
+  // ─── Get my preferences ────────────────────
+
+@Get('me/preferences')
+@UseGuards(JwtAuthGuard)
+getMyPreferences(@CurrentUser() user: any) {
+  return this.usersService.getPreferences(user.id);
+}
+
+// ─── Set/replace my preferences ────────────
+
+@Put('me/preferences')
+@UseGuards(JwtAuthGuard)
+setMyPreferences(
+  @CurrentUser() user: any,
+  @Body() dto: SetPreferencesDto,
+) {
+  return this.usersService.setPreferences(user.id, dto);
+}
+
+// ─── Get list of valid preference keys (for frontend UI) ──
+
+@Get('preferences/options')
+getPreferenceOptions() {
+  return { options: VALID_PREFERENCE_KEYS };
+}
+
+// ─── View another user's preferences (public profile) ──
+
+@Get(':id/preferences')
+getUserPreferences(@Param('id', ParseIntPipe) id: number) {
+  return this.usersService.getPreferences(id);
+}
 }
