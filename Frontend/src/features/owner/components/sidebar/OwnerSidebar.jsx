@@ -31,7 +31,7 @@ const navigate = useNavigate();
 const location = useLocation();
 
 const ownerSection =
-location.state?.ownerSection || "listings";
+location.state?.ownerSection || "dashboard";
 
 const isOwnerHome =
 location.pathname === "/owner";
@@ -176,8 +176,7 @@ className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition
       icon={BuildingIcon}
       active={
         isOwnerHome &&
-        ownerSection !== "dashboard" &&
-        ownerSection !== "add"
+        ownerSection === "listings"
       }
       className={itemClassName}
     />

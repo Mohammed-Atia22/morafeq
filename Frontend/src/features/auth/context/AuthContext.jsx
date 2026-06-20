@@ -79,10 +79,12 @@
 // }
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { authApi } from "../services/authApi";
 import { AuthContext } from "../utils/authState";
 
 export function AuthProvider({ children }) {
+  const navigate = useNavigate();
   const [token, setToken] = useState(() =>
     localStorage.getItem("morafeq_access_token"),
   );
@@ -200,8 +202,10 @@ export function AuthProvider({ children }) {
 
       setToken(null);
       setUser(null);
+      setIsUserLoading(false);
+      navigate("/login", { replace: true });
     }
-  }, []);
+  }, [navigate]);
 
   const value = useMemo(
     () => ({
