@@ -23,6 +23,8 @@ import { DisputeChatModule } from './dispute-chat/dispute-chat.module';
 import { AiModule } from './ai/ai.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { RoommateProfileModule } from './roommate-profile/roommate-profile.module';
+import { RoommateMatchingModule } from './roommate-matching/roommate-matching.module';
 
 
 @Module({
@@ -51,6 +53,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     AiModule,
     FavoritesModule,
     NotificationsModule,
+    RoommateProfileModule,
+    RoommateMatchingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

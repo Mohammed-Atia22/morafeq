@@ -35,6 +35,7 @@ model User {
   reviewsReceived      Review[]              @relation("ReviewsReceived")
   otps                 OTP[]
   notifications        Notification[]
+  roommateProfile      RoommateProfile?
   guestConversations   Conversation[]        @relation("GuestConversations")
   hostConversations    Conversation[]        @relation("HostConversations")
   sentMessages         Message[]             @relation("MessageSender")
@@ -48,6 +49,54 @@ model User {
   @@index([phoneCountry])
   @@index([phoneCountryCode])
   @@map("users")
+}
+
+model RoommateProfile {
+  id     Int @id @default(autoincrement()) @db.UnsignedInt
+  userId Int @unique @db.UnsignedInt
+
+  occupationType RoommateOccupationType?
+
+  university   String? @db.VarChar(150)
+  faculty      String? @db.VarChar(150)
+  academicYear String? @db.VarChar(50)
+
+  occupation String? @db.VarChar(150)
+  workField  String? @db.VarChar(150)
+
+  ageRange RoommateAgeRange?
+
+  preferredMinRent Int? @db.UnsignedInt
+  preferredMaxRent Int? @db.UnsignedInt
+
+  preferredRoomType RoomType?
+
+  preferredCity        String? @db.VarChar(100)
+  preferredGovernorate String? @db.VarChar(100)
+
+  interests Json?
+
+  sleepSchedule  RoommateSleepSchedule?
+  studyFrequency RoommateStudyFrequency?
+
+  cleanlinessLevel RoommateCleanlinessLevel?
+
+  smokingStatus    RoommateSmokingStatus?
+  smokingTolerance RoommateSmokingTolerance?
+
+  guestPreference RoommateGuestPreference?
+  privacyLevel    RoommatePrivacyLevel?
+
+  cookingFrequency RoommateCookingFrequency?
+  expenseStyle     RoommateExpenseStyle?
+  conflictStyle    RoommateConflictStyle?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("roommate_profiles")
 }
 
 model UserPreference {
@@ -750,4 +799,83 @@ enum VerificationStatus {
 enum DisputeParticipantType {
   GUEST
   HOST
+}
+
+enum RoommateOccupationType {
+  STUDENT
+  EMPLOYEE
+  FREELANCER
+  OTHER
+}
+
+enum RoommateAgeRange {
+  UNDER_18
+  AGE_18_20
+  AGE_21_23
+  AGE_24_26
+  AGE_27_30
+  ABOVE_30
+}
+
+enum RoommateSleepSchedule {
+  EARLY
+  NORMAL
+  LATE
+  VARIABLE
+}
+
+enum RoommateCleanlinessLevel {
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+enum RoommateSmokingStatus {
+  NON_SMOKER
+  SMOKER
+  OCCASIONAL
+}
+
+enum RoommateSmokingTolerance {
+  NEVER
+  OUTSIDE_ONLY
+  OK
+}
+
+enum RoommateGuestPreference {
+  NO_GUESTS
+  WITH_NOTICE
+  SOMETIMES
+  OFTEN
+}
+
+enum RoommatePrivacyLevel {
+  HIGH
+  MEDIUM
+  SOCIAL
+}
+
+enum RoommateStudyFrequency {
+  RARELY
+  SOMETIMES
+  OFTEN
+}
+
+enum RoommateCookingFrequency {
+  RARELY
+  SOMETIMES
+  DAILY
+}
+
+enum RoommateExpenseStyle {
+  EQUAL
+  BY_USAGE
+  AGREEMENT
+}
+
+enum RoommateConflictStyle {
+  DIRECT_CALM
+  INFORM_HOST
+  AVOID
 }
