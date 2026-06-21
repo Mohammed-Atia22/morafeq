@@ -13,7 +13,7 @@ model User {
   passwordHash         String?               @db.VarChar(255)
   firstName            String                @db.VarChar(100)
   lastName             String                @db.VarChar(100)
-  age                   Int?                   @db.UnsignedInt
+  age                  Int?                  @db.UnsignedInt
   avatarUrl            String?               @db.VarChar(500)
   phone                String?               @db.Text
   phoneCountry         String?               @db.VarChar(2)
@@ -34,6 +34,7 @@ model User {
   reviewsWritten       Review[]              @relation("ReviewsWritten")
   reviewsReceived      Review[]              @relation("ReviewsReceived")
   otps                 OTP[]
+  notifications        Notification[]
   guestConversations   Conversation[]        @relation("GuestConversations")
   hostConversations    Conversation[]        @relation("HostConversations")
   sentMessages         Message[]             @relation("MessageSender")
@@ -41,7 +42,7 @@ model User {
   disputeConversations DisputeConversation[] @relation("DisputeConversationParticipant")
   disputeMessages      DisputeMessage[]      @relation("DisputeMessageSender")
   favorites            Favorite[]
-  preferences UserPreference[]
+  preferences          UserPreference[]
 
   @@index([email])
   @@index([phoneCountry])
@@ -97,6 +98,37 @@ model OTP {
 
   @@index([userId])
   @@map("otps")
+}
+
+model Notification {
+  id     Int @id @default(autoincrement()) @db.UnsignedInt
+  userId Int @db.UnsignedInt
+
+  type    NotificationType
+  title   String           @db.VarChar(255)
+  message String           @db.Text
+
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
+  emailStatus EmailDeliveryStatus @default(NOT_REQUESTED)
+  emailSentAt DateTime?
+  emailError  String?             @db.Text
+
+  relatedEntity   String? @db.VarChar(50)
+  relatedEntityId Int?    @db.UnsignedInt
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([type])
+  @@index([createdAt])
+  @@map("notifications")
 }
 
 model Listing {
@@ -662,6 +694,29 @@ enum BlockReason {
   BOOKED
   HOST_BLOCKED
   MAINTENANCE
+}
+
+enum NotificationType {
+  USER_VERIFICATION_APPROVED
+  USER_VERIFICATION_REJECTED
+  USER_VERIFICATION_NEEDS_CHANGES
+
+  LISTING_VERIFICATION_APPROVED
+  LISTING_VERIFICATION_REJECTED
+  LISTING_VERIFICATION_NEEDS_CHANGES
+
+  BOOKING_REQUESTED
+  BOOKING_APPROVED
+  BOOKING_REJECTED
+  PAYMENT_REQUIRED
+  PAYMENT_CONFIRMED
+}
+
+enum EmailDeliveryStatus {
+  NOT_REQUESTED
+  PENDING
+  SENT
+  FAILED
 }
 
 enum ReviewType {

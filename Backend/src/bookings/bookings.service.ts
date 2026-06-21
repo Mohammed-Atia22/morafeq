@@ -13,11 +13,13 @@ import {
   ListingStatus,
   PaymentStatus,
   VerificationStatus,
+  NotificationType 
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ReportBookingProblemDto } from './dto/report-booking-problem.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   BookingResponseAction,
   RespondBookingDto,
@@ -36,7 +38,10 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
   private expirationTimer?: NodeJS.Timeout;
   private readonly expirationCheckMs = 5 * 60 * 1000;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+  private readonly notificationsService: NotificationsService,
+) {}
 
   onModuleInit() {
     this.expireUnpaidApprovedBookings().catch((error) =>
@@ -165,59 +170,115 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       include: this.bookingIncludes(),
     });
 
-    return this.sanitizeBookingForUser(created, guestId);
+    try {
+  await this.notificationsService.notifyUser({
+    userId: created.listing.host.id,
+
+    type: NotificationType.BOOKING_REQUESTED,
+
+    title: 'طلب حجز جديد',
+
+    message:
+      `لديك طلب حجز جديد على العقار "${created.listing.title}" من ${created.guest.firstName} ${created.guest.lastName}. يرجى مراجعة الطلب والرد عليه.`,
+
+    relatedEntity: 'booking',
+    relatedEntityId: created.id,
+
+    metadata: {
+      bookingId: created.id,
+      listingId: created.listing.id,
+      listingTitle: created.listing.title,
+      guestId: created.guest.id,
+      guestName:
+        `${created.guest.firstName} ${created.guest.lastName}`,
+    },
+
+    shouldSendEmail: true,
+
+    emailSubject:
+      `طلب حجز جديد على عقارك: ${created.listing.title}`,
+  });
+} catch (notificationError) {
+  this.logger.error(
+    'Failed to send booking request notification',
+    notificationError,
+  );
+}
+
+return this.sanitizeBookingForUser(created, guestId);
   }
-  async respond(bookingId: number, hostId: number, dto: RespondBookingDto) {
-    const booking = await this.prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: { listing: true, room: true },
-    });
 
-    if (!booking) throw new NotFoundException('Booking not found');
 
-    if (booking.listing.hostId !== hostId) {
-      throw new ForbiddenException(
-        'You do not have permission to respond to this booking',
-      );
-    }
 
-    if (booking.status !== BookingStatus.PENDING_HOST_APPROVAL) {
-      throw new BadRequestException(
-        `Cannot respond to a booking with status: ${booking.status}`,
-      );
-    }
+  async respond(
+  bookingId: number,
+  hostId: number,
+  dto: RespondBookingDto,
+) {
+  const booking = await this.prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { listing: true, room: true },
+  });
 
-    if (dto.action === BookingResponseAction.ACCEPT) {
-      const activeReservedPlaces = await this.countReservedPlaces(
+  if (!booking) {
+    throw new NotFoundException('Booking not found');
+  }
+
+  if (booking.listing.hostId !== hostId) {
+    throw new ForbiddenException(
+      'You do not have permission to respond to this booking',
+    );
+  }
+
+  if (
+    booking.status !==
+    BookingStatus.PENDING_HOST_APPROVAL
+  ) {
+    throw new BadRequestException(
+      `Cannot respond to a booking with status: ${booking.status}`,
+    );
+  }
+
+  if (dto.action === BookingResponseAction.ACCEPT) {
+    const activeReservedPlaces =
+      await this.countReservedPlaces(
         booking.listingId,
       );
-      const capacity = calculateCapacity(
-        booking.listing.maxTenants,
-        activeReservedPlaces,
+
+    const capacity = calculateCapacity(
+      booking.listing.maxTenants,
+      activeReservedPlaces,
+    );
+
+    if (capacity.isFull) {
+      throw new ConflictException(
+        'لا توجد أماكن متاحة في هذا العقار حاليا ولا يمكن قبول طلب آخر',
       );
+    }
 
-      if (capacity.isFull) {
-        throw new ConflictException(
-          'لا توجد أماكن متاحة في هذا العقار حاليا ولا يمكن قبول طلب آخر',
-        );
-      }
-
-      return this.prisma.$transaction(async (tx) => {
+    const updatedBooking =
+      await this.prisma.$transaction(async (tx) => {
         const now = new Date();
-        const paymentExpiresAt = getPaymentExpiresAt(now);
+        const paymentExpiresAt =
+          getPaymentExpiresAt(now);
 
         if (booking.roomId) {
           const room = await tx.room.findUnique({
             where: { id: booking.roomId },
           });
 
-          if (!room || room.apartmentId !== booking.listingId) {
+          if (
+            !room ||
+            room.apartmentId !== booking.listingId
+          ) {
             throw new BadRequestException(
               'الغرفة المختارة غير متاحة لهذا العقار',
             );
           }
 
-          if (room.occupiedCount >= room.capacity) {
+          if (
+            room.occupiedCount >= room.capacity
+          ) {
             throw new ConflictException(
               'هذه الغرفة ممتلئة، يرجى اختيار غرفة أخرى.',
             );
@@ -225,24 +286,36 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
 
           await tx.room.update({
             where: { id: room.id },
-            data: { occupiedCount: { increment: 1 } },
+            data: {
+              occupiedCount: {
+                increment: 1,
+              },
+            },
           });
         }
 
-        const updatedBooking = await tx.booking.update({
-          where: { id: bookingId },
-          data: {
-            status: BookingStatus.PENDING_PAYMENT,
-            agreedAmount: booking.listing.monthlyRent,
-            hostResponseNote: dto.note,
-            acceptedAt: now,
-            approvedAt: now,
-            paymentExpiresAt,
-          },
-          include: this.bookingIncludes(),
-        });
+        const acceptedBooking =
+          await tx.booking.update({
+            where: { id: bookingId },
+            data: {
+              status:
+                BookingStatus.PENDING_PAYMENT,
 
-        await this.recalculateListingVisibility(tx, booking.listingId);
+              agreedAmount:
+                booking.listing.monthlyRent,
+
+              hostResponseNote: dto.note,
+              acceptedAt: now,
+              approvedAt: now,
+              paymentExpiresAt,
+            },
+            include: this.bookingIncludes(),
+          });
+
+        await this.recalculateListingVisibility(
+          tx,
+          booking.listingId,
+        );
 
         await this.createBookingMessage(
           tx,
@@ -252,11 +325,57 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
           'تمت الموافقة على طلب الحجز الخاص بك. يرجى إكمال الدفع خلال ساعة واحدة، وإلا سيتم إلغاء الحجز تلقائيا.',
         );
 
-        return updatedBooking;
+        return acceptedBooking;
       });
+
+    try {
+      await this.notificationsService.notifyUser({
+        userId: updatedBooking.guest.id,
+
+        type: NotificationType.BOOKING_APPROVED,
+
+        title: 'تم قبول طلب الحجز',
+
+        message:
+          `تم قبول طلب حجزك للعقار "${updatedBooking.listing.title}". يرجى استكمال الدفع خلال ساعة واحدة لتأكيد الحجز، وإلا سيتم إلغاء الحجز تلقائيًا.`,
+
+        relatedEntity: 'booking',
+        relatedEntityId: updatedBooking.id,
+
+        metadata: {
+          bookingId: updatedBooking.id,
+          listingId: updatedBooking.listing.id,
+          listingTitle:
+            updatedBooking.listing.title,
+
+          status:
+            BookingStatus.PENDING_PAYMENT,
+
+          paymentRequired: true,
+
+          paymentExpiresAt:
+            updatedBooking.paymentExpiresAt
+              ? updatedBooking.paymentExpiresAt.toISOString()
+              : null,
+        },
+
+        shouldSendEmail: true,
+
+        emailSubject:
+          `تم قبول طلب حجزك: ${updatedBooking.listing.title}`,
+      });
+    } catch (notificationError) {
+      this.logger.error(
+        'Failed to send booking approval notification',
+        notificationError,
+      );
     }
 
-    return this.prisma.booking.update({
+    return updatedBooking;
+  }
+
+  const rejectedBooking =
+    await this.prisma.booking.update({
       where: { id: bookingId },
       data: {
         status: BookingStatus.REJECTED,
@@ -265,7 +384,50 @@ export class BookingsService implements OnModuleInit, OnModuleDestroy {
       },
       include: this.bookingIncludes(),
     });
+
+  try {
+    await this.notificationsService.notifyUser({
+      userId: rejectedBooking.guest.id,
+
+      type: NotificationType.BOOKING_REJECTED,
+
+      title: 'تم رفض طلب الحجز',
+
+      message:
+        `نأسف، تم رفض طلب حجزك للعقار "${rejectedBooking.listing.title}".${
+          dto.note
+            ? `\n\nسبب الرفض:\n${dto.note}`
+            : ''
+        }`,
+
+      relatedEntity: 'booking',
+      relatedEntityId: rejectedBooking.id,
+
+      metadata: {
+        bookingId: rejectedBooking.id,
+        listingId: rejectedBooking.listing.id,
+        listingTitle:
+          rejectedBooking.listing.title,
+
+        status: BookingStatus.REJECTED,
+
+        rejectionReason: dto.note ?? null,
+      },
+
+      shouldSendEmail: true,
+
+      emailSubject:
+        `تحديث بشأن طلب حجزك: ${rejectedBooking.listing.title}`,
+    });
+  } catch (notificationError) {
+    this.logger.error(
+      'Failed to send booking rejection notification',
+      notificationError,
+    );
   }
+
+  return rejectedBooking;
+}
 
   async cancel(bookingId: number, userId: number, dto: CancelBookingDto) {
     const booking = await this.prisma.booking.findUnique({

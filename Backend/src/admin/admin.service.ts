@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import {  DisputeParticipantType,BookingStatus,ListingStatus , ReviewType } from '@prisma/client';
+import {  DisputeParticipantType,BookingStatus,ListingStatus , ReviewType ,NotificationType,} from '@prisma/client';
 import {
   calculateCapacity,
   CAPACITY_HOLDING_BOOKING_STATUSES,
@@ -21,10 +21,14 @@ import { QueryDisputeMessagesDto } from './dto/query-dispute-messages.dto';
 import { OpenDisputeConversationDto } from './dto/open-dispute-conversation.dto';
 import { SendDisputeMessageDto } from './dto/send-dispute-message.dto';
 import * as CryptoJS from 'crypto-js';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   private decryptPhone(phone: string | null): string | null {
   if (!phone) {
@@ -1584,75 +1588,186 @@ async sendPrivateDisputeMessage(
 
   // ─── Approve listing ───────────────────────
 
-  async approveListing(listingId: number, dto: ApproveListingDto) {
-    const listing = await this.prisma.listing.findFirst({
-      where: { id: listingId, isDeleted: false },
-    });
+  async approveListing(
+  listingId: number,
+  dto: ApproveListingDto,
+) {
+  const listing = await this.prisma.listing.findFirst({
+    where: {
+      id: listingId,
+      isDeleted: false,
+    },
+  });
 
-    if (!listing) {
-      throw new NotFoundException('Listing not found');
-    }
+  if (!listing) {
+    throw new NotFoundException('Listing not found');
+  }
 
-    if (
-      listing.status !== ListingStatus.PENDING_APPROVAL &&
-      listing.status !== ListingStatus.SUSPENDED
-    ) {
-      throw new BadRequestException(
-        `Cannot approve a listing with status: ${listing.status}`,
-      );
-    }
+  if (
+    listing.status !== ListingStatus.PENDING_APPROVAL &&
+    listing.status !== ListingStatus.SUSPENDED
+  ) {
+    throw new BadRequestException(
+      `Cannot approve a listing with status: ${listing.status}`,
+    );
+  }
 
-    return this.prisma.listing.update({
-      where: { id: listingId },
-      data:  {
-        status:     ListingStatus.APPROVED,
+  // نفس تحديث العقار الأصلي
+  const updatedListing =
+    await this.prisma.listing.update({
+      where: {
+        id: listingId,
+      },
+      data: {
+        status: ListingStatus.APPROVED,
         approvedAt: new Date(),
-        rejectionReason: null, // clear any previous rejection
+        rejectionReason: null,
       },
       include: {
         host: {
-          select: { id: true, firstName: true, lastName: true, email: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
         },
       },
     });
+
+  // إضافة إشعار وإيميل بعد نجاح تحديث العقار
+  try {
+    await this.notificationsService.notifyUser({
+      userId: updatedListing.host.id,
+
+      type:
+        NotificationType.LISTING_VERIFICATION_APPROVED,
+
+      title: 'تمت الموافقة على عقارك',
+
+      message:
+        `تمت مراجعة العقار "${updatedListing.title}" والموافقة عليه بنجاح. أصبح العقار جاهزًا للظهور للمستخدمين على منصة مرافق.`,
+
+      relatedEntity: 'listing',
+      relatedEntityId: updatedListing.id,
+
+      metadata: {
+        listingId: updatedListing.id,
+        listingTitle: updatedListing.title,
+        status: ListingStatus.APPROVED,
+      },
+
+      shouldSendEmail: true,
+
+      emailSubject:
+        `تمت الموافقة على عقارك: ${updatedListing.title}`,
+    });
+  } catch (notificationError) {
+    console.error(
+      'Failed to send listing approval notification:',
+      notificationError,
+    );
   }
+
+  return updatedListing;
+}
 
   // ─── Reject listing ────────────────────────
 
-  async rejectListing(listingId: number, dto: RejectListingDto) {
-    const listing = await this.prisma.listing.findFirst({
-      where: { id: listingId, isDeleted: false },
-    });
+  async rejectListing(
+  listingId: number,
+  dto: RejectListingDto,
+) {
+  const listing = await this.prisma.listing.findFirst({
+    where: {
+      id: listingId,
+      isDeleted: false,
+    },
+  });
 
-    if (!listing) {
-      throw new NotFoundException('Listing not found');
-    }
+  if (!listing) {
+    throw new NotFoundException('Listing not found');
+  }
 
-    if (
-      listing.status !== ListingStatus.PENDING_APPROVAL &&
-      listing.status !== ListingStatus.SUSPENDED &&
-      listing.status !== ListingStatus.APPROVED &&
-      listing.status !== ListingStatus.ACTIVE
-    ) {
-      throw new BadRequestException(
-        `Cannot reject a listing with status: ${listing.status}`,
-      );
-    }
+  if (
+    listing.status !== ListingStatus.PENDING_APPROVAL &&
+    listing.status !== ListingStatus.SUSPENDED &&
+    listing.status !== ListingStatus.APPROVED &&
+    listing.status !== ListingStatus.ACTIVE
+  ) {
+    throw new BadRequestException(
+      `Cannot reject a listing with status: ${listing.status}`,
+    );
+  }
 
-    return this.prisma.listing.update({
-      where: { id: listingId },
-      data:  {
-        status:          ListingStatus.REJECTED,
-        rejectionReason: dto.reason,
-        rejectedAt:      new Date(),
+  const rejectionReason = dto.reason?.trim();
+
+  if (!rejectionReason) {
+    throw new BadRequestException(
+      'Rejection reason is required',
+    );
+  }
+
+  // نفس تحديث العقار الأصلي
+  const updatedListing =
+    await this.prisma.listing.update({
+      where: {
+        id: listingId,
+      },
+      data: {
+        status: ListingStatus.REJECTED,
+        rejectionReason,
+        rejectedAt: new Date(),
       },
       include: {
         host: {
-          select: { id: true, firstName: true, lastName: true, email: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
         },
       },
     });
+
+  // إضافة إشعار وإيميل بعد نجاح تحديث العقار
+  try {
+    await this.notificationsService.notifyUser({
+      userId: updatedListing.host.id,
+
+      type:
+        NotificationType.LISTING_VERIFICATION_REJECTED,
+
+      title: 'لم تتم الموافقة على عقارك',
+
+      message:
+        `تمت مراجعة العقار "${updatedListing.title}"، ولكن لم تتم الموافقة عليه.\n\nسبب الرفض:\n${rejectionReason}\n\nيمكنك تعديل البيانات المطلوبة ثم إعادة إرسال العقار للمراجعة.`,
+
+      relatedEntity: 'listing',
+      relatedEntityId: updatedListing.id,
+
+      metadata: {
+        listingId: updatedListing.id,
+        listingTitle: updatedListing.title,
+        status: ListingStatus.REJECTED,
+        rejectionReason,
+      },
+
+      shouldSendEmail: true,
+
+      emailSubject:
+        `تحديث بشأن عقارك: ${updatedListing.title}`,
+    });
+  } catch (notificationError) {
+    console.error(
+      'Failed to send listing rejection notification:',
+      notificationError,
+    );
   }
+
+  return updatedListing;
+}
 
   // ─── Suspend listing ───────────────────────
 
