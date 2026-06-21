@@ -107,7 +107,7 @@ CREATE TABLE `listings` (
     `availableFrom` DATE NOT NULL,
     `genderPreference` ENUM('MALE', 'FEMALE', 'ANY') NOT NULL DEFAULT 'ANY',
     `smokingPolicy` ENUM('ALLOWED', 'NOT_ALLOWED') NOT NULL DEFAULT 'NOT_ALLOWED',
-    `status` ENUM('ACTIVE', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'INACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'DRAFT',
+    `status` ENUM('ACTIVE', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'RESERVED', 'REJECTED', 'INACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'DRAFT',
     `rejectionReason` TEXT NULL,
     `submittedAt` DATETIME(3) NULL,
     `approvedAt` DATETIME(3) NULL,
@@ -209,21 +209,59 @@ CREATE TABLE `bookings` (
     `listingId` INTEGER UNSIGNED NOT NULL,
     `preferredMoveInDate` DATE NULL,
     `guestMessage` TEXT NULL,
-    `status` ENUM('PENDING_HOST_APPROVAL', 'PENDING_PAYMENT', 'CONFIRMED', 'REJECTED', 'CANCELLED_BY_GUEST', 'CANCELLED_BY_HOST', 'COMPLETED') NOT NULL DEFAULT 'PENDING_HOST_APPROVAL',
+    `agreedAmount` INTEGER UNSIGNED NULL,
+    `roomId` INTEGER UNSIGNED NULL,
+    `selectedRoomName` VARCHAR(100) NULL,
+    `status` ENUM('PENDING_HOST_APPROVAL', 'PENDING_PAYMENT', 'CHECK_IN_PENDING', 'DISPUTED', 'DISPUTE_RESOLVED_FOR_HOST', 'COMPLETED', 'REJECTED', 'CANCELED', 'CANCELLED_BY_GUEST', 'CANCELLED_BY_HOST', 'CANCELLED_AFTER_DISPUTE', 'REFUNDED', 'EXPIRED') NOT NULL DEFAULT 'PENDING_HOST_APPROVAL',
     `hostResponseNote` TEXT NULL,
     `rejectionReason` TEXT NULL,
     `cancellationReason` TEXT NULL,
+    `disputeReason` VARCHAR(100) NULL,
+    `disputeDescription` TEXT NULL,
+    `disputeResolution` TEXT NULL,
     `acceptedAt` DATETIME(3) NULL,
+    `approvedAt` DATETIME(3) NULL,
+    `paymentExpiresAt` DATETIME(3) NULL,
     `confirmedAt` DATETIME(3) NULL,
     `rejectedAt` DATETIME(3) NULL,
     `cancelledAt` DATETIME(3) NULL,
     `completedAt` DATETIME(3) NULL,
+    `disputedAt` DATETIME(3) NULL,
+    `disputeResolvedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
     INDEX `bookings_guestId_idx`(`guestId`),
     INDEX `bookings_listingId_idx`(`listingId`),
+    INDEX `bookings_roomId_idx`(`roomId`),
     INDEX `bookings_status_idx`(`status`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `rooms` (
+    `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
+    `apartmentId` INTEGER UNSIGNED NOT NULL,
+    `roomNumber` INTEGER UNSIGNED NOT NULL,
+    `roomName` VARCHAR(100) NOT NULL,
+    `capacity` INTEGER UNSIGNED NOT NULL,
+    `occupiedCount` INTEGER UNSIGNED NOT NULL DEFAULT 0,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `rooms_apartmentId_idx`(`apartmentId`),
+    UNIQUE INDEX `rooms_apartmentId_roomNumber_key`(`apartmentId`, `roomNumber`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `room_images` (
+    `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
+    `roomId` INTEGER UNSIGNED NOT NULL,
+    `imageUrl` VARCHAR(500) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `room_images_roomId_idx`(`roomId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -233,15 +271,22 @@ CREATE TABLE `payments` (
     `bookingId` INTEGER UNSIGNED NOT NULL,
     `paymobOrderId` VARCHAR(255) NULL,
     `paymobTransactionId` VARCHAR(255) NULL,
+    `rentAmount` INTEGER UNSIGNED NOT NULL DEFAULT 0,
+    `securityDepositAmount` INTEGER UNSIGNED NOT NULL DEFAULT 0,
     `amount` INTEGER UNSIGNED NOT NULL,
     `platformFee` INTEGER UNSIGNED NOT NULL DEFAULT 0,
     `hostPayoutAmount` INTEGER UNSIGNED NOT NULL DEFAULT 0,
+    `guestRefundAmount` INTEGER UNSIGNED NOT NULL DEFAULT 0,
+    `hostCompensationAmount` INTEGER UNSIGNED NOT NULL DEFAULT 0,
     `currency` VARCHAR(3) NOT NULL DEFAULT 'EGP',
-    `status` ENUM('PENDING', 'CAPTURED', 'REFUNDED', 'PARTIALLY_REFUNDED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    `status` ENUM('PENDING', 'HELD', 'RELEASED', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED') NOT NULL DEFAULT 'PENDING',
     `paymentMethod` VARCHAR(50) NULL,
     `refundReason` TEXT NULL,
     `paidAt` DATETIME(3) NULL,
+    `heldAt` DATETIME(3) NULL,
+    `releasedAt` DATETIME(3) NULL,
     `refundedAt` DATETIME(3) NULL,
+    `settledAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -260,8 +305,8 @@ CREATE TABLE `reviews` (
     `bookingId` INTEGER UNSIGNED NOT NULL,
     `reviewerId` INTEGER UNSIGNED NOT NULL,
     `listingId` INTEGER UNSIGNED NULL,
-    `reviewedId` INTEGER UNSIGNED NOT NULL,
-    `type` ENUM('GUEST_TO_HOST', 'HOST_TO_GUEST') NOT NULL,
+    `reviewedId` INTEGER UNSIGNED NULL,
+    `type` ENUM('GUEST_TO_LISTING', 'GUEST_TO_HOST', 'HOST_TO_GUEST') NOT NULL,
     `rating` INTEGER UNSIGNED NOT NULL,
     `cleanliness` INTEGER UNSIGNED NULL,
     `location` INTEGER UNSIGNED NULL,
@@ -275,6 +320,7 @@ CREATE TABLE `reviews` (
     INDEX `reviews_reviewerId_idx`(`reviewerId`),
     INDEX `reviews_reviewedId_idx`(`reviewedId`),
     INDEX `reviews_listingId_idx`(`listingId`),
+    INDEX `reviews_type_idx`(`type`),
     UNIQUE INDEX `reviews_bookingId_type_key`(`bookingId`, `type`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -308,6 +354,50 @@ CREATE TABLE `messages` (
     INDEX `messages_conversationId_idx`(`conversationId`),
     INDEX `messages_senderId_idx`(`senderId`),
     INDEX `messages_conversationId_createdAt_idx`(`conversationId`, `createdAt`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `dispute_conversations` (
+    `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
+    `bookingId` INTEGER UNSIGNED NOT NULL,
+    `participantId` INTEGER UNSIGNED NOT NULL,
+    `participantType` ENUM('GUEST', 'HOST') NOT NULL,
+    `isClosed` BOOLEAN NOT NULL DEFAULT false,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `dispute_conversations_bookingId_idx`(`bookingId`),
+    INDEX `dispute_conversations_participantId_idx`(`participantId`),
+    UNIQUE INDEX `dispute_conversations_bookingId_participantType_key`(`bookingId`, `participantType`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `dispute_messages` (
+    `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
+    `conversationId` INTEGER UNSIGNED NOT NULL,
+    `senderId` INTEGER UNSIGNED NOT NULL,
+    `content` TEXT NOT NULL,
+    `isRead` BOOLEAN NOT NULL DEFAULT false,
+    `readAt` DATETIME(3) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `dispute_messages_conversationId_createdAt_idx`(`conversationId`, `createdAt`),
+    INDEX `dispute_messages_senderId_idx`(`senderId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `listing_vectors` (
+    `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
+    `listingId` INTEGER UNSIGNED NOT NULL,
+    `vectorText` JSON NOT NULL,
+    `textChunk` TEXT NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `listing_vectors_listingId_key`(`listingId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -345,6 +435,15 @@ ALTER TABLE `bookings` ADD CONSTRAINT `bookings_guestId_fkey` FOREIGN KEY (`gues
 ALTER TABLE `bookings` ADD CONSTRAINT `bookings_listingId_fkey` FOREIGN KEY (`listingId`) REFERENCES `listings`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `bookings` ADD CONSTRAINT `bookings_roomId_fkey` FOREIGN KEY (`roomId`) REFERENCES `rooms`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `rooms` ADD CONSTRAINT `rooms_apartmentId_fkey` FOREIGN KEY (`apartmentId`) REFERENCES `listings`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `room_images` ADD CONSTRAINT `room_images_roomId_fkey` FOREIGN KEY (`roomId`) REFERENCES `rooms`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `payments` ADD CONSTRAINT `payments_bookingId_fkey` FOREIGN KEY (`bookingId`) REFERENCES `bookings`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -354,7 +453,7 @@ ALTER TABLE `reviews` ADD CONSTRAINT `reviews_bookingId_fkey` FOREIGN KEY (`book
 ALTER TABLE `reviews` ADD CONSTRAINT `reviews_reviewerId_fkey` FOREIGN KEY (`reviewerId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `reviews` ADD CONSTRAINT `reviews_reviewedId_fkey` FOREIGN KEY (`reviewedId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `reviews` ADD CONSTRAINT `reviews_reviewedId_fkey` FOREIGN KEY (`reviewedId`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `reviews` ADD CONSTRAINT `reviews_listingId_fkey` FOREIGN KEY (`listingId`) REFERENCES `listings`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
@@ -373,3 +472,18 @@ ALTER TABLE `messages` ADD CONSTRAINT `messages_conversationId_fkey` FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE `messages` ADD CONSTRAINT `messages_senderId_fkey` FOREIGN KEY (`senderId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `dispute_conversations` ADD CONSTRAINT `dispute_conversations_bookingId_fkey` FOREIGN KEY (`bookingId`) REFERENCES `bookings`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `dispute_conversations` ADD CONSTRAINT `dispute_conversations_participantId_fkey` FOREIGN KEY (`participantId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `dispute_messages` ADD CONSTRAINT `dispute_messages_conversationId_fkey` FOREIGN KEY (`conversationId`) REFERENCES `dispute_conversations`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `dispute_messages` ADD CONSTRAINT `dispute_messages_senderId_fkey` FOREIGN KEY (`senderId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `listing_vectors` ADD CONSTRAINT `listing_vectors_listingId_fkey` FOREIGN KEY (`listingId`) REFERENCES `listings`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

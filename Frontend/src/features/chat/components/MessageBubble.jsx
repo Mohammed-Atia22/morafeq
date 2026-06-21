@@ -1,18 +1,17 @@
+import { formatChatDateTime } from "../utils/chatDate";
+
 export function MessageBubble({ message, currentUserId }) {
   const isMyMessage = message.senderId === currentUserId;
 
-  const messageTime = new Date(message.createdAt).toLocaleTimeString("ar-EG", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const messageTime = formatChatDateTime(message.createdAt);
 
   return (
-    <div className={`flex ${isMyMessage ? "justify-start" : "justify-end"}`}>
+    <div className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}>
       <div
         className={`max-w-[75%] rounded-2xl px-4 py-3 ${
           isMyMessage
-            ? "rounded-tr-sm bg-blue-600 text-white"
-            : "rounded-tl-sm border border-slate-200 bg-white text-slate-900"
+            ? "rounded-tl-sm bg-blue-600 text-white"
+            : "rounded-tr-sm border border-slate-200 bg-white text-slate-900"
         }`}
       >
         <p className="whitespace-pre-wrap break-words text-sm">
@@ -20,13 +19,14 @@ export function MessageBubble({ message, currentUserId }) {
         </p>
 
         <div className="mt-2 flex items-center gap-2">
-          <span
+          <time
+            dateTime={message.createdAt}
             className={`text-[11px] ${
               isMyMessage ? "text-blue-100" : "text-slate-400"
             }`}
           >
             {messageTime}
-          </span>
+          </time>
 
           {isMyMessage && (
             <span className="text-[11px] text-blue-100">

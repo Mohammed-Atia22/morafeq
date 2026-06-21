@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { listingsApi } from "../../../listings/services/listingsApi";
+import { RatingSummary } from "../../../reviews/components/RatingSummary";
 import { CheckIcon, EyeIcon, TrashIcon } from "../common/OwnerIcons";
 import {
   genderPreferenceOptions,
@@ -33,6 +34,10 @@ export function ListingCard({
   const reviewCount = listing._count?.reviews || 0;
   const bookingCount = listing._count?.bookings || 0;
   const roomsCount = listing.bedrooms || listing.beds || 0;
+  const reservedPlaces = Number(listing.reservedPlaces ?? 0);
+  const availablePlaces = Number(
+    listing.availablePlaces ?? Math.max(0, (listing.maxTenants ?? 0) - reservedPlaces),
+  );
 
   useEffect(() => {
     setForm(listingToForm(listing));
@@ -368,7 +373,7 @@ export function ListingCard({
               onChange={(value) => updateField("googleFormattedAddress", value)}
             />
             <EditField
-              label="Google Place ID"
+              label="معرف مكان جوجل"
               value={form.googlePlaceId}
               onChange={(value) => updateField("googlePlaceId", value)}
             />
@@ -399,7 +404,7 @@ export function ListingCard({
               </h2>
               <p className="mt-1 text-sm font-semibold text-slate-500">
                 {listing.city || listing.governorate || "غير محدد"} ·{" "}
-                {Number(listing.monthlyRent || 0).toLocaleString("en-US")}{" "}
+                {Number(listing.monthlyRent || 0).toLocaleString("ar-EG")}{" "}
                 ج.م/شهر
               </p>
             </div>
@@ -416,11 +421,32 @@ export function ListingCard({
                 <EyeIcon className="h-4 w-4" />
                 {listing.viewsCount || 0}
               </span>
-              <span>{reviewCount ? `★ ${reviewCount}` : "لا تقييمات"}</span>
+              <RatingSummary
+                averageRating={listing.averageRating ?? 0}
+                reviewCount={reviewCount}
+                size="xs"
+              />
               <span>{bookingCount} طلب</span>
               <span>{roomsCount} غرفة</span>
               <span>{listing.bathrooms || 0} حمام</span>
+              <span>السعة {Number(listing.maxTenants || 0).toLocaleString("ar-EG")}</span>
+              <span>المحجوز {reservedPlaces.toLocaleString("ar-EG")}</span>
+              <span>المتبقي {availablePlaces.toLocaleString("ar-EG")}</span>
             </div>
+
+            {listing.roomType !== "ENTIRE_PLACE" && listing.rooms?.length > 0 && (
+              <div className="mt-3 grid gap-2 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-600">
+                {listing.rooms.map((room) => (
+                  <div key={room.id} className="flex items-center justify-between">
+                    <span>{room.roomName}</span>
+                    <span>
+                      {Number(room.occupiedCount || 0).toLocaleString("ar-EG")} /{" "}
+                      {Number(room.capacity || 0).toLocaleString("ar-EG")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="mt-4 grid grid-cols-[1fr_1fr_auto] gap-2">
               <button

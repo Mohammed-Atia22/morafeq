@@ -4,7 +4,9 @@ import { useDestinationSearch } from "../hooks/useDestinationSearch";
 import LocationPickerMap from "../../../shared/components/maps/LocationPickerMap";
 import { ListingsGrid } from "../components/home/ListingsGrid";
 import { AmenitiesSelector } from "../../listings/components/AmenitiesSelector";
+import { AMENITY_OPTIONS } from "../../../shared/constants/amenities";
 import { useSearchSuggestions } from "../hooks/useSearchSuggestions";
+import { useFavoriteToggle } from "../../favorites/hooks/useFavoriteToggle";
 
 const ROOM_TYPES = [
   { value: "", label: "الكل" },
@@ -35,15 +37,6 @@ const RADIUS_OPTIONS = [
   { value: 10, label: "10 كم" },
 ];
 
-const AMENITY_OPTIONS = [
-  { key: "wifi", label: "واي فاي" },
-  { key: "kitchen", label: "مطبخ" },
-  { key: "parking", label: "موقف سيارات" },
-  { key: "air_conditioning", label: "تكيف" },
-  { key: "washing_machine", label: "غسالة" },
-  { key: "workspace", label: "مكان للعمل" },
-];
-
 function FilterLabel({ children }) {
   return (
     <label className="mb-1.5 block text-xs font-bold text-slate-600">
@@ -71,6 +64,7 @@ function FilterSelect({ value, onChange, options }) {
 
 export function ExpatriateSearchPage() {
   const { listings, meta, loading, error, fetchListings } = useListings();
+  const [displayListings, setDisplayListings] = useState([]);
   const {
     destinationName,
     confirmedDestination,
@@ -114,6 +108,22 @@ export function ExpatriateSearchPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionsRef = useRef(null);
   const [showMapModal, setShowMapModal] = useState(false);
+
+  useEffect(() => {
+    setDisplayListings(listings);
+  }, [listings]);
+
+  const handleFavoriteChanged = useCallback((listingId, isFavorited) => {
+    setDisplayListings((prev) =>
+      prev.map((listing) =>
+        listing.id === listingId ? { ...listing, isFavorited } : listing,
+      ),
+    );
+  }, []);
+
+  const { pendingIds, toggleFavorite } = useFavoriteToggle({
+    onChanged: handleFavoriteChanged,
+  });
 
   useEffect(() => {
     if (!confirmedDestination) {
@@ -291,7 +301,7 @@ export function ExpatriateSearchPage() {
       </div>
 
       {/* Search bar + filter icon */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 flex items-center gap-3">
+      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex-1 relative" ref={suggestionsRef}>
           <input
             type="text"
@@ -385,7 +395,7 @@ export function ExpatriateSearchPage() {
               {/* Destination search */}
               <div>
                 <FilterLabel>ابحث قريب من (جامعة، كلية، منطقة)</FilterLabel>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <button
                     type="button"
                     onClick={handleConfirm}
@@ -513,7 +523,7 @@ export function ExpatriateSearchPage() {
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <button
                   onClick={() => {
                     handleReset();
@@ -680,7 +690,13 @@ export function ExpatriateSearchPage() {
             </p>
           )}
 
-          <ListingsGrid listings={listings} loading={loading} error={error} />
+          <ListingsGrid
+            listings={displayListings}
+            loading={loading}
+            error={error}
+            onFavoriteToggle={toggleFavorite}
+            pendingFavoriteIds={pendingIds}
+          />
         </div>
       )}
 

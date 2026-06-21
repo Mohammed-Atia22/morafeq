@@ -16,7 +16,17 @@ function SkeletonCard() {
   );
 }
 
-export function ListingsGrid({ listings, loading, error, title, subtitle }) {
+export function ListingsGrid({
+  listings,
+  loading,
+  error,
+  title,
+  subtitle,
+  emptyMessage = "لا توجد عقارات متاحة حالياً",
+  emptyHint = "جرّب تغيير معايير البحث",
+  onFavoriteToggle,
+  pendingFavoriteIds,
+}) {
   return (
     <div dir="rtl">
       {/* Section header */}
@@ -54,11 +64,9 @@ export function ListingsGrid({ listings, loading, error, title, subtitle }) {
         <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-50 py-16 text-center">
           <span className="text-4xl">🏠</span>
           <p className="mt-3 text-sm font-semibold text-slate-600">
-            لا توجد عقارات متاحة حالياً
+            {emptyMessage}
           </p>
-          <p className="mt-1 text-xs text-slate-400">
-            جرّب تغيير معايير البحث
-          </p>
+          {emptyHint && <p className="mt-1 text-xs text-slate-400">{emptyHint}</p>}
         </div>
       )}
 
@@ -66,7 +74,12 @@ export function ListingsGrid({ listings, loading, error, title, subtitle }) {
       {!loading && listings.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {listings.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} />
+            <ListingCard
+              key={listing.id}
+              listing={listing}
+              onFavoriteToggle={onFavoriteToggle}
+              favoritePending={pendingFavoriteIds?.has?.(listing.id)}
+            />
           ))}
         </div>
       )}

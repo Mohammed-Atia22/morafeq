@@ -8,10 +8,12 @@ import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
 import { PrismaService } from './../prisma/prisma.service';
 import {
+  BookingStatus,
   ListingStatus,
   UserRole,
   BlockReason,
   VerificationStatus,
+  RoomType,
 } from '@prisma/client';
 import { AreasService } from '../areas/areas.service';
 import { UploadsService } from '../uploads/uploads.service';
@@ -19,6 +21,13 @@ import { SearchListingDto } from './dto/search-listing.dto';
 import { SetAmenitiesDto } from './dto/set-amenities.dto';
 import { BlockDatesDto } from './dto/block-dates.dto';
 import { LocationInsightsService } from './../location-insights/location-insights.service';
+import {
+  calculateCapacity,
+  CAPACITY_HOLDING_BOOKING_STATUSES,
+  areAllRoomsFull,
+  resolveReservedPlaces,
+} from '../bookings/booking-capacity';
+import { CreateRoomDto, UpdateRoomDto } from './dto/create-room.dto';
 
 @Injectable()
 export class ListingsService {
@@ -80,6 +89,7 @@ export class ListingsService {
         floorNumber: dto.floorNumber,
         apartmentNumber: dto.apartmentNumber,
         nearbyLandmark: dto.nearbyLandmark,
+        arrivalInstructions: dto.arrivalInstructions,
 
         city: dto.city,
         governorate: dto.governorate,
@@ -125,8 +135,23 @@ export class ListingsService {
         category: true,
         photos: true,
         amenities: true,
+        rooms: {
+          include: { images: true },
+          orderBy: { roomNumber: 'asc' as const },
+        },
       },
     });
+
+    if (dto.rooms?.length && dto.roomType !== RoomType.ENTIRE_PLACE) {
+      await this.prisma.room.createMany({
+        data: dto.rooms.map((room, index) => ({
+          apartmentId: listing.id,
+          roomNumber: room.roomNumber ?? index + 1,
+          roomName: room.roomName,
+          capacity: room.capacity,
+        })),
+      });
+    }
 
     this.locationInsightsService
       .generateForListingAutomatically(listing.id)
@@ -165,6 +190,90 @@ export class ListingsService {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return earthRadiusKm * c;
+  }
+
+  private async attachCapacityToListings<
+    T extends {
+      id: number;
+      maxTenants: number;
+      roomType?: string;
+      rooms?: any[];
+    },
+  >(listings: T[]) {
+    if (listings.length === 0) {
+      return listings;
+    }
+
+    const reservedCounts = await this.prisma.booking.groupBy({
+      by: ['listingId'],
+      where: {
+        listingId: { in: listings.map((listing) => listing.id) },
+        status: { in: CAPACITY_HOLDING_BOOKING_STATUSES },
+      },
+      _count: { _all: true },
+    });
+
+    const reservedByListingId = new Map(
+      reservedCounts.map((count) => [count.listingId, count._count._all]),
+    );
+
+    return listings.map((listing) => {
+      const reservedPlaces = resolveReservedPlaces(
+        listing,
+        reservedByListingId.get(listing.id) ?? 0,
+      );
+      const capacity = calculateCapacity(listing.maxTenants, reservedPlaces);
+
+      return {
+        ...listing,
+        ...capacity,
+        isFull: capacity.isFull || areAllRoomsFull(listing),
+      };
+    });
+  }
+
+  private async attachCapacityToListing<
+    T extends {
+      id: number;
+      maxTenants: number;
+      roomType?: string;
+      rooms?: any[];
+    },
+  >(listing: T) {
+    const [listingWithCapacity] = await this.attachCapacityToListings([
+      listing,
+    ]);
+    return listingWithCapacity;
+  }
+
+  private async getGuestReviewMeta(guestIds: number[]) {
+    if (guestIds.length === 0) {
+      return new Map<number, { averageRating: number; reviewCount: number }>();
+    }
+
+    const reviewGroups = await this.prisma.review.groupBy({
+      by: ['reviewedId'],
+      where: {
+        reviewedId: { in: guestIds },
+        isVisible: true,
+      },
+      _avg: {
+        rating: true,
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    return new Map(
+      reviewGroups.map((group) => [
+        group.reviewedId as number,
+        {
+          averageRating: group._avg.rating ?? 0,
+          reviewCount: group._count._all,
+        },
+      ]),
+    );
   }
 
   async search(dto: SearchListingDto) {
@@ -285,6 +394,10 @@ export class ListingsService {
         take: 1,
       },
       amenities: true,
+      rooms: {
+        include: { images: true },
+        orderBy: { roomNumber: 'asc' as const },
+      },
       locationInsight: true,
       _count: {
         select: {
@@ -312,8 +425,10 @@ export class ListingsService {
         },
         include,
       });
+      const allListingsWithCapacity =
+        await this.attachCapacityToListings(allListings);
 
-      const listingsWithDistance = allListings
+      const listingsWithDistance = allListingsWithCapacity
         .map((listing) => {
           const listingLat = Number(listing.lat);
           const listingLng = Number(listing.lng);
@@ -340,7 +455,11 @@ export class ListingsService {
           };
         })
         .filter((listing) => {
-          return listing !== null && listing.distanceKm <= radiusKm;
+          return (
+            listing !== null &&
+            listing.distanceKm <= radiusKm &&
+            !(listing as any).isFull
+          );
         });
 
       if (dto.sortBy === 'price_low') {
@@ -398,8 +517,10 @@ export class ListingsService {
       }),
     ]);
 
+    const listingsWithCapacity = await this.attachCapacityToListings(listings);
+
     return {
-      data: listings,
+      data: listingsWithCapacity.filter((listing) => !(listing as any).isFull),
       meta: {
         total,
         page,
@@ -437,6 +558,10 @@ export class ListingsService {
         category: true,
         photos: { orderBy: { sortOrder: 'asc' } },
         amenities: true,
+        rooms: {
+          include: { images: true },
+          orderBy: { roomNumber: 'asc' as const },
+        },
         reviews: {
           where: { isVisible: true },
           take: 5,
@@ -452,35 +577,94 @@ export class ListingsService {
             },
           },
         },
+        bookings: {
+          where: {
+            status: {
+              in: [
+                BookingStatus.PENDING_PAYMENT,
+                BookingStatus.CHECK_IN_PENDING,
+                BookingStatus.COMPLETED,
+              ],
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            status: true,
+            selectedRoomName: true,
+            guest: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                preferences: {
+                  select: {
+                    preferenceKey: true,
+                  },
+                },
+              },
+            },
+            room: {
+              select: {
+                id: true,
+                roomName: true,
+              },
+            },
+          },
+        },
         _count: { select: { reviews: true } },
       },
     });
 
     if (!listing) throw new NotFoundException('Listing not found');
 
-    // Calculate average rating
+    const guestIds = listing.bookings.map((booking) => booking.guest.id);
+    const guestReviewMeta = await this.getGuestReviewMeta(guestIds);
+
+    const bookingsWithGuestMeta = listing.bookings.map((booking) => ({
+      ...booking,
+      guest: {
+        ...booking.guest,
+        averageRating:
+          guestReviewMeta.get(booking.guest.id)?.averageRating ?? 0,
+        reviewCount: guestReviewMeta.get(booking.guest.id)?.reviewCount ?? 0,
+      },
+    }));
+
+    // Calculate average listing rating
     const avgRating = await this.prisma.review.aggregate({
       where: { listingId: id, isVisible: true },
       _avg: { rating: true },
     });
 
     return {
-      ...listing,
+      ...(await this.attachCapacityToListing({
+        ...listing,
+        bookings: bookingsWithGuestMeta,
+      })),
+      bookings: bookingsWithGuestMeta,
       averageRating: avgRating._avg.rating ?? 0,
     };
   }
 
   async findMyListings(hostId: number) {
-    return this.prisma.listing.findMany({
+    const listings = await this.prisma.listing.findMany({
       where: { hostId, isDeleted: false },
       orderBy: { createdAt: 'desc' },
       include: {
         area: true,
         photos: { where: { isCover: true }, take: 1 },
         amenities: true,
+        rooms: {
+          include: { images: true },
+          orderBy: { roomNumber: 'asc' as const },
+        },
         _count: { select: { bookings: true, reviews: true } },
       },
     });
+
+    return this.attachCapacityToListings(listings);
   }
 
   async update(id: number, hostId: number, dto: UpdateListingDto) {
@@ -497,6 +681,10 @@ export class ListingsService {
       where: { id },
       include: { area: true },
     });
+
+    const shouldRequireReview =
+      currentListing?.status === ListingStatus.APPROVED &&
+      Object.keys(dto).length > 0;
 
     let areaId: number | undefined;
     if (
@@ -561,6 +749,10 @@ export class ListingsService {
 
         ...(dto.nearbyLandmark !== undefined && {
           nearbyLandmark: dto.nearbyLandmark,
+        }),
+
+        ...(dto.arrivalInstructions !== undefined && {
+          arrivalInstructions: dto.arrivalInstructions,
         }),
 
         ...(dto.city !== undefined && {
@@ -671,6 +863,12 @@ export class ListingsService {
         ...(dto.status !== undefined && {
           status: dto.status,
         }),
+
+        ...(shouldRequireReview && {
+          status: ListingStatus.PENDING_APPROVAL,
+          submittedAt: new Date(),
+          approvedAt: null,
+        }),
       },
 
       include: {
@@ -686,140 +884,134 @@ export class ListingsService {
 
   // ─── Submit listing for admin review ──────
 
-async submit(id: number, hostId: number) {
-  const listing = await this.verifyOwnership(id, hostId);
-  await this.ensureHostCanPublish(hostId);
+  async submit(id: number, hostId: number) {
+    const listing = await this.verifyOwnership(id, hostId);
+    await this.ensureHostCanPublish(hostId);
 
-  // must have at least one photo before submitting
-  if (
-    listing.status === ListingStatus.ACTIVE ||
-    listing.status === ListingStatus.APPROVED
-  ) {
-    throw new BadRequestException(
-      'This listing is already active',
-    );
+    // must have at least one photo before submitting
+    if (
+      listing.status === ListingStatus.ACTIVE ||
+      listing.status === ListingStatus.APPROVED
+    ) {
+      throw new BadRequestException('This listing is already active');
+    }
+
+    if (listing.status === ListingStatus.SUSPENDED) {
+      throw new ForbiddenException(
+        'This listing has been suspended and cannot be resubmitted',
+      );
+    }
+
+    // check photos exist
+    const photoCount = await this.prisma.listingPhoto.count({
+      where: { listingId: id },
+    });
+
+    if (photoCount === 0) {
+      throw new BadRequestException(
+        'Please upload at least one photo before submitting',
+      );
+    }
+
+    return this.prisma.listing.update({
+      where: { id },
+      data: {
+        status: ListingStatus.PENDING_APPROVAL,
+        submittedAt: new Date(),
+        approvedAt: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        submittedAt: true,
+        approvedAt: true,
+      },
+    });
   }
-
-  if (listing.status === ListingStatus.SUSPENDED) {
-    throw new ForbiddenException(
-      'This listing has been suspended and cannot be resubmitted',
-    );
-  }
-
-  // check photos exist
-  const photoCount = await this.prisma.listingPhoto.count({
-    where: { listingId: id },
-  });
-
-  if (photoCount === 0) {
-    throw new BadRequestException(
-      'Please upload at least one photo before submitting',
-    );
-  }
-
-  return this.prisma.listing.update({
-    where: { id },
-    data: {
-      status:      ListingStatus.PENDING_APPROVAL,
-      submittedAt: new Date(),
-      approvedAt:  null,
-    },
-    select: {
-      id:          true,
-      title:       true,
-      status:      true,
-      submittedAt: true,
-      approvedAt:  true,
-    },
-  });
-}
 
   // ─── Upload photos ─────────────────────────
 
-  async uploadPhotos(
-  id: number,
-  hostId: number,
-  files: Express.Multer.File[],
-) {
-  await this.verifyOwnership(id, hostId);
+  async uploadPhotos(id: number, hostId: number, files: Express.Multer.File[]) {
+    await this.verifyOwnership(id, hostId);
 
-  if (!files?.length) {
-    throw new BadRequestException('Please upload at least one photo');
+    if (!files?.length) {
+      throw new BadRequestException('Please upload at least one photo');
+    }
+
+    const existingCount = await this.prisma.listingPhoto.count({
+      where: { listingId: id },
+    });
+
+    if (existingCount + files.length > 20) {
+      throw new BadRequestException('Maximum 20 photos allowed per listing');
+    }
+
+    // upload all files to ImageBB in parallel
+    const uploadPromises = files.map((file, index) =>
+      this.uploads.uploadImage(file, 'listings').then((result) => ({
+        listingId: id,
+        url: result.url,
+        deleteUrl: result.deleteUrl,
+        sortOrder: existingCount + index,
+        isCover: existingCount === 0 && index === 0,
+      })),
+    );
+
+    const photoData = await Promise.all(uploadPromises);
+
+    await this.prisma.listingPhoto.createMany({ data: photoData });
+
+    return this.prisma.listingPhoto.findMany({
+      where: { listingId: id },
+      orderBy: { sortOrder: 'asc' },
+    });
   }
-
-  const existingCount = await this.prisma.listingPhoto.count({
-    where: { listingId: id },
-  });
-
-  if (existingCount + files.length > 20) {
-    throw new BadRequestException('Maximum 20 photos allowed per listing');
-  }
-
-  // upload all files to ImageBB in parallel
-  const uploadPromises = files.map((file, index) =>
-    this.uploads.uploadImage(file, 'listings').then((result) => ({
-      listingId: id,
-      url:       result.url,
-      deleteUrl: result.deleteUrl,
-      sortOrder: existingCount + index,
-      isCover:   existingCount === 0 && index === 0,
-    })),
-  );
-
-  const photoData = await Promise.all(uploadPromises);
-
-  await this.prisma.listingPhoto.createMany({ data: photoData });
-
-  return this.prisma.listingPhoto.findMany({
-    where:   { listingId: id },
-    orderBy: { sortOrder: 'asc' },
-  });
-}
 
   // ─── Delete photo ──────────────────────────
 
   async deletePhoto(listingId: number, photoId: number, hostId: number) {
-  await this.verifyOwnership(listingId, hostId);
+    await this.verifyOwnership(listingId, hostId);
 
-  const photo = await this.prisma.listingPhoto.findFirst({
-    where: { id: photoId, listingId },
-    select: {
-      id: true,
-      listingId: true,
-      url: true,
-      thumbnailUrl: true,
-      sortOrder: true,
-      isCover: true,
-      createdAt: true,
-      deleteUrl: true,
-    },
-  });
-
-  if (!photo) throw new NotFoundException('Photo not found');
-
-  // delete from ImageBB using stored deleteUrl
-  await this.uploads.deleteImage(photo.deleteUrl);
-
-  // delete from database
-  await this.prisma.listingPhoto.delete({ where: { id: photoId } });
-
-  // if deleted photo was the cover, promote the next photo
-  if (photo.isCover) {
-    const next = await this.prisma.listingPhoto.findFirst({
-      where:   { listingId },
-      orderBy: { sortOrder: 'asc' },
+    const photo = await this.prisma.listingPhoto.findFirst({
+      where: { id: photoId, listingId },
+      select: {
+        id: true,
+        listingId: true,
+        url: true,
+        thumbnailUrl: true,
+        sortOrder: true,
+        isCover: true,
+        createdAt: true,
+        deleteUrl: true,
+      },
     });
 
-    if (next) {
-      await this.prisma.listingPhoto.update({
-        where: { id: next.id },
-        data:  { isCover: true },
-      });
-    }
-  }
+    if (!photo) throw new NotFoundException('Photo not found');
 
-  return { message: 'Photo deleted successfully' };
-}
+    // delete from ImageBB using stored deleteUrl
+    await this.uploads.deleteImage(photo.deleteUrl);
+
+    // delete from database
+    await this.prisma.listingPhoto.delete({ where: { id: photoId } });
+
+    // if deleted photo was the cover, promote the next photo
+    if (photo.isCover) {
+      const next = await this.prisma.listingPhoto.findFirst({
+        where: { listingId },
+        orderBy: { sortOrder: 'asc' },
+      });
+
+      if (next) {
+        await this.prisma.listingPhoto.update({
+          where: { id: next.id },
+          data: { isCover: true },
+        });
+      }
+    }
+
+    return { message: 'Photo deleted successfully' };
+  }
 
   // ─── Set amenities ─────────────────────────
 
@@ -904,22 +1096,22 @@ async submit(id: number, hostId: number) {
   // ─── Private: verify ownership ─────────────
 
   private async verifyOwnership(listingId: number, hostId: number) {
-  const listing = await this.prisma.listing.findFirst({
-    where: { id: listingId, isDeleted: false },
-  });
+    const listing = await this.prisma.listing.findFirst({
+      where: { id: listingId, isDeleted: false },
+    });
 
-  if (!listing) {
-    throw new NotFoundException('Listing not found');
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (listing.hostId !== hostId) {
+      throw new ForbiddenException(
+        'You do not have permission to modify this listing',
+      );
+    }
+
+    return listing; // ← make sure this line exists
   }
-
-  if (listing.hostId !== hostId) {
-    throw new ForbiddenException(
-      'You do not have permission to modify this listing',
-    );
-  }
-
-  return listing; // ← make sure this line exists
-}
 
   // ─── Soft delete ───────────────────────────
 
@@ -953,5 +1145,110 @@ async submit(id: number, hostId: number) {
     });
 
     return { message: 'Listing deleted successfully' };
+  }
+
+  async getRooms(listingId: number) {
+    return this.prisma.room.findMany({
+      where: { apartmentId: listingId },
+      orderBy: { roomNumber: 'asc' as const },
+      include: { images: true },
+    });
+  }
+
+  async createRoom(listingId: number, hostId: number, dto: CreateRoomDto) {
+    await this.verifyOwnership(listingId, hostId);
+
+    return this.prisma.room.create({
+      data: {
+        apartmentId: listingId,
+        roomNumber: dto.roomNumber,
+        roomName: dto.roomName,
+        capacity: dto.capacity,
+      },
+      include: { images: true },
+    });
+  }
+
+  async updateRoom(
+    listingId: number,
+    roomId: number,
+    hostId: number,
+    dto: UpdateRoomDto,
+  ) {
+    await this.verifyOwnership(listingId, hostId);
+
+    const room = await this.prisma.room.findFirst({
+      where: { id: roomId, apartmentId: listingId },
+    });
+
+    if (!room) throw new NotFoundException('الغرفة غير موجودة');
+
+    if (dto.capacity !== undefined && dto.capacity < room.occupiedCount) {
+      throw new BadRequestException(
+        'لا يمكن جعل سعة الغرفة أقل من عدد الأماكن المحجوزة',
+      );
+    }
+
+    return this.prisma.room.update({
+      where: { id: roomId },
+      data: {
+        ...(dto.roomNumber !== undefined && { roomNumber: dto.roomNumber }),
+        ...(dto.roomName !== undefined && { roomName: dto.roomName }),
+        ...(dto.capacity !== undefined && { capacity: dto.capacity }),
+      },
+      include: { images: true },
+    });
+  }
+
+  async deleteRoom(listingId: number, roomId: number, hostId: number) {
+    await this.verifyOwnership(listingId, hostId);
+
+    const room = await this.prisma.room.findFirst({
+      where: { id: roomId, apartmentId: listingId },
+    });
+
+    if (!room) throw new NotFoundException('الغرفة غير موجودة');
+
+    if (room.occupiedCount > 0) {
+      throw new BadRequestException('لا يمكن حذف غرفة بها أماكن محجوزة');
+    }
+
+    await this.prisma.room.delete({ where: { id: roomId } });
+    return { message: 'تم حذف الغرفة بنجاح' };
+  }
+
+  async uploadRoomImages(
+    listingId: number,
+    roomId: number,
+    hostId: number,
+    files: Express.Multer.File[],
+  ) {
+    await this.verifyOwnership(listingId, hostId);
+
+    const room = await this.prisma.room.findFirst({
+      where: { id: roomId, apartmentId: listingId },
+    });
+
+    if (!room) throw new NotFoundException('الغرفة غير موجودة');
+
+    if (!files?.length) {
+      throw new BadRequestException('يرجى رفع صورة واحدة على الأقل');
+    }
+
+    const uploaded = await Promise.all(
+      files.map((file) => this.uploads.uploadImage(file, 'rooms')),
+    );
+
+    await this.prisma.roomImage.createMany({
+      data: uploaded.map((image) => ({
+        roomId,
+        imageUrl: image.url,
+      })),
+    });
+
+    return this.prisma.room.findUnique({
+      where: { id: roomId },
+      include: { images: true },
+    });
   }
 }

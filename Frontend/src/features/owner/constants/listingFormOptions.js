@@ -1,39 +1,39 @@
 export const propertyTypeOptions = [
-  { value: "APARTMENT", label: "Apartment" },
-  { value: "HOUSE", label: "House" },
-  { value: "VILLA", label: "Villa" },
-  { value: "CABIN", label: "Cabin" },
-  { value: "STUDIO", label: "Studio" },
-  { value: "OTHER", label: "Other" },
+  { value: "APARTMENT", label: "شقة" },
+  { value: "HOUSE", label: "منزل" },
+  { value: "VILLA", label: "فيلا" },
+  { value: "CABIN", label: "كوخ" },
+  { value: "STUDIO", label: "استوديو" },
+  { value: "OTHER", label: "أخرى" },
 ];
 
 export const roomTypeOptions = [
-  { value: "ENTIRE_PLACE", label: "Entire place" },
-  { value: "PRIVATE_ROOM", label: "Private room" },
-  { value: "SHARED_ROOM", label: "Shared room" },
+  { value: "ENTIRE_PLACE", label: "مكان كامل" },
+  { value: "PRIVATE_ROOM", label: "غرفة خاصة" },
+  { value: "SHARED_ROOM", label: "غرفة مشتركة" },
 ];
 
 export const genderPreferenceOptions = [
-  { value: "ANY", label: "Any" },
-  { value: "MALE", label: "Male only" },
-  { value: "FEMALE", label: "Female only" },
+  { value: "ANY", label: "أي نوع" },
+  { value: "MALE", label: "ذكور فقط" },
+  { value: "FEMALE", label: "إناث فقط" },
 ];
 
 export const smokingPolicyOptions = [
-  { value: "NOT_ALLOWED", label: "Not allowed" },
-  { value: "ALLOWED", label: "Allowed" },
+  { value: "NOT_ALLOWED", label: "غير مسموح" },
+  { value: "ALLOWED", label: "مسموح" },
 ];
 
 export const locationPrivacyOptions = [
-  { value: "APPROXIMATE", label: "Approximate" },
-  { value: "EXACT", label: "Exact" },
+  { value: "APPROXIMATE", label: "تقريبي" },
+  { value: "EXACT", label: "دقيق" },
 ];
 
 export const statusOptions = [
-  { value: "DRAFT", label: "Draft" },
-  { value: "ACTIVE", label: "Active" },
-  { value: "INACTIVE", label: "Rented" },
-  { value: "SUSPENDED", label: "Archived" },
+  { value: "DRAFT", label: "مسودة" },
+  { value: "ACTIVE", label: "نشط" },
+  { value: "INACTIVE", label: "مؤجر" },
+  { value: "SUSPENDED", label: "مؤرشف" },
 ];
 
 export const numericListingFields = [

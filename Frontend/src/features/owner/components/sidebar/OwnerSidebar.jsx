@@ -16,13 +16,22 @@ UserIcon,
 } from "../common/OwnerIcons";
 
 import { chatApi } from './../../../chat/services/chatApi';
+import { VerificationBadge } from "../../../verification/components/VerificationBadge";
+
+function ClipboardIcon({ className }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+  );
+}
 
 export function OwnerSidebar({ user, logout }) {
 const navigate = useNavigate();
 const location = useLocation();
 
 const ownerSection =
-location.state?.ownerSection || "listings";
+location.state?.ownerSection || "dashboard";
 
 const isOwnerHome =
 location.pathname === "/owner";
@@ -137,8 +146,12 @@ className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition
         </p>
 
         <p className="text-xs font-semibold text-emerald-500">
-          مالك موثق
+          مالك عقار
         </p>
+
+        <div className="mt-2">
+          <VerificationBadge status={user?.verificationStatus} compact />
+        </div>
       </div>
     </button>
   </div>
@@ -163,17 +176,23 @@ className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition
       icon={BuildingIcon}
       active={
         isOwnerHome &&
-        ownerSection !== "dashboard" &&
-        ownerSection !== "add"
+        ownerSection === "listings"
       }
       className={itemClassName}
     />
 
-    <SidebarNavItem
+    {/* <SidebarNavItem
       to="/owner/bookings"
       label="طلبات المعاينة"
       icon={EyeIcon}
       badge="5"
+      className={itemClassName}
+    /> */}
+
+    <SidebarNavItem
+      to="/owner/rental-requests"
+      label="طلبات الإيجار"
+      icon={ClipboardIcon}
       className={itemClassName}
     />
 
@@ -204,10 +223,17 @@ className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition
       className={itemClassName}
     />
 
-    <SidebarNavItem
+    {/* <SidebarNavItem
       to="/owner/settings"
       label="الإعدادات"
       icon={SettingsIcon}
+      className={itemClassName}
+    /> */}
+
+    <SidebarNavItem
+      to="/dispute-chat"
+      label="محادثات النزاع"
+      icon={ClipboardIcon}
       className={itemClassName}
     />
 

@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { VerificationBadge } from "../../../verification/components/VerificationBadge";
+import { RatingSummary } from "../../../reviews/components/RatingSummary";
 
 const ROOM_TYPE_LABELS = {
   ENTIRE_PLACE: "شقة كاملة",
@@ -23,12 +24,19 @@ function AmenityTag({ label }) {
   );
 }
 
-export function ListingCard({ listing }) {
+export function ListingCard({
+  listing,
+  onFavoriteToggle,
+  favoritePending = false,
+}) {
   const navigate = useNavigate();
 
   const coverPhoto = listing.photos?.[0]?.url;
   const reviewCount = listing._count?.reviews ?? 0;
+  const averageRating = listing.averageRating ?? 0;
   const amenities = listing.amenities?.slice(0, 3) ?? [];
+  const availablePlaces =
+    listing.availablePlaces ?? Math.max(0, (listing.maxTenants ?? 0) - (listing.reservedPlaces ?? 0));
 
   const roomLabel =
     ROOM_TYPE_LABELS[listing.roomType] ??
@@ -40,6 +48,10 @@ export function ListingCard({ listing }) {
     .join(" – ");
 
   const handleClick = () => navigate(`/expatriate/listings/${listing.id}`);
+  const handleFavoriteClick = (event) => {
+    event.stopPropagation();
+    onFavoriteToggle?.(listing);
+  };
 
   return (
     <div
@@ -81,6 +93,27 @@ export function ListingCard({ listing }) {
             {listing.distanceKm} كم
           </span>
         )}
+
+        {onFavoriteToggle && (
+          <button
+            type="button"
+            onClick={handleFavoriteClick}
+            disabled={favoritePending}
+            aria-label={
+              listing.isFavorited
+                ? "إزالة من الشقق المحفوظة"
+                : "حفظ الشقة"
+            }
+            title={
+              listing.isFavorited
+                ? "إزالة من الشقق المحفوظة"
+                : "حفظ الشقة"
+            }
+            className="absolute left-2 bottom-2 grid h-10 w-10 place-items-center rounded-full bg-white/95 text-xl shadow-md ring-1 ring-slate-200 transition hover:scale-105 disabled:cursor-wait disabled:opacity-70"
+          >
+            {listing.isFavorited ? "❤️" : "♡"}
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -109,16 +142,17 @@ export function ListingCard({ listing }) {
         )}
 
         {/* Footer */}
+        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+          <span>الأماكن المتبقية: {availablePlaces.toLocaleString("ar-EG")}</span>
+          <span className="text-left">السعة الكاملة: {Number(listing.maxTenants ?? 0).toLocaleString("ar-EG")}</span>
+        </div>
+
         <div className="mt-3 flex items-center justify-between">
-          <div className="flex items-center gap-1 text-xs text-slate-500">
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-amber-400">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-            <span className="font-semibold text-slate-700">
-              {listing.averageRating ? listing.averageRating.toFixed(1) : "—"}
-            </span>
-            <span>({reviewCount})</span>
-          </div>
+          <RatingSummary
+            averageRating={averageRating}
+            reviewCount={reviewCount}
+            size="sm"
+          />
 
           <div className="text-left">
             <span className="text-base font-black text-[#1752F0]">

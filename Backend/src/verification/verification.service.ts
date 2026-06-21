@@ -4,15 +4,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { VerificationStatus } from '@prisma/client';
+import { VerificationStatus ,NotificationType} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UploadsService } from '../uploads/uploads.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class VerificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly uploads: UploadsService,
+     private readonly notificationsService: NotificationsService,
   ) {}
 
   async submit(
@@ -90,66 +92,174 @@ export class VerificationService {
     };
   }
 
-  async approve(id: number, adminId: number) {
-    await this.assertAdmin(adminId);
+ async approve(id: number, adminId: number) {
+  await this.assertAdmin(adminId);
 
-    const verification = await this.prisma.verification.findUnique({
+  const verification =
+    await this.prisma.verification.findUnique({
       where: { id },
     });
 
-    if (!verification) throw new NotFoundException('Verification not found');
+  if (!verification) {
+    throw new NotFoundException(
+      'Verification not found',
+    );
+  }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.verification.update({
-        where: { id },
-        data: {
-          status: VerificationStatus.APPROVED,
-          rejectionReason: null,
-        },
-      });
+  // تحديث حالة التوثيق أولًا
+  const updated = await this.prisma.$transaction(
+    async (tx) => {
+      const updatedVerification =
+        await tx.verification.update({
+          where: { id },
+          data: {
+            status: VerificationStatus.APPROVED,
+            rejectionReason: null,
+          },
+        });
 
       await tx.user.update({
-        where: { id: verification.userId },
+        where: {
+          id: verification.userId,
+        },
         data: {
-          verificationStatus: VerificationStatus.APPROVED,
-          ...(verification.status !== VerificationStatus.APPROVED && {
-            trustScore: { increment: 25 },
+          verificationStatus:
+            VerificationStatus.APPROVED,
+
+          ...(verification.status !==
+            VerificationStatus.APPROVED && {
+            trustScore: {
+              increment: 25,
+            },
           }),
         },
       });
 
-      return updated;
+      return updatedVerification;
+    },
+  );
+
+  // إرسال إشعار داخل الموقع + Email
+  try {
+    await this.notificationsService.notifyUser({
+      userId: verification.userId,
+
+      type: NotificationType.USER_VERIFICATION_APPROVED,
+
+      title: 'تم توثيق حسابك بنجاح',
+
+      message:
+        'تمت مراجعة المستندات والموافقة على طلب توثيق حسابك. أصبح حسابك الآن موثقًا على منصة مرافق.',
+
+      relatedEntity: 'verification',
+      relatedEntityId: verification.id,
+
+      metadata: {
+        verificationId: verification.id,
+        status: VerificationStatus.APPROVED,
+      },
+
+      shouldSendEmail: true,
+
+      emailSubject:
+        'تم توثيق حسابك بنجاح - مرافق',
     });
+  } catch (notificationError) {
+    console.error(
+      'Failed to create approval notification:',
+      notificationError,
+    );
   }
 
-  async reject(id: number, adminId: number, rejectionReason: string) {
-    await this.assertAdmin(adminId);
+  return updated;
+}
 
-    const verification = await this.prisma.verification.findUnique({
+  async reject(
+  id: number,
+  adminId: number,
+  rejectionReason: string,
+) {
+  await this.assertAdmin(adminId);
+
+  const cleanedReason = rejectionReason?.trim();
+
+  if (!cleanedReason) {
+    throw new BadRequestException(
+      'Rejection reason is required',
+    );
+  }
+
+  const verification =
+    await this.prisma.verification.findUnique({
       where: { id },
     });
 
-    if (!verification) throw new NotFoundException('Verification not found');
+  if (!verification) {
+    throw new NotFoundException(
+      'Verification not found',
+    );
+  }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.verification.update({
-        where: { id },
-        data: {
-          status: VerificationStatus.REJECTED,
-          rejectionReason,
-        },
-      });
+  // تحديث حالة التوثيق أولًا
+  const updated = await this.prisma.$transaction(
+    async (tx) => {
+      const updatedVerification =
+        await tx.verification.update({
+          where: { id },
+          data: {
+            status: VerificationStatus.REJECTED,
+            rejectionReason: cleanedReason,
+          },
+        });
 
       await tx.user.update({
-        where: { id: verification.userId },
+        where: {
+          id: verification.userId,
+        },
         data: {
-          verificationStatus: VerificationStatus.REJECTED,
+          verificationStatus:
+            VerificationStatus.REJECTED,
         },
       });
 
-      return updated;
+      return updatedVerification;
+    },
+  );
+
+  // إرسال إشعار داخل الموقع + Email
+  try {
+    await this.notificationsService.notifyUser({
+      userId: verification.userId,
+
+      type: NotificationType.USER_VERIFICATION_REJECTED,
+
+      title: 'لم تتم الموافقة على طلب التوثيق',
+
+      message: `تمت مراجعة طلب توثيق حسابك، ولكن لم تتم الموافقة عليه للأسباب التالية:\n${cleanedReason}\n\nيمكنك تصحيح الملاحظات وإعادة إرسال طلب التوثيق.`,
+
+      relatedEntity: 'verification',
+      relatedEntityId: verification.id,
+
+      metadata: {
+        verificationId: verification.id,
+        status: VerificationStatus.REJECTED,
+        rejectionReason: cleanedReason,
+      },
+
+      shouldSendEmail: true,
+
+      emailSubject:
+        'تحديث بشأن طلب توثيق حسابك - مرافق',
     });
+  } catch (notificationError) {
+    console.error(
+      'Failed to create rejection notification:',
+      notificationError,
+    );
   }
+
+  return updated;
+}
 
   private async assertAdmin(userId: number) {
     const user = await this.prisma.user.findUnique({

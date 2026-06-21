@@ -8,40 +8,57 @@ datasource db {
 }
 
 model User {
-  id                  Int                @id @default(autoincrement()) @db.UnsignedInt
-  email               String             @unique @db.VarChar(255)
-  passwordHash        String?            @db.VarChar(255)
-  firstName           String             @db.VarChar(100)
-  lastName            String             @db.VarChar(100)
-  avatarUrl           String?            @db.VarChar(500)
-  phone               String?            @db.Text
-  phoneCountry        String?            @db.VarChar(2)
-  phoneCountryCode    String?            @db.VarChar(5)
-  phoneHash           String?            @unique @db.VarChar(64)
-  role                UserRole           @default(GUEST)
-  onboardingCompleted Boolean            @default(false)
-  gender              genderTypes        @default(male)
-  bio                 String?            @db.Text
-  isVerified          Boolean            @default(false)
-  verificationStatus  VerificationStatus @default(NOT_STARTED)
-  trustScore          Int                @default(0) @db.UnsignedInt
-  isActive            Boolean            @default(true)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  bookings            Booking[]
-  listings            Listing[]
-  reviewsWritten      Review[]           @relation("ReviewsWritten")
-  reviewsReceived     Review[]           @relation("ReviewsReceived")
-  otps                OTP[]
-  guestConversations  Conversation[]     @relation("GuestConversations")
-  hostConversations   Conversation[]     @relation("HostConversations")
-  sentMessages        Message[]          @relation("MessageSender")
-  verification        Verification?
+  id                   Int                   @id @default(autoincrement()) @db.UnsignedInt
+  email                String                @unique @db.VarChar(255)
+  passwordHash         String?               @db.VarChar(255)
+  firstName            String                @db.VarChar(100)
+  lastName             String                @db.VarChar(100)
+  age                  Int?                  @db.UnsignedInt
+  avatarUrl            String?               @db.VarChar(500)
+  phone                String?               @db.Text
+  phoneCountry         String?               @db.VarChar(2)
+  phoneCountryCode     String?               @db.VarChar(5)
+  phoneHash            String?               @unique @db.VarChar(64)
+  role                 UserRole              @default(GUEST)
+  onboardingCompleted  Boolean               @default(false)
+  gender               genderTypes           @default(male)
+  bio                  String?               @db.Text
+  isVerified           Boolean               @default(false)
+  verificationStatus   VerificationStatus    @default(NOT_STARTED)
+  trustScore           Int                   @default(0) @db.UnsignedInt
+  isActive             Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  bookings             Booking[]
+  listings             Listing[]
+  reviewsWritten       Review[]              @relation("ReviewsWritten")
+  reviewsReceived      Review[]              @relation("ReviewsReceived")
+  otps                 OTP[]
+  notifications        Notification[]
+  guestConversations   Conversation[]        @relation("GuestConversations")
+  hostConversations    Conversation[]        @relation("HostConversations")
+  sentMessages         Message[]             @relation("MessageSender")
+  verification         Verification?
+  disputeConversations DisputeConversation[] @relation("DisputeConversationParticipant")
+  disputeMessages      DisputeMessage[]      @relation("DisputeMessageSender")
+  favorites            Favorite[]
+  preferences          UserPreference[]
 
   @@index([email])
   @@index([phoneCountry])
   @@index([phoneCountryCode])
   @@map("users")
+}
+
+model UserPreference {
+  id            Int    @id @default(autoincrement()) @db.UnsignedInt
+  userId        Int    @db.UnsignedInt
+  preferenceKey String @db.VarChar(50)
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, preferenceKey])
+  @@index([userId])
+  @@map("user_preferences")
 }
 
 model Verification {
@@ -83,6 +100,37 @@ model OTP {
   @@map("otps")
 }
 
+model Notification {
+  id     Int @id @default(autoincrement()) @db.UnsignedInt
+  userId Int @db.UnsignedInt
+
+  type    NotificationType
+  title   String           @db.VarChar(255)
+  message String           @db.Text
+
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
+  emailStatus EmailDeliveryStatus @default(NOT_REQUESTED)
+  emailSentAt DateTime?
+  emailError  String?             @db.Text
+
+  relatedEntity   String? @db.VarChar(50)
+  relatedEntityId Int?    @db.UnsignedInt
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([type])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
 model Listing {
   id     Int  @id @default(autoincrement()) @db.UnsignedInt
   hostId Int  @db.UnsignedInt
@@ -94,11 +142,12 @@ model Listing {
   propertyType PropertyType
   roomType     RoomType
 
-  streetName      String  @db.VarChar(255)
-  buildingNumber  String? @db.VarChar(50)
-  floorNumber     String? @db.VarChar(50)
-  apartmentNumber String? @db.VarChar(50)
-  nearbyLandmark  String? @db.VarChar(255)
+  streetName          String  @db.VarChar(255)
+  buildingNumber      String? @db.VarChar(50)
+  floorNumber         String? @db.VarChar(50)
+  apartmentNumber     String? @db.VarChar(50)
+  nearbyLandmark      String? @db.VarChar(255)
+  arrivalInstructions String? @db.Text
 
   city        String @db.VarChar(100)
   governorate String @db.VarChar(100)
@@ -152,10 +201,13 @@ model Listing {
   categoryId Int?      @db.UnsignedInt
 
   photos             ListingPhoto[]
+  rooms              Room[]
   amenities          ListingAmenity[]
   availabilityBlocks AvailabilityBlock[]
   bookings           Booking[]
   reviews            Review[]
+  vectorInsight      ListingVector?
+  favorites          Favorite[]
 
   @@index([hostId])
   @@index([areaId])
@@ -248,6 +300,21 @@ model ListingAmenity {
   @@map("listing_amenities")
 }
 
+model Favorite {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  userId    Int      @db.UnsignedInt
+  listingId Int      @db.UnsignedInt
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([userId])
+  @@index([listingId])
+  @@map("favorites")
+}
+
 model Booking {
   id        Int @id @default(autoincrement()) @db.UnsignedInt
   guestId   Int @db.UnsignedInt
@@ -255,6 +322,9 @@ model Booking {
 
   preferredMoveInDate DateTime? @db.Date
   guestMessage        String?   @db.Text
+  agreedAmount        Int?      @db.UnsignedInt
+  roomId              Int?      @db.UnsignedInt
+  selectedRoomName    String?   @db.VarChar(100)
 
   status BookingStatus @default(PENDING_HOST_APPROVAL)
 
@@ -262,18 +332,27 @@ model Booking {
   rejectionReason    String? @db.Text
   cancellationReason String? @db.Text
 
-  acceptedAt  DateTime?
-  confirmedAt DateTime?
-  rejectedAt  DateTime?
-  cancelledAt DateTime?
-  completedAt DateTime?
+  disputeReason        String?               @db.VarChar(100)
+  disputeDescription   String?               @db.Text
+  disputeResolution    String?               @db.Text
+  disputeConversations DisputeConversation[]
+
+  acceptedAt        DateTime?
+  approvedAt        DateTime?
+  paymentExpiresAt  DateTime?
+  confirmedAt       DateTime?
+  rejectedAt        DateTime?
+  cancelledAt       DateTime?
+  completedAt       DateTime?
+  disputedAt        DateTime?
+  disputeResolvedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   // Relations
-  guest   User    @relation(fields: [guestId], references: [id])
-  listing Listing @relation(fields: [listingId], references: [id])
+  guest     User     @relation(fields: [guestId], references: [id])
+  listing   Listing  @relation(fields: [listingId], references: [id])
+  room      Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
 
   review Review[]
 
@@ -282,8 +361,40 @@ model Booking {
 
   @@index([guestId])
   @@index([listingId])
+  @@index([roomId])
   @@index([status])
   @@map("bookings")
+}
+
+model Room {
+  id            Int      @id @default(autoincrement()) @db.UnsignedInt
+  apartmentId   Int      @db.UnsignedInt
+  roomNumber    Int      @db.UnsignedInt
+  roomName      String   @db.VarChar(100)
+  capacity      Int      @db.UnsignedInt
+  occupiedCount Int      @default(0) @db.UnsignedInt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  apartment Listing     @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  images    RoomImage[]
+  bookings  Booking[]
+
+  @@unique([apartmentId, roomNumber])
+  @@index([apartmentId])
+  @@map("rooms")
+}
+
+model RoomImage {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  roomId    Int      @db.UnsignedInt
+  imageUrl  String   @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@map("room_images")
 }
 
 model Payment {
@@ -294,10 +405,29 @@ model Payment {
   paymobOrderId       String? @unique @db.VarChar(255)
   paymobTransactionId String? @unique @db.VarChar(255)
 
-  amount           Int    @db.UnsignedInt // in piastres (EGP cents)
-  platformFee      Int    @default(0) @db.UnsignedInt
-  hostPayoutAmount Int    @default(0) @db.UnsignedInt
-  currency         String @default("EGP") @db.VarChar(3)
+  // قيمة الإيجار الأساسية وقت الدفع
+  rentAmount Int @default(0) @db.UnsignedInt
+
+  // مبلغ التأمين وقت الدفع
+  securityDepositAmount Int @default(0) @db.UnsignedInt
+
+  // إجمالي المبلغ المدفوع من المغترب
+  // إيجار + تأمين + رسوم المنصة
+  amount Int @db.UnsignedInt
+
+  // رسوم المنصة التي دفعها المغترب
+  platformFee Int @default(0) @db.UnsignedInt
+
+  // المبلغ المستحق لصاحب السكن عند الاستلام الطبيعي
+  hostPayoutAmount Int @default(0) @db.UnsignedInt
+
+  // المبلغ الذي تم رده للمغترب بعد حسم النزاع
+  guestRefundAmount Int @default(0) @db.UnsignedInt
+
+  // التعويض الذي أخذه صاحب السكن بعد حسم النزاع
+  hostCompensationAmount Int @default(0) @db.UnsignedInt
+
+  currency String @default("EGP") @db.VarChar(3)
 
   status PaymentStatus @default(PENDING)
 
@@ -305,7 +435,10 @@ model Payment {
   refundReason  String? @db.Text
 
   paidAt     DateTime?
+  heldAt     DateTime?
+  releasedAt DateTime?
   refundedAt DateTime?
+  settledAt  DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -321,19 +454,22 @@ model Review {
   id         Int        @id @default(autoincrement()) @db.UnsignedInt
   bookingId  Int        @db.UnsignedInt
   reviewerId Int        @db.UnsignedInt
-  listingId  Int?       @db.UnsignedInt // nullable — host-to-guest has no listing
-  reviewedId Int        @db.UnsignedInt // who is being reviewed
+  listingId  Int?       @db.UnsignedInt
+  reviewedId Int?       @db.UnsignedInt
   type       ReviewType
 
+  // التقييم العام من 1 إلى 5 نجوم
   rating Int @db.UnsignedInt
 
-  // sub-ratings — only relevant for GUEST_TO_HOST
+  // تستخدم فقط مع تقييم السكن
   cleanliness Int? @db.UnsignedInt
   location    Int? @db.UnsignedInt
   accuracy    Int? @db.UnsignedInt
   value       Int? @db.UnsignedInt
 
-  comment   String? @db.Text
+  // النص الذي يكتب فيه المستخدم رأيه
+  comment String? @db.Text
+
   isVisible Boolean @default(true)
 
   createdAt DateTime @default(now())
@@ -341,14 +477,14 @@ model Review {
 
   booking  Booking  @relation(fields: [bookingId], references: [id])
   reviewer User     @relation("ReviewsWritten", fields: [reviewerId], references: [id])
-  reviewed User     @relation("ReviewsReceived", fields: [reviewedId], references: [id])
+  reviewed User?    @relation("ReviewsReceived", fields: [reviewedId], references: [id])
   listing  Listing? @relation(fields: [listingId], references: [id])
 
-  // one review per booking per type — no duplicates
   @@unique([bookingId, type])
   @@index([reviewerId])
   @@index([reviewedId])
   @@index([listingId])
+  @@index([type])
   @@map("reviews")
 }
 
@@ -391,6 +527,92 @@ model Message {
   @@map("messages")
 }
 
+model DisputeConversation {
+  id Int @id @default(autoincrement()) @db.UnsignedInt
+
+  bookingId       Int                    @db.UnsignedInt
+  participantId   Int                    @db.UnsignedInt
+  participantType DisputeParticipantType
+
+  isClosed Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking     Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  participant User    @relation("DisputeConversationParticipant", fields: [participantId], references: [id], onDelete: Cascade)
+
+  messages DisputeMessage[]
+
+  @@unique([bookingId, participantType])
+  @@index([bookingId])
+  @@index([participantId])
+  @@map("dispute_conversations")
+}
+
+model DisputeMessage {
+  id Int @id @default(autoincrement()) @db.UnsignedInt
+
+  conversationId Int @db.UnsignedInt
+  senderId       Int @db.UnsignedInt
+
+  content String @db.Text
+
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  conversation DisputeConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                @relation("DisputeMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("dispute_messages")
+}
+
+model ListingVector {
+  id        Int @id @default(autoincrement()) @db.UnsignedInt
+  listingId Int @unique @db.UnsignedInt
+
+  // Stores the stringified float array (e.g., "[0.012, -0.234, ...]")
+  // Google's text-embedding-004 model generates 768 dimensions
+  vectorText Json
+
+  // It's highly beneficial to cache the raw text chunk used to generate the vector
+  textChunk String @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relation back to your main Listing table
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("listing_vectors")
+}
+
+model ChatSession {
+  id        String        @id @default(uuid())
+  userId    Int? // Optional: link to your Student/User table if you have one
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  sessionId String   @map("session_id")
+  role      String // Custom validation in code: "user" | "model"
+  text      String   @db.Text // Text type to handle long AI or context strings
+  createdAt DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
 enum UserRole {
   GUEST
   HOST
@@ -422,6 +644,7 @@ enum ListingStatus {
   DRAFT
   PENDING_APPROVAL
   APPROVED
+  RESERVED
   REJECTED
   INACTIVE
   SUSPENDED
@@ -445,19 +668,26 @@ enum RoomType {
 enum BookingStatus {
   PENDING_HOST_APPROVAL
   PENDING_PAYMENT
-  CONFIRMED
+  CHECK_IN_PENDING
+  DISPUTED
+  DISPUTE_RESOLVED_FOR_HOST
+  COMPLETED
   REJECTED
+  CANCELED
   CANCELLED_BY_GUEST
   CANCELLED_BY_HOST
-  COMPLETED
+  CANCELLED_AFTER_DISPUTE
+  REFUNDED
+  EXPIRED
 }
 
 enum PaymentStatus {
   PENDING
-  CAPTURED
+  HELD
+  RELEASED
+  FAILED
   REFUNDED
   PARTIALLY_REFUNDED
-  FAILED
 }
 
 enum BlockReason {
@@ -466,8 +696,37 @@ enum BlockReason {
   MAINTENANCE
 }
 
+enum NotificationType {
+  USER_VERIFICATION_APPROVED
+  USER_VERIFICATION_REJECTED
+  USER_VERIFICATION_NEEDS_CHANGES
+
+  LISTING_VERIFICATION_APPROVED
+  LISTING_VERIFICATION_REJECTED
+  LISTING_VERIFICATION_NEEDS_CHANGES
+
+  BOOKING_REQUESTED
+  BOOKING_APPROVED
+  BOOKING_REJECTED
+  PAYMENT_REQUIRED
+  PAYMENT_CONFIRMED
+}
+
+enum EmailDeliveryStatus {
+  NOT_REQUESTED
+  PENDING
+  SENT
+  FAILED
+}
+
 enum ReviewType {
+  // المغترب يقيّم السكن نفسه
+  GUEST_TO_LISTING
+
+  // المغترب يقيّم تعامل صاحب السكن
   GUEST_TO_HOST
+
+  // صاحب السكن يقيّم المغترب
   HOST_TO_GUEST
 }
 
@@ -486,4 +745,9 @@ enum VerificationStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum DisputeParticipantType {
+  GUEST
+  HOST
 }

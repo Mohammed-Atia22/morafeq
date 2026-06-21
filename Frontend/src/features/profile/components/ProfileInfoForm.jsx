@@ -55,7 +55,7 @@ export function ProfileInfoForm({ form, onChange }) {
 
       <div className="space-y-4">
         {/* Name row */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <FieldLabel required>الاسم الأول</FieldLabel>
             <Input
@@ -103,7 +103,7 @@ export function ProfileInfoForm({ form, onChange }) {
         {/* Phone */}
         <div>
           <FieldLabel>رقم الهاتف</FieldLabel>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             {/* Country code selector */}
             <select
               value={form.phoneCountryCode || "+20"}
@@ -121,7 +121,8 @@ export function ProfileInfoForm({ form, onChange }) {
             <input
               type="tel"
               value={form.phone}
-              onChange={(e) => onChange("phone", e.target.value)}
+              inputMode="numeric"
+              onChange={(e) => onChange("phone", e.target.value.replace(/\D/g, ""))}
               placeholder="01XXXXXXXXX"
               dir="ltr"
               className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition focus:border-[#1752F0] focus:ring-2 focus:ring-[#1752F0]/20"

@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReleasePaymentDto } from './dto/release-payment.dto';
 
 @Controller('payments')
 export class PaymentsController {
@@ -89,5 +90,31 @@ export class PaymentsController {
     @Body() dto: RefundPaymentDto,
   ) {
     return this.paymentsService.refundPayment(id, dto);
+  }
+
+  @Patch(':id/resolve-for-host')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN')
+resolveDisputeForHost(
+  @Param('id', ParseIntPipe) paymentId: number,
+  @Body() dto: ReleasePaymentDto,
+) {
+  return this.paymentsService.resolveDisputeForHost(
+    paymentId,
+    dto,
+  );
+}
+
+  @Patch('booking/:bookingId/dispute-cancel')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  cancelAfterDisputeResolution(
+    @Param('bookingId', ParseIntPipe) bookingId: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.paymentsService.finalizeDisputeCancellationForGuest(
+      bookingId,
+      user.id,
+    );
   }
 }

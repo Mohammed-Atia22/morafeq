@@ -27,6 +27,17 @@ body {
   margin: 0;
 }
 
+@media (max-width: 768px) {
+  button,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    min-height: 44px;
+    padding-top: 0.8rem;
+    padding-bottom: 0.8rem;
+  }
+}
+
 #root {
   min-height: 100vh;
 }

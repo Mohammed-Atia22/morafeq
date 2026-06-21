@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 
 import { ChatService } from './chat.service';
+import { ChatGateway } from './chat.gateway';
 import { StartConversationDto } from './dto/start-conversation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -26,7 +27,10 @@ interface AuthenticatedUser {
 @Controller('chat')
 @UseGuards(JwtAuthGuard)
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly chatGateway: ChatGateway,
+  ) {}
 
   @Post('conversations')
   @HttpCode(HttpStatus.OK)
@@ -57,7 +61,16 @@ sendMessage(
     throw new UnauthorizedException('Invalid authenticated user');
   }
 
-  return this.chatService.sendMessage(userId, body);
+  const message = this.chatService.sendMessage(userId, body);
+
+  return message.then((savedMessage) => {
+    this.chatGateway.emitConversationMessage(
+      body.conversationId,
+      savedMessage,
+    );
+
+    return savedMessage;
+  });
 }
 
 

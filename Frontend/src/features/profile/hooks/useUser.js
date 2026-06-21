@@ -15,7 +15,7 @@ export function useUser() {
       setUser(data);
       return data;
     } catch (err) {
-      setError(err.message || "Failed to load user");
+      setError(err.message || "تعذر تحميل بيانات المستخدم");
       return null;
     } finally {
       setLoading(false);

@@ -39,4 +39,21 @@ export const usersApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  /**
+   * GET /users/:id
+   * Public profile — no private fields
+   */
+  getPublicProfile: (userId) => apiRequest(`/users/${userId}`),
+  /**
+   * Preferences endpoints
+   */
+  getPreferencesOptions: () => apiRequest(`/users/preferences/options`),
+  getMyPreferences: () => apiRequest(`/users/me/preferences`),
+  updateMyPreferences: (payload) =>
+    apiRequest(`/users/me/preferences`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  getUserPreferences: (userId) => apiRequest(`/users/${userId}/preferences`),
 };

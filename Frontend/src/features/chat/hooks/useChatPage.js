@@ -10,6 +10,7 @@ import { useSearchParams } from "react-router-dom";
 import { chatApi } from "../services/chatApi";
 import { useChatSocket } from "./useChatSocket";
 import { useAuth } from "../../auth/hooks/useAuth";
+import { translateErrorMessage } from "../../../shared/services/api";
 
 export function useChatPage() {
 const { user } = useAuth();
@@ -35,6 +36,7 @@ const [error, setError] = useState("");
 const selectedConversationIdRef = useRef(null);
 const currentUserIdRef = useRef(null);
 const markAsReadRef = useRef(null);
+const joinedConversationIdsRef = useRef(new Set());
 
 useEffect(() => {
 selectedConversationIdRef.current =
@@ -155,6 +157,12 @@ setConversations((currentConversations) => {
   );
 });
 
+if (!isOpenConversation && !isMessageFromCurrentUser) {
+  window.dispatchEvent(
+    new Event("chat-unread-changed"),
+  );
+}
+
 
 }, []);
 
@@ -174,6 +182,25 @@ useEffect(() => {
 markAsReadRef.current = markAsRead;
 }, [markAsRead]);
 
+useEffect(() => {
+if (!isConnected) {
+  joinedConversationIdsRef.current.clear();
+  return;
+}
+
+conversations.forEach((conversation) => {
+  if (joinedConversationIdsRef.current.has(conversation.id)) {
+    return;
+  }
+
+  joinedConversationIdsRef.current.add(conversation.id);
+
+  joinConversation(conversation.id).catch(() => {
+    joinedConversationIdsRef.current.delete(conversation.id);
+  });
+});
+}, [conversations, isConnected, joinConversation]);
+
 // جلب قائمة المحادثات
 useEffect(() => {
 const loadConversations = async () => {
@@ -187,14 +214,12 @@ setError("");
 
     setConversations(data);
 
-    if (data.length > 0) {
+    if (data.length > 0 && conversationIdParam) {
       const requestedConversationId =
-        conversationIdParam
-          ? Number(conversationIdParam)
-          : null;
+        Number(conversationIdParam);
 
       const requestedConversationExists =
-        requestedConversationId &&
+        Number.isInteger(requestedConversationId) &&
         data.some(
           (conversation) =>
             conversation.id ===
@@ -204,7 +229,7 @@ setError("");
       setSelectedConversationId(
         requestedConversationExists
           ? requestedConversationId
-          : data[0].id,
+          : null,
       );
     } else {
       setSelectedConversationId(null);
@@ -263,7 +288,7 @@ const openConversation = async () => {
         new Promise((_, reject) => {
           window.setTimeout(() => {
             reject(
-              new Error("Socket markAsRead timeout"),
+              new Error("انتهت مهلة تعليم الرسائل كمقروءة"),
             );
           }, 4000);
         }),
@@ -371,10 +396,28 @@ try {
   setIsSending(true);
   setError("");
 
-  await sendMessage(
-    selectedConversationId,
-    cleanedContent,
-  );
+  if (isConnected) {
+    try {
+      await sendMessage(
+        selectedConversationId,
+        cleanedContent,
+      );
+    } catch {
+      const message = await chatApi.sendMessage({
+        conversationId: selectedConversationId,
+        content: cleanedContent,
+      });
+
+      handleNewMessage(message);
+    }
+  } else {
+    const message = await chatApi.sendMessage({
+      conversationId: selectedConversationId,
+      content: cleanedContent,
+    });
+
+    handleNewMessage(message);
+  }
 
   setContent("");
 } catch (sendError) {
@@ -390,7 +433,9 @@ try {
 }, [
 content,
 selectedConversationId,
+isConnected,
 sendMessage,
+handleNewMessage,
 ]);
 
 return {

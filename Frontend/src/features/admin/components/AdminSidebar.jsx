@@ -1,4 +1,5 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import logo from "../../../../images/logo.png";
 
 // Standard dashboard SVG icons
 function GridIcon({ className }) {
@@ -36,6 +37,14 @@ function LogoutIcon({ className }) {
   );
 }
 
+function ScaleIcon({ className }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7H1.5m16.5 0L15 6m0 0l3 9a5.002 5.002 0 01-6 0M15 6l-3 9m3-9h4.5M12 3v18M12 21h-3m3 0h3" />
+    </svg>
+  );
+}
+
 export function AdminSidebar({ user, logout }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -52,12 +61,7 @@ export function AdminSidebar({ user, logout }) {
     <div className="flex h-full flex-col bg-white">
       {/* Logo / Brand Header */}
       <div className="flex items-center gap-3 border-b border-slate-100 p-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white font-bold">
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
-          </svg>
-        </div>
+        <img src={logo} alt="مرافق" className="h-9 w-auto" />
         <div>
           <div className="text-sm font-black text-slate-900 leading-tight">مرافق</div>
           <div className="text-[10px] font-bold text-slate-400 leading-tight">لوحة الإدارة</div>
@@ -81,6 +85,10 @@ export function AdminSidebar({ user, logout }) {
         <NavLink to="/admin/users" className={({ isActive }) => itemClassName(isActive)}>
           <UsersIcon className="h-4 w-4 text-center" />
           <span>المستخدمين</span>
+        </NavLink>
+        <NavLink to="/admin/disputes" className={({ isActive }) => itemClassName(isActive)}>
+          <ScaleIcon className="h-4 w-4 text-center" />
+          <span>النزاعات</span>
         </NavLink>
       </nav>
 

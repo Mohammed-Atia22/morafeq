@@ -29,7 +29,7 @@ export function MessageInput({
             onContentChange(event.target.value)
           }
           onKeyDown={handleKeyDown}
-          disabled={!isConnected || isSending}
+          disabled={isSending}
           rows={2}
           maxLength={2000}
           placeholder="اكتب رسالتك هنا..."
@@ -40,7 +40,6 @@ export function MessageInput({
           type="button"
           onClick={onSendMessage}
           disabled={
-            !isConnected ||
             isSending ||
             !content.trim()
           }

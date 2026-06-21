@@ -7,6 +7,11 @@ import {
 } from "react";
 
 import { createChatSocket } from "../services/chatSocket";
+import { translateErrorMessage } from "../../../shared/services/api";
+
+const isSocketAuthError = (message = "") =>
+  String(message).toLowerCase().includes("unauthorized") ||
+  String(message).toLowerCase().includes("token");
 
 export function useChatSocket(
   onNewMessage,
@@ -68,8 +73,18 @@ export function useChatSocket(
         error.message,
       );
 
+      if (isSocketAuthError(error.message)) {
+        socket.auth = {
+          token: localStorage.getItem("morafeq_access_token"),
+        };
+
+        setSocketError("");
+        setIsConnected(false);
+        return;
+      }
+
       setSocketError(
-        error.message ||
+        translateErrorMessage(error.message) ||
           "تعذر الاتصال بالمحادثة",
       );
 
@@ -79,8 +94,18 @@ export function useChatSocket(
     const handleSocketError = (error) => {
       console.log("Socket error:", error);
 
+      if (isSocketAuthError(error?.message)) {
+        socket.auth = {
+          token: localStorage.getItem("morafeq_access_token"),
+        };
+
+        setSocketError("");
+        setIsConnected(false);
+        return;
+      }
+
       setSocketError(
-        error?.message ||
+        translateErrorMessage(error?.message) ||
           "حدث خطأ في اتصال المحادثة",
       );
     };
@@ -92,7 +117,7 @@ export function useChatSocket(
       );
 
       setSocketError(
-        error?.message ||
+        translateErrorMessage(error?.message) ||
           "حدث خطأ أثناء تنفيذ العملية",
       );
     };
@@ -149,6 +174,24 @@ export function useChatSocket(
       handleMessagesRead,
     );
 
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState === "visible" &&
+        !socket.connected
+      ) {
+        socket.auth = {
+          token: localStorage.getItem("morafeq_access_token"),
+        };
+
+        socket.connect();
+      }
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
     return () => {
       socket.off(
         "connect",
@@ -185,6 +228,11 @@ export function useChatSocket(
         handleMessagesRead,
       );
 
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+
       socket.disconnect();
       socketRef.current = null;
     };
@@ -203,7 +251,7 @@ export function useChatSocket(
           if (!socket?.connected) {
             reject(
               new Error(
-                "Socket is not connected",
+                "الاتصال بالمحادثة غير متاح حاليًا",
               ),
             );
 
@@ -216,7 +264,7 @@ export function useChatSocket(
           ) {
             reject(
               new Error(
-                "Invalid conversation ID",
+                "رقم المحادثة غير صحيح",
               ),
             );
 
@@ -238,7 +286,7 @@ export function useChatSocket(
               reject(
                 new Error(
                   response?.message ||
-                    "Could not join conversation",
+                    "تعذر فتح المحادثة",
                 ),
               );
             },
@@ -265,7 +313,7 @@ export function useChatSocket(
           if (!socket?.connected) {
             reject(
               new Error(
-                "Socket is not connected",
+                "الاتصال بالمحادثة غير متاح حاليًا",
               ),
             );
 
@@ -278,7 +326,7 @@ export function useChatSocket(
           ) {
             reject(
               new Error(
-                "Invalid conversation ID",
+                "رقم المحادثة غير صحيح",
               ),
             );
 
@@ -288,7 +336,7 @@ export function useChatSocket(
           if (!cleanedContent) {
             reject(
               new Error(
-                "Message cannot be empty",
+                "لا يمكن إرسال رسالة فارغة",
               ),
             );
 
@@ -312,7 +360,7 @@ export function useChatSocket(
               reject(
                 new Error(
                   response?.message ||
-                    "Could not send message",
+                    "تعذر إرسال الرسالة",
                 ),
               );
             },
@@ -336,7 +384,7 @@ export function useChatSocket(
           if (!socket?.connected) {
             reject(
               new Error(
-                "Socket is not connected",
+                "الاتصال بالمحادثة غير متاح حاليًا",
               ),
             );
 
@@ -349,7 +397,7 @@ export function useChatSocket(
           ) {
             reject(
               new Error(
-                "Invalid conversation ID",
+                "رقم المحادثة غير صحيح",
               ),
             );
 
@@ -371,7 +419,7 @@ export function useChatSocket(
               reject(
                 new Error(
                   response?.message ||
-                    "Could not mark messages as read",
+                    "تعذر تعليم الرسائل كمقروءة",
                 ),
               );
             },

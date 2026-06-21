@@ -49,6 +49,59 @@ export const adminApi = {
       method: "PATCH",
     }),
 
+  getComplaints: () =>
+    apiRequest("/admin/complaints"),
+
+  // Disputes
+  getDisputes: (query = {}) => {
+    const params = new URLSearchParams();
+    if (query.status) params.append("status", query.status);
+    if (query.page) params.append("page", query.page);
+    if (query.limit) params.append("limit", query.limit);
+    const queryString = params.toString();
+    return apiRequest(`/admin/disputes${queryString ? `?${queryString}` : ""}`);
+  },
+
+  getDisputeDetail: (bookingId) =>
+    apiRequest(`/admin/disputes/${bookingId}`),
+
+  getOriginalDisputeMessages: (bookingId, query = {}) => {
+    const params = new URLSearchParams();
+    if (query.page) params.append("page", query.page);
+    if (query.limit) params.append("limit", query.limit);
+    const queryString = params.toString();
+    return apiRequest(
+      `/admin/disputes/${bookingId}/messages${queryString ? `?${queryString}` : ""}`,
+    );
+  },
+
+  openDisputeConversation: (bookingId, participantType) =>
+    apiRequest(`/admin/disputes/${bookingId}/conversations`, {
+      method: "POST",
+      body: JSON.stringify({ participantType }),
+    }),
+
+  getPrivateDisputeMessages: (conversationId, query = {}) => {
+    const params = new URLSearchParams();
+    if (query.page) params.append("page", query.page);
+    if (query.limit) params.append("limit", query.limit);
+    const queryString = params.toString();
+    return apiRequest(
+      `/admin/dispute-conversations/${conversationId}/messages${queryString ? `?${queryString}` : ""}`,
+    );
+  },
+
+  sendPrivateDisputeMessage: (conversationId, content) =>
+    apiRequest(`/admin/dispute-conversations/${conversationId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    }),
+
+  closeDisputeConversation: (conversationId) =>
+    apiRequest(`/admin/dispute-conversations/${conversationId}/close`, {
+      method: "PATCH",
+    }),
+
   // Verifications
   approveVerification: (id) =>
     apiRequest(`/verification/${id}/approve`, {

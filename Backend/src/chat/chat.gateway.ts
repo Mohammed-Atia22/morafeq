@@ -14,6 +14,7 @@ import { Server, Socket } from 'socket.io';
 
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
+import { DisputeChatService } from '../dispute-chat/dispute-chat.service';
 
 interface JwtPayload {
   sub?: number;
@@ -36,10 +37,23 @@ export class ChatGateway
   server!: Server;
 
   constructor(
-    private readonly chatService: ChatService,
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
-  ) {}
+  private readonly chatService: ChatService,
+
+  // خدمة شات النزاعات
+  private readonly disputeChatService: DisputeChatService,
+
+  private readonly jwtService: JwtService,
+  private readonly configService: ConfigService,
+) {}
+
+  emitConversationMessage(
+    conversationId: number,
+    message: unknown,
+  ) {
+    const roomName = `conversation:${conversationId}`;
+
+    this.server.to(roomName).emit('newMessage', message);
+  }
 
   async handleConnection(client: Socket) {
     try {
@@ -66,6 +80,7 @@ export class ChatGateway
 
       // نخزن userId داخل اتصال الـ socket
       client.data.userId = userId;
+      client.data.role = payload.role;
 
       console.log(
         `Socket connected: ${client.id}, userId: ${userId}`,
@@ -123,6 +138,65 @@ export class ChatGateway
     }
   }
 
+  // دخول غرفة محادثة النزاع الخاصة
+@SubscribeMessage('joinDisputeConversation')
+async joinDisputeConversation(
+  @ConnectedSocket() client: Socket,
+  @MessageBody()
+  body: {
+    conversationId: number;
+  },
+) {
+  try {
+    const userId = client.data.userId as number;
+    const conversationId = Number(body.conversationId);
+
+    if (!userId) {
+      throw new WsException('Unauthorized socket');
+    }
+
+    if (
+      !Number.isInteger(conversationId) ||
+      conversationId < 1
+    ) {
+      throw new WsException(
+        'Invalid dispute conversation ID',
+      );
+    }
+
+    /*
+      تتأكد أن المستخدم:
+      - Admin نشط
+      أو
+      - هو المغترب/صاحب السكن صاحب المحادثة
+    */
+    const access =
+      await this.disputeChatService.ensureConversationAccess(
+        userId,
+        conversationId,
+      );
+
+    const roomName =
+      `dispute-conversation:${conversationId}`;
+
+    await client.join(roomName);
+
+    return {
+      success: true,
+      conversationId,
+      roomName,
+      accessType: access.accessType,
+      isClosed: access.conversation.isClosed,
+    };
+  } catch (error) {
+    throw new WsException(
+      error instanceof Error
+        ? error.message
+        : 'Could not join dispute conversation',
+    );
+  }
+}
+
   // إرسال الرسالة وحفظها
   @SubscribeMessage('sendMessage')
   async sendMessage(
@@ -141,10 +215,11 @@ export class ChatGateway
         body,
       );
 
-      const roomName = `conversation:${body.conversationId}`;
-
       // إرسال الرسالة لكل الموجودين داخل المحادثة
-      this.server.to(roomName).emit('newMessage', message);
+      this.emitConversationMessage(
+        body.conversationId,
+        message,
+      );
 
       return {
         success: true,
@@ -158,6 +233,139 @@ export class ChatGateway
       );
     }
   }
+
+
+  // إرسال رسالة لحظية داخل محادثة النزاع
+@SubscribeMessage('sendDisputeMessage')
+async sendDisputeMessage(
+  @ConnectedSocket() client: Socket,
+  @MessageBody()
+  body: {
+    conversationId: number;
+    content: string;
+  },
+) {
+  try {
+    const userId = client.data.userId as number;
+    const conversationId = Number(body.conversationId);
+
+    if (!userId) {
+      throw new WsException('Unauthorized socket');
+    }
+
+    if (
+      !Number.isInteger(conversationId) ||
+      conversationId < 1
+    ) {
+      throw new WsException(
+        'Invalid dispute conversation ID',
+      );
+    }
+
+    /*
+      الـ Service تتأكد أن المرسل:
+      - Admin
+      أو
+      - صاحب المحادثة نفسه
+    */
+    const message =
+      await this.disputeChatService.sendRealtimeMessage(
+        userId,
+        conversationId,
+        body.content,
+      );
+
+    const roomName =
+      `dispute-conversation:${conversationId}`;
+
+    /*
+      ندخل المرسل للغرفة تلقائيًا كحماية إضافية،
+      حتى لو لم يرسل joinDisputeConversation قبل الإرسال.
+    */
+    await client.join(roomName);
+
+    // إرسال الرسالة لكل الموجودين داخل غرفة النزاع
+    this.server
+      .to(roomName)
+      .emit('newDisputeMessage', message);
+
+    return {
+      success: true,
+      message,
+    };
+  } catch (error) {
+    throw new WsException(
+      error instanceof Error
+        ? error.message
+        : 'Could not send dispute message',
+    );
+  }
+}
+
+// تعليم رسائل محادثة النزاع كمقروءة لحظيًا
+@SubscribeMessage('markDisputeMessagesAsRead')
+async markDisputeMessagesAsRead(
+  @ConnectedSocket() client: Socket,
+  @MessageBody()
+  body: {
+    conversationId: number;
+  },
+) {
+  try {
+    const userId = client.data.userId as number;
+    const conversationId = Number(body.conversationId);
+
+    if (!userId) {
+      throw new WsException('Unauthorized socket');
+    }
+
+    if (
+      !Number.isInteger(conversationId) ||
+      conversationId < 1
+    ) {
+      throw new WsException(
+        'Invalid dispute conversation ID',
+      );
+    }
+
+    /*
+      الـ Service تتأكد إن المستخدم:
+      - Admin
+      أو
+      - صاحب المحادثة
+    */
+    const result =
+      await this.disputeChatService.markRealtimeMessagesAsRead(
+        userId,
+        conversationId,
+      );
+
+    const roomName =
+      `dispute-conversation:${conversationId}`;
+
+    /*
+      ندخل المستخدم الغرفة تلقائيًا؛
+      حتى لو لم ينفذ joinDisputeConversation قبلها.
+    */
+    await client.join(roomName);
+
+    // إبلاغ كل الموجودين في المحادثة بحالة القراءة
+    this.server
+      .to(roomName)
+      .emit('disputeMessagesRead', result);
+
+    return {
+      success: true,
+      ...result,
+    };
+  } catch (error) {
+    throw new WsException(
+      error instanceof Error
+        ? error.message
+        : 'Could not mark dispute messages as read',
+    );
+  }
+}
 
 
   @SubscribeMessage('markAsRead')

@@ -1,6 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchListingDto } from '../listings/dto/search-listing.dto';
+import {
+  calculateCapacity,
+  CAPACITY_HOLDING_BOOKING_STATUSES,
+  areAllRoomsFull,
+  resolveReservedPlaces,
+} from '../bookings/booking-capacity';
 
 @Injectable()
 export class SearchService {
@@ -28,6 +34,48 @@ export class SearchService {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return earthRadiusKm * c;
+  }
+
+  private async attachCapacityToListings<
+    T extends {
+      id: number;
+      maxTenants: number;
+      roomType?: string;
+      rooms?: any[];
+    },
+  >(
+    listings: T[],
+  ) {
+    if (listings.length === 0) {
+      return listings;
+    }
+
+    const reservedCounts = await this.prisma.booking.groupBy({
+      by: ['listingId'],
+      where: {
+        listingId: { in: listings.map((listing) => listing.id) },
+        status: { in: CAPACITY_HOLDING_BOOKING_STATUSES },
+      },
+      _count: { _all: true },
+    });
+
+    const reservedByListingId = new Map(
+      reservedCounts.map((count) => [count.listingId, count._count._all]),
+    );
+
+    return listings.map((listing) => {
+      const reservedPlaces = resolveReservedPlaces(
+        listing,
+        reservedByListingId.get(listing.id) ?? 0,
+      );
+      const capacity = calculateCapacity(listing.maxTenants, reservedPlaces);
+
+      return {
+        ...listing,
+        ...capacity,
+        isFull: capacity.isFull || areAllRoomsFull(listing),
+      };
+    });
   }
 
   private buildWhere(dto: SearchListingDto) {
@@ -154,6 +202,7 @@ export class SearchService {
               firstName: true,
               lastName: true,
               avatarUrl: true,
+              verificationStatus: true,
             },
           },
           area: true,
@@ -171,6 +220,10 @@ export class SearchService {
             take: 1,
           },
           amenities: true,
+          rooms: {
+            include: { images: true },
+            orderBy: { roomNumber: 'asc' as const },
+          },
           locationInsight: true,
           _count: {
             select: {
@@ -179,8 +232,25 @@ export class SearchService {
           },
         },
       });
+      const allListingsWithCapacity =
+        await this.attachCapacityToListings(allListings);
 
-      const listingsWithDistance = allListings
+      // Calculate average ratings for all listings
+      const listingIds = allListingsWithCapacity.map(l => l.id);
+      const avgRatings = await this.prisma.review.groupBy({
+        by: ['listingId'],
+        where: {
+          listingId: { in: listingIds },
+          isVisible: true,
+        },
+        _avg: { rating: true },
+      });
+
+      const ratingMap = new Map(
+        avgRatings.map(r => [r.listingId, r._avg.rating ?? 0])
+      );
+
+      const listingsWithDistance = allListingsWithCapacity
         .map((listing) => {
           const listingLat = Number(listing.lat);
           const listingLng = Number(listing.lng);
@@ -204,10 +274,15 @@ export class SearchService {
           return {
             ...listing,
             distanceKm: Number(distanceKm.toFixed(2)),
+            averageRating: ratingMap.get(listing.id) ?? 0,
           };
         })
         .filter((listing) => {
-          return listing !== null && listing.distanceKm <= radiusKm;
+          return (
+            listing !== null &&
+            listing.distanceKm <= radiusKm &&
+            !(listing as any).isFull
+          );
         });
 
       if (dto.sortBy === 'price_low' || dto.sortBy === 'price_asc') {
@@ -265,6 +340,7 @@ export class SearchService {
               firstName: true,
               lastName: true,
               avatarUrl: true,
+              verificationStatus: true,
             },
           },
           area: true,
@@ -282,6 +358,10 @@ export class SearchService {
             take: 1,
           },
           amenities: true,
+          rooms: {
+            include: { images: true },
+            orderBy: { roomNumber: 'asc' as const },
+          },
           locationInsight: true,
           _count: {
             select: {
@@ -295,8 +375,30 @@ export class SearchService {
       }),
     ]);
 
+    const listingsWithCapacity = await this.attachCapacityToListings(listings);
+
+    // Calculate average ratings for paginated listings
+    const listingIds = listingsWithCapacity.map(l => l.id);
+    const avgRatings = await this.prisma.review.groupBy({
+      by: ['listingId'],
+      where: {
+        listingId: { in: listingIds },
+        isVisible: true,
+      },
+      _avg: { rating: true },
+    });
+
+    const ratingMap = new Map(
+      avgRatings.map(r => [r.listingId, r._avg.rating ?? 0])
+    );
+
+    const listingsWithRatings = listingsWithCapacity.map(listing => ({
+      ...listing,
+      averageRating: ratingMap.get(listing.id) ?? 0,
+    }));
+
     return {
-      data: listings,
+      data: listingsWithRatings.filter((listing) => !(listing as any).isFull),
       meta: {
         total,
         page,

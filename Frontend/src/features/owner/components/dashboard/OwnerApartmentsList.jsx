@@ -28,6 +28,11 @@ export function OwnerApartmentsList({
             const image =
               listing.photos?.[0]?.url ||
               fallbackImages[index % fallbackImages.length];
+            const reservedPlaces = Number(listing.reservedPlaces ?? 0);
+            const availablePlaces = Number(
+              listing.availablePlaces ??
+                Math.max(0, (listing.maxTenants ?? 0) - reservedPlaces),
+            );
 
             return (
               <article
@@ -49,15 +54,46 @@ export function OwnerApartmentsList({
                       .join(" - ") || "غير محدد"}
                   </p>
                   <div className="mt-2 flex items-center justify-end gap-2 text-xs font-bold text-slate-500">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span>{listing.status === "INACTIVE" ? "مؤجرة" : "متاحة"}</span>
+                    <span
+                      className={[
+                        "h-2 w-2 rounded-full",
+                        listing.status === "RESERVED"
+                          ? "bg-blue-500"
+                          : listing.status === "INACTIVE"
+                            ? "bg-violet-500"
+                            : "bg-emerald-500",
+                      ].join(" ")}
+                    />
+                    <span>
+                      {listing.status === "RESERVED"
+                        ? "محجوز بانتظار الدفع"
+                        : listing.status === "INACTIVE"
+                          ? "مؤجرة"
+                          : "متاحة"}
+                    </span>
                     <span>•</span>
                     <span>{listing.viewsCount || 0} مشاهدة</span>
                   </div>
+                  <div className="mt-2 flex flex-wrap items-center justify-end gap-2 text-[11px] font-bold text-slate-500">
+                    <span>السعة: {Number(listing.maxTenants || 0).toLocaleString("ar-EG")}</span>
+                    <span>•</span>
+                    <span>المحجوزة: {reservedPlaces.toLocaleString("ar-EG")}</span>
+                    <span>•</span>
+                    <span>المتبقية: {availablePlaces.toLocaleString("ar-EG")}</span>
+                  </div>
+                  {listing.roomType !== "ENTIRE_PLACE" && listing.rooms?.length > 0 && (
+                    <div className="mt-2 flex flex-wrap justify-end gap-2 text-[11px] font-bold text-slate-500">
+                      {listing.rooms.map((room) => (
+                        <span key={room.id} className="rounded-full bg-slate-100 px-2 py-1">
+                          {room.roomName}: {Number(room.occupiedCount || 0).toLocaleString("ar-EG")} / {Number(room.capacity || 0).toLocaleString("ar-EG")}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-black text-[#1f5bd7]">
-                    {Number(listing.monthlyRent || 0).toLocaleString("en-US")}
+                    {Number(listing.monthlyRent || 0).toLocaleString("ar-EG")}
                   </p>
                   <p className="text-xs font-semibold text-slate-400">ج.م</p>
                   <button

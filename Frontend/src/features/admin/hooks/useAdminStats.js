@@ -13,7 +13,7 @@ export function useAdminStats() {
       const data = await adminApi.getStats();
       setStats(data);
     } catch (err) {
-      setError(err.message || "Failed to load admin stats");
+      setError(err.message || "تعذر تحميل إحصائيات الإدارة");
     } finally {
       setLoading(false);
     }

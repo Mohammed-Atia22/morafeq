@@ -1,6 +1,30 @@
 import { useState, useEffect, useCallback } from "react";
 import { usersApi } from "../services/usersApi";
 
+const normalizeDialCode = (dialCode) => {
+  if (!dialCode) return "";
+  return dialCode.startsWith("+") ? dialCode : `+${dialCode}`;
+};
+
+const buildProfileForm = (data) => {
+  const phoneCountryCode = normalizeDialCode(data.phoneCountryCode);
+  const phone = data.phone ?? "";
+  const localPhone =
+    phoneCountryCode && phone.startsWith(phoneCountryCode)
+      ? phone.slice(phoneCountryCode.length)
+      : phone.replace(/^\+/, "");
+
+  return {
+    firstName: data.firstName ?? "",
+    lastName: data.lastName ?? "",
+    bio: data.bio ?? "",
+    phone: localPhone,
+    phoneCountry: data.phoneCountry ?? "",
+    phoneCountryCode,
+    gender: data.gender ?? "",
+  };
+};
+
 /**
  * Manages all profile operations:
  * - fetch full profile from /users/me
@@ -12,14 +36,14 @@ import { usersApi } from "../services/usersApi";
  * so edits don't overwrite the displayed data until saved.
  */
 export function useProfile() {
-  const [profile, setProfile]         = useState(null);
-  const [form, setForm]               = useState(null);
-  const [loading, setLoading]         = useState(true);
-  const [saving, setSaving]           = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [form, setForm] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
-  const [error, setError]             = useState(null);
-  const [successMsg, setSuccessMsg]   = useState(null);
+  const [error, setError] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -27,16 +51,15 @@ export function useProfile() {
 
     try {
       const data = await usersApi.getMe();
+      // fetch preferences separately and attach if available
+      try {
+        const prefs = await usersApi.getMyPreferences();
+        if (prefs) data.preferences = prefs;
+      } catch (e) {
+        // silently ignore if preferences endpoint not available
+      }
       setProfile(data);
-      setForm({
-        firstName:        data.firstName        ?? "",
-        lastName:         data.lastName         ?? "",
-        bio:              data.bio              ?? "",
-        phone:            data.phone            ?? "",
-        phoneCountry:     data.phoneCountry     ?? "",
-        phoneCountryCode: data.phoneCountryCode ?? "",
-        gender:           data.gender           ?? "",
-      });
+      setForm(buildProfileForm(data));
       return data;
     } catch (err) {
       setError(err.message || "ÙØ´Ù„ ÙÙŠ ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ");
@@ -55,18 +78,16 @@ export function useProfile() {
       setError(null);
       try {
         const data = await usersApi.getMe();
+        // try to load preferences and attach
+        try {
+          const prefs = await usersApi.getMyPreferences();
+          if (prefs) data.preferences = prefs;
+        } catch (e) {}
+
         if (!cancelled) {
           setProfile(data);
           // initialise form with fetched values
-          setForm({
-            firstName:        data.firstName        ?? "",
-            lastName:         data.lastName         ?? "",
-            bio:              data.bio              ?? "",
-            phone:            data.phone            ?? "",
-            phoneCountry:     data.phoneCountry     ?? "",
-            phoneCountryCode: data.phoneCountryCode ?? "",
-            gender:           data.gender           ?? "",
-          });
+          setForm(buildProfileForm(data));
         }
       } catch (err) {
         if (!cancelled) setError(err.message || "فشل في تحميل الملف الشخصي");
@@ -76,7 +97,9 @@ export function useProfile() {
     };
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ─── Update a single form field ───────────
@@ -93,13 +116,13 @@ export function useProfile() {
 
     try {
       const updated = await usersApi.updateProfile({
-        firstName:        form.firstName        || undefined,
-        lastName:         form.lastName         || undefined,
-        bio:              form.bio,
-        phone:            form.phone            || undefined,
-        phoneCountry:     form.phoneCountry     || undefined,
+        firstName: form.firstName || undefined,
+        lastName: form.lastName || undefined,
+        bio: form.bio,
+        phone: form.phone || undefined,
+        phoneCountry: form.phoneCountry || undefined,
         phoneCountryCode: form.phoneCountryCode || undefined,
-        gender:           form.gender           || undefined,
+        gender: form.gender || undefined,
       });
       setProfile((prev) => ({ ...prev, ...updated }));
       setSuccessMsg("تم حفظ التغييرات بنجاح");
@@ -155,9 +178,15 @@ export function useProfile() {
           profile.phone,
           profile.bio,
           profile.gender,
+          // preferences considered complete when array exists and non-empty
+          (profile.preferences && profile.preferences.length > 0) || false,
         ];
         const filled = fields.filter(Boolean).length;
-        return Math.round((filled / fields.length) * 100);
+        const profileFieldsScore = Math.round((filled / fields.length) * 90);
+        const verificationScore =
+          profile.verificationStatus === "APPROVED" ? 10 : 0;
+
+        return Math.min(100, profileFieldsScore + verificationScore);
       })()
     : 0;
 
@@ -176,6 +205,9 @@ export function useProfile() {
     uploadAvatar,
     changePassword,
     loadProfile,
-    clearMessages: () => { setError(null); setSuccessMsg(null); },
+    clearMessages: () => {
+      setError(null);
+      setSuccessMsg(null);
+    },
   };
 }

@@ -18,7 +18,7 @@ export function useAdminListings(initialStatus = "") {
       setListings(res.data);
       setMeta(res.meta);
     } catch (err) {
-      setError(err.message || "Failed to load listings");
+      setError(err.message || "تعذر تحميل العقارات");
     } finally {
       setLoading(false);
     }

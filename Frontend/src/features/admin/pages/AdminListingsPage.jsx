@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAdminListings } from "../hooks/useAdminListings";
+import { ImageViewer } from "../../../shared/components/ImageViewer";
 
 function CalendarIcon({ className }) {
   return (
@@ -36,6 +37,8 @@ export function AdminListingsPage() {
   const [note, setNote] = useState("");
   const [reason, setReason] = useState("");
   const [actionType, setActionType] = useState(null); // 'approve' | 'reject' | 'suspend'
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Filter listings based on frontend search term (title or host name)
   const filteredListings = listings.filter((listing) => {
@@ -237,6 +240,7 @@ export function AdminListingsPage() {
                   <th className="py-3.5 px-4">تاريخ الإضافة</th>
                   <th className="py-3.5 px-4">الحالة</th>
                   <th className="py-3.5 px-4">المالك</th>
+                  <th className="py-3.5 px-4">الإشغال</th>
                   <th className="py-3.5 px-4">السعر شهرياً</th>
                   <th className="py-3.5 px-4">نوع الغرفة</th>
                   <th className="py-3.5 px-6">العقار</th>
@@ -265,6 +269,21 @@ export function AdminListingsPage() {
                         <span>
                           {listing.host?.firstName} {listing.host?.lastName}
                         </span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="space-y-1">
+                        <div className="font-black text-slate-800">
+                          {Number(listing.reservedPlaces || 0).toLocaleString("ar-EG")} / {Number(listing.maxTenants || 0).toLocaleString("ar-EG")}
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-400">
+                          المتبقي: {Number(listing.availablePlaces || 0).toLocaleString("ar-EG")}
+                        </div>
+                        {listing.isFull && (
+                          <span className="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600">
+                            مكتمل السعة
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="py-4 px-4 font-black text-slate-900">
@@ -334,12 +353,21 @@ export function AdminListingsPage() {
               {/* Photos Carousel */}
               <div className="mb-4 grid grid-cols-3 gap-2">
                 {selectedListing.photos?.slice(0, 3).map((photo, index) => (
-                  <img
+                  <button
                     key={index}
-                    src={photo.url}
-                    className="h-24 w-full rounded-xl object-cover border border-slate-100"
-                    alt={`Photo ${index + 1}`}
-                  />
+                    type="button"
+                    onClick={() => {
+                      setCurrentImageIndex(index);
+                      setIsImageViewerOpen(true);
+                    }}
+                    className="h-24 w-full rounded-xl object-cover border border-slate-100 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                  >
+                    <img
+                      src={photo.url}
+                      className="h-full w-full object-cover"
+                      alt={`Photo ${index + 1}`}
+                    />
+                  </button>
                 ))}
               </div>
 
@@ -433,6 +461,14 @@ export function AdminListingsPage() {
                     <div>
                       <span className="text-slate-400 font-bold">أقصى عدد للمستأجرين:</span>
                       <p className="font-extrabold mt-0.5 text-slate-800">{selectedListing.maxTenants} أشخاص</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold">الأماكن المحجوزة:</span>
+                      <p className="font-extrabold mt-0.5 text-slate-800">{Number(selectedListing.reservedPlaces || 0).toLocaleString("ar-EG")}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold">الأماكن المتبقية:</span>
+                      <p className="font-extrabold mt-0.5 text-slate-800">{Number(selectedListing.availablePlaces || 0).toLocaleString("ar-EG")}</p>
                     </div>
                     <div>
                       <span className="text-slate-400 font-bold">حالة التأثيث:</span>
@@ -597,6 +633,16 @@ export function AdminListingsPage() {
           </div>
         )}
       </div>
+
+      {/* ImageViewer for admin review */}
+      {selectedListing && (
+        <ImageViewer
+          images={selectedListing.photos || []}
+          initialIndex={currentImageIndex}
+          isOpen={isImageViewerOpen}
+          onClose={() => setIsImageViewerOpen(false)}
+        />
+      )}
     </div>
   );
 }

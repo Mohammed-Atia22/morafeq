@@ -4,6 +4,7 @@ import { AuthCard } from "../components/AuthCard";
 import { AuthLayout } from "../components/AuthLayout";
 import { AuthMessage } from "../components/AuthMessage";
 import { useAuth } from "../hooks/useAuth";
+import { getRoleHomePath } from "../utils/roleRedirect";
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -25,14 +26,7 @@ export function AuthCallbackPage() {
         if (!user.onboardingCompleted) {
           navigate("/onboarding");
         } else {
-          // Redirect based on role
-          if (user.role === "HOST") {
-            navigate("/owner");
-          } else if (user.role === "GUEST") {
-            navigate("/expatriate");
-          } else {
-            navigate("/");
-          }
+          navigate(getRoleHomePath(user.role), { replace: true });
         }
       })
       .catch((caughtError) => setError(caughtError.message));

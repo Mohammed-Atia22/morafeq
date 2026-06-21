@@ -39,4 +39,28 @@ export const listingsApi = {
     apiRequest(`/listings/${listingId}/photos/${photoId}`, {
       method: "DELETE",
     }),
+  getRooms: (id) => apiRequest(`/listings/${id}/rooms`),
+  createRoom: (id, payload) =>
+    apiRequest(`/listings/${id}/rooms`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateRoom: (listingId, roomId, payload) =>
+    apiRequest(`/listings/${listingId}/rooms/${roomId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteRoom: (listingId, roomId) =>
+    apiRequest(`/listings/${listingId}/rooms/${roomId}`, {
+      method: "DELETE",
+    }),
+  uploadRoomImages: (listingId, roomId, images) => {
+    const formData = new FormData();
+    images.forEach((image) => formData.append("images", image));
+
+    return apiRequest(`/listings/${listingId}/rooms/${roomId}/images`, {
+      method: "POST",
+      body: formData,
+    });
+  },
 };
