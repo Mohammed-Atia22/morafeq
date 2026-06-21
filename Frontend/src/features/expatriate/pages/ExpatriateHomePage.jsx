@@ -100,26 +100,13 @@ export function ExpatriateHomePage() {
         />
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[1.2fr_1fr_1fr]">
+      <section className="grid gap-5 lg:grid-cols-1">
         <CurrentBookingCard booking={metrics.currentBooking} />
-        <ProfileCompletionCard
-          completeness={completeness}
-          factors={metrics.profileFactors}
-          verificationStatus={profile?.verificationStatus ?? user?.verificationStatus}
-        />
-        <PreferencesCard
-          preferencesCount={metrics.preferencesCount}
-          isComplete={metrics.preferencesCount > 0}
-        />
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[1fr_1fr_1fr]">
+      <section className="grid gap-5 lg:grid-cols-[1fr_1fr]">
         <BookingsOverview metrics={metrics} />
         <ReviewsCard meta={reviewMeta} />
-        <MessagesAndAiCard
-          conversationCount={conversationCount}
-          loading={messagesLoading}
-        />
       </section>
 
       <QuickActions onNavigate={navigate} />
