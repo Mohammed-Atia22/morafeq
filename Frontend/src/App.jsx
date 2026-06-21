@@ -30,6 +30,7 @@ import { AIAssistant } from "./features/ai/components/AIAssistant";
 import { ExpatriateSearchPage } from "./features/expatriate/pages/ExpatriateSearchPage";
 import { ExpatriateListingDetailPage } from "./features/expatriate/pages/ExpatriateListingDetailPage";
 import { ExpatriateLocationInsightPage } from "./features/expatriate/pages/ExpatriateLocationInsightPage";
+import { ExpatriateCurrentTenantsPage } from "./features/expatriate/pages/ExpatriateCurrentTenantsPage";
 import { ExpatriateMessagesPage } from "./features/expatriate/pages/ExpatriateMessagesPage";
 
 import { ProfilePage } from "./features/profile/pages/ProfilePage";
@@ -127,6 +128,11 @@ function App() {
           <Route
             path="listings/:id/insights"
             element={<ExpatriateLocationInsightPage />}
+          />
+
+          <Route
+            path="listings/:id/current-tenants"
+            element={<ExpatriateCurrentTenantsPage />}
           />
 
           <Route path="profile" element={<ProfilePage />} />
