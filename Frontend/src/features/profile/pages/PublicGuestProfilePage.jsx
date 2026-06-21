@@ -6,6 +6,7 @@ import {
   PublicProfileHeader,
   PublicProfileSkeletonWrapper,
 } from "../components/PublicProfileHeader";
+import { PreferencesSection } from "../components/PreferencesSection";
 import { useGuestReviews } from "../../reviews/hooks/useGuestReviews";
 import { useDeleteReview } from "../../reviews/hooks/useDeleteReview";
 import { ReviewsPanel } from "../../reviews/components/ReviewsPanel";
@@ -13,8 +14,11 @@ import { ReviewsPanel } from "../../reviews/components/ReviewsPanel";
 export function PublicGuestProfilePage() {
   const { guestId } = useParams();
   const { user } = useAuth();
-  const { profile, loading: profileLoading, error: profileError } =
-    usePublicProfile(guestId);
+  const {
+    profile,
+    loading: profileLoading,
+    error: profileError,
+  } = usePublicProfile(guestId);
 
   const {
     reviews,
@@ -53,10 +57,10 @@ export function PublicGuestProfilePage() {
           {profileError}
         </div>
         <Link
-          to="/owner/rental-requests"
+          to="/expatriate"
           className="mt-4 inline-block text-sm font-bold text-[#1752F0]"
         >
-          العودة لطلبات الإيجار
+          العودة للرئيسية
         </Link>
       </div>
     );
@@ -81,6 +85,10 @@ export function PublicGuestProfilePage() {
         reviewCount={meta.total ?? 0}
         loadingRating={reviewsLoading}
       />
+
+      <div className="space-y-4">
+        <PreferencesSection userId={guestId} readOnly />
+      </div>
 
       <ReviewsPanel
         showSummary={false}

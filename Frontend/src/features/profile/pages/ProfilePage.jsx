@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useProfile } from "../hooks/useProfile";
 import { AvatarUploader } from "../components/AvatarUploader";
 import { ProfileInfoForm } from "../components/ProfileInfoForm";
+import { PreferencesSection } from "../components/PreferencesSection";
 import { ChangePasswordForm } from "../components/ChangePasswordForm";
 import { useVerification } from "../../verification/hooks/useVerification";
 import { VerificationBadge } from "../../verification/components/VerificationBadge";
@@ -109,7 +110,10 @@ function ProfileHeader({ profile, completeness, onEdit }) {
                   : "طالب مغترب"}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-bold text-slate-500">
-              <span>التقييم والثقة: {Number(profile?.trustScore ?? 0).toLocaleString("ar-EG")}</span>
+              <span>
+                التقييم والثقة:{" "}
+                {Number(profile?.trustScore ?? 0).toLocaleString("ar-EG")}
+              </span>
               <span>اكتمال الملف: {completeness.toLocaleString("ar-EG")}%</span>
             </div>
           </div>
@@ -222,7 +226,10 @@ function FavoritesPreview({
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="h-64 animate-pulse rounded-2xl bg-slate-100" />
+            <div
+              key={index}
+              className="h-64 animate-pulse rounded-2xl bg-slate-100"
+            />
           ))}
         </div>
       ) : favorites.length > 0 ? (
@@ -430,6 +437,16 @@ export function ProfilePage() {
         }
       >
         <AccountInfo profile={profile} />
+      </SectionCard>
+
+      <SectionCard title="تفضيلاتي" action={null}>
+        {profile?.role === "GUEST" ? (
+          <PreferencesSection profile={profile} onSaved={loadProfile} />
+        ) : (
+          <div className="rounded-2xl bg-slate-50 px-5 py-6 text-sm text-slate-600">
+            تفضيلات زملاء السكن متاحة فقط لحسابات الطلاب المغتربين.
+          </div>
+        )}
       </SectionCard>
 
       <VerificationPanel

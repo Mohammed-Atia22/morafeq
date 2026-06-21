@@ -15,13 +15,13 @@ const buildProfileForm = (data) => {
       : phone.replace(/^\+/, "");
 
   return {
-    firstName:        data.firstName        ?? "",
-    lastName:         data.lastName         ?? "",
-    bio:              data.bio              ?? "",
-    phone:            localPhone,
-    phoneCountry:     data.phoneCountry     ?? "",
+    firstName: data.firstName ?? "",
+    lastName: data.lastName ?? "",
+    bio: data.bio ?? "",
+    phone: localPhone,
+    phoneCountry: data.phoneCountry ?? "",
     phoneCountryCode,
-    gender:           data.gender           ?? "",
+    gender: data.gender ?? "",
   };
 };
 
@@ -36,14 +36,14 @@ const buildProfileForm = (data) => {
  * so edits don't overwrite the displayed data until saved.
  */
 export function useProfile() {
-  const [profile, setProfile]         = useState(null);
-  const [form, setForm]               = useState(null);
-  const [loading, setLoading]         = useState(true);
-  const [saving, setSaving]           = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [form, setForm] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
-  const [error, setError]             = useState(null);
-  const [successMsg, setSuccessMsg]   = useState(null);
+  const [error, setError] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -51,6 +51,13 @@ export function useProfile() {
 
     try {
       const data = await usersApi.getMe();
+      // fetch preferences separately and attach if available
+      try {
+        const prefs = await usersApi.getMyPreferences();
+        if (prefs) data.preferences = prefs;
+      } catch (e) {
+        // silently ignore if preferences endpoint not available
+      }
       setProfile(data);
       setForm(buildProfileForm(data));
       return data;
@@ -71,6 +78,12 @@ export function useProfile() {
       setError(null);
       try {
         const data = await usersApi.getMe();
+        // try to load preferences and attach
+        try {
+          const prefs = await usersApi.getMyPreferences();
+          if (prefs) data.preferences = prefs;
+        } catch (e) {}
+
         if (!cancelled) {
           setProfile(data);
           // initialise form with fetched values
@@ -84,7 +97,9 @@ export function useProfile() {
     };
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ─── Update a single form field ───────────
@@ -101,13 +116,13 @@ export function useProfile() {
 
     try {
       const updated = await usersApi.updateProfile({
-        firstName:        form.firstName        || undefined,
-        lastName:         form.lastName         || undefined,
-        bio:              form.bio,
-        phone:            form.phone            || undefined,
-        phoneCountry:     form.phoneCountry     || undefined,
+        firstName: form.firstName || undefined,
+        lastName: form.lastName || undefined,
+        bio: form.bio,
+        phone: form.phone || undefined,
+        phoneCountry: form.phoneCountry || undefined,
         phoneCountryCode: form.phoneCountryCode || undefined,
-        gender:           form.gender           || undefined,
+        gender: form.gender || undefined,
       });
       setProfile((prev) => ({ ...prev, ...updated }));
       setSuccessMsg("تم حفظ التغييرات بنجاح");
@@ -163,6 +178,8 @@ export function useProfile() {
           profile.phone,
           profile.bio,
           profile.gender,
+          // preferences considered complete when array exists and non-empty
+          (profile.preferences && profile.preferences.length > 0) || false,
         ];
         const filled = fields.filter(Boolean).length;
         const profileFieldsScore = Math.round((filled / fields.length) * 90);
@@ -188,6 +205,9 @@ export function useProfile() {
     uploadAvatar,
     changePassword,
     loadProfile,
-    clearMessages: () => { setError(null); setSuccessMsg(null); },
+    clearMessages: () => {
+      setError(null);
+      setSuccessMsg(null);
+    },
   };
 }

@@ -13,8 +13,11 @@ import { ReviewsPanel } from "../../reviews/components/ReviewsPanel";
 export function PublicHostProfilePage() {
   const { hostId } = useParams();
   const { user } = useAuth();
-  const { profile, loading: profileLoading, error: profileError } =
-    usePublicProfile(hostId);
+  const {
+    profile,
+    loading: profileLoading,
+    error: profileError,
+  } = usePublicProfile(hostId);
 
   const {
     reviews,
@@ -79,6 +82,12 @@ export function PublicHostProfilePage() {
         loadingRating={reviewsLoading}
         showVerification
       />
+
+      <div className="space-y-4">
+        <div className="rounded-2xl bg-slate-50 px-5 py-6 text-sm text-slate-600">
+          تفضيلات زملاء السكن معروضة فقط لملفات الطلاب المغتربين.
+        </div>
+      </div>
 
       <ReviewsPanel
         showSummary={false}
