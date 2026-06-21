@@ -25,10 +25,9 @@ export function OwnerMessagesPage() {
 
   return (
     <div
-      dir="rtl"
-      className="flex h-full min-h-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+      className="flex h-full min-h-0 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     >
-      <div className="grid h-full grid-cols-1 lg:grid-cols-[340px_1fr]">
+      <div className="grid h-full w-full min-w-0 grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)]">
         <ConversationList
           conversations={conversations}
           selectedConversationId={
