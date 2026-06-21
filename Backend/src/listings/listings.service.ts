@@ -8,6 +8,7 @@ import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
 import { PrismaService } from './../prisma/prisma.service';
 import {
+  BookingStatus,
   ListingStatus,
   UserRole,
   BlockReason,
@@ -243,6 +244,36 @@ export class ListingsService {
       listing,
     ]);
     return listingWithCapacity;
+  }
+
+  private async getGuestReviewMeta(guestIds: number[]) {
+    if (guestIds.length === 0) {
+      return new Map<number, { averageRating: number; reviewCount: number }>();
+    }
+
+    const reviewGroups = await this.prisma.review.groupBy({
+      by: ['reviewedId'],
+      where: {
+        reviewedId: { in: guestIds },
+        isVisible: true,
+      },
+      _avg: {
+        rating: true,
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    return new Map(
+      reviewGroups.map((group) => [
+        group.reviewedId as number,
+        {
+          averageRating: group._avg.rating ?? 0,
+          reviewCount: group._count._all,
+        },
+      ]),
+    );
   }
 
   async search(dto: SearchListingDto) {
@@ -546,20 +577,73 @@ export class ListingsService {
             },
           },
         },
+        bookings: {
+          where: {
+            status: {
+              in: [
+                BookingStatus.PENDING_PAYMENT,
+                BookingStatus.CHECK_IN_PENDING,
+                BookingStatus.COMPLETED,
+              ],
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            status: true,
+            selectedRoomName: true,
+            guest: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                preferences: {
+                  select: {
+                    preferenceKey: true,
+                  },
+                },
+              },
+            },
+            room: {
+              select: {
+                id: true,
+                roomName: true,
+              },
+            },
+          },
+        },
         _count: { select: { reviews: true } },
       },
     });
 
     if (!listing) throw new NotFoundException('Listing not found');
 
-    // Calculate average rating
+    const guestIds = listing.bookings.map((booking) => booking.guest.id);
+    const guestReviewMeta = await this.getGuestReviewMeta(guestIds);
+
+    const bookingsWithGuestMeta = listing.bookings.map((booking) => ({
+      ...booking,
+      guest: {
+        ...booking.guest,
+        averageRating:
+          guestReviewMeta.get(booking.guest.id)?.averageRating ?? 0,
+        reviewCount: guestReviewMeta.get(booking.guest.id)?.reviewCount ?? 0,
+      },
+    }));
+
+    // Calculate average listing rating
     const avgRating = await this.prisma.review.aggregate({
       where: { listingId: id, isVisible: true },
       _avg: { rating: true },
     });
 
     return {
-      ...(await this.attachCapacityToListing(listing)),
+      ...(await this.attachCapacityToListing({
+        ...listing,
+        bookings: bookingsWithGuestMeta,
+      })),
+      bookings: bookingsWithGuestMeta,
       averageRating: avgRating._avg.rating ?? 0,
     };
   }

@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UploadsService } from '../uploads/uploads.service';
@@ -75,7 +76,6 @@ export class UsersService {
     if (user.phone) {
       user.phone = this.decryptPhoneForDisplay(user.phone);
     }
-
 
     return user;
   }
@@ -169,10 +169,9 @@ export class UsersService {
     const phoneCryptoSecret =
       process.env.PHONE_CRYPTO_SECRET ?? 'dev_phone_crypto_secret';
 
-    const decrypted = CryptoJS.AES.decrypt(
-      phone,
-      phoneCryptoSecret,
-    ).toString(CryptoJS.enc.Utf8);
+    const decrypted = CryptoJS.AES.decrypt(phone, phoneCryptoSecret).toString(
+      CryptoJS.enc.Utf8,
+    );
 
     if (decrypted) return decrypted;
 
@@ -186,8 +185,7 @@ export class UsersService {
     country?: string,
   ) {
     const rawPhone = phone.trim();
-    const normalizedCountry =
-      country?.trim().toUpperCase() || undefined;
+    const normalizedCountry = country?.trim().toUpperCase() || undefined;
     const phoneNumber = rawPhone.startsWith('+')
       ? parsePhoneNumberFromString(rawPhone)
       : parsePhoneNumberFromString(rawPhone, normalizedCountry as any);
@@ -334,54 +332,70 @@ export class UsersService {
 
   // ─── Set/replace all preferences ───────────
 
-async setPreferences(userId: number, dto: SetPreferencesDto) {
-  // replace strategy: delete all existing, insert the new set
-  // simplest and safest for a "select your tags" UI
-  await this.prisma.$transaction([
-    this.prisma.userPreference.deleteMany({
+  async setPreferences(userId: number, dto: SetPreferencesDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (user?.role !== UserRole.GUEST) {
+      throw new ForbiddenException(
+        'Only expatriate profiles can set roommate preferences',
+      );
+    }
+
+    // replace strategy: delete all existing, insert the new set
+    // simplest and safest for a "select your tags" UI
+    await this.prisma.$transaction([
+      this.prisma.userPreference.deleteMany({
+        where: { userId },
+      }),
+      this.prisma.userPreference.createMany({
+        data: dto.preferenceKeys.map((preferenceKey) => ({
+          userId,
+          preferenceKey,
+        })),
+      }),
+    ]);
+
+    return this.getPreferences(userId);
+  }
+
+  // ─── Get current preferences ───────────────
+
+  async getPreferences(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (user?.role !== UserRole.GUEST) {
+      return [];
+    }
+
+    const preferences = await this.prisma.userPreference.findMany({
       where: { userId },
-    }),
-    this.prisma.userPreference.createMany({
-      data: dto.preferenceKeys.map((preferenceKey) => ({
-        userId,
-        preferenceKey,
-      })),
-    }),
-  ]);
+      select: { preferenceKey: true },
+    });
 
-  return this.getPreferences(userId);
-}
+    return preferences.map((p) => p.preferenceKey);
+  }
 
-// ─── Get current preferences ───────────────
+  // ─── Add a single preference (optional convenience) ──
 
-async getPreferences(userId: number) {
-  const preferences = await this.prisma.userPreference.findMany({
-    where: { userId },
-    select: { preferenceKey: true },
-  });
+  async addPreference(userId: number, preferenceKey: string) {
+    return this.prisma.userPreference.upsert({
+      where: {
+        userId_preferenceKey: { userId, preferenceKey },
+      },
+      update: {},
+      create: { userId, preferenceKey },
+    });
+  }
 
-  return preferences.map((p) => p.preferenceKey);
-}
+  // ─── Remove a single preference ────────────
 
-// ─── Add a single preference (optional convenience) ──
+  async removePreference(userId: number, preferenceKey: string) {
+    await this.prisma.userPreference.deleteMany({
+      where: { userId, preferenceKey },
+    });
 
-async addPreference(userId: number, preferenceKey: string) {
-  return this.prisma.userPreference.upsert({
-    where: {
-      userId_preferenceKey: { userId, preferenceKey },
-    },
-    update: {},
-    create: { userId, preferenceKey },
-  });
-}
-
-// ─── Remove a single preference ────────────
-
-async removePreference(userId: number, preferenceKey: string) {
-  await this.prisma.userPreference.deleteMany({
-    where: { userId, preferenceKey },
-  });
-
-  return { message: 'Preference removed' };
-}
+    return { message: 'Preference removed' };
+  }
 }

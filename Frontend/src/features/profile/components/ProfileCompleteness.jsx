@@ -1,10 +1,11 @@
 const STEPS = [
   { key: "firstName", label: "الاسم الأول" },
-  { key: "lastName",  label: "الاسم الأخير" },
+  { key: "lastName", label: "الاسم الأخير" },
   { key: "avatarUrl", label: "الصورة الشخصية" },
-  { key: "phone",     label: "رقم الهاتف" },
-  { key: "bio",       label: "نبذة شخصية" },
-  { key: "gender",    label: "الجنس" },
+  { key: "phone", label: "رقم الهاتف" },
+  { key: "bio", label: "نبذة شخصية" },
+  { key: "gender", label: "الجنس" },
+  { key: "preferences", label: "تفضيلاتي" },
 ];
 
 export function ProfileCompleteness({ profile, completeness }) {
@@ -25,8 +26,8 @@ export function ProfileCompleteness({ profile, completeness }) {
       : completeness === 90 && !isVerificationApproved
         ? "ملفك مكتمل بانتظار اعتماد التوثيق"
         : completeness >= 60
-        ? "ملفك في طريقه للاكتمال"
-        : "أكمل ملفك لنتائج أفضل";
+          ? "ملفك في طريقه للاكتمال"
+          : "أكمل ملفك لنتائج أفضل";
 
   const missing = [
     ...STEPS.filter((s) => !profile[s.key]),
@@ -40,7 +41,9 @@ export function ProfileCompleteness({ profile, completeness }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h2 className="text-sm font-black text-[#0f172a]">اكتمال الملف الشخصي</h2>
+          <h2 className="text-sm font-black text-[#0f172a]">
+            اكتمال الملف الشخصي
+          </h2>
           <p className="text-xs text-slate-400 mt-0.5">{label}</p>
         </div>
         <span

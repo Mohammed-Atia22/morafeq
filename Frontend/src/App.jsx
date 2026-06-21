@@ -138,6 +138,8 @@ function App() {
           <Route path="bookings/:id" element={<BookingDetailPage />} />
 
           <Route path="hosts/:hostId" element={<PublicHostProfilePage />} />
+
+          <Route path="guests/:guestId" element={<PublicGuestProfilePage />} />
         </Route>
 
         {/* Dispute chat routes (guest/host) */}

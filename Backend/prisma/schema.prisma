@@ -13,7 +13,7 @@ model User {
   passwordHash         String?               @db.VarChar(255)
   firstName            String                @db.VarChar(100)
   lastName             String                @db.VarChar(100)
-  age                   Int?                   @db.UnsignedInt
+  age                  Int?                  @db.UnsignedInt
   avatarUrl            String?               @db.VarChar(500)
   phone                String?               @db.Text
   phoneCountry         String?               @db.VarChar(2)
@@ -41,7 +41,7 @@ model User {
   disputeConversations DisputeConversation[] @relation("DisputeConversationParticipant")
   disputeMessages      DisputeMessage[]      @relation("DisputeMessageSender")
   favorites            Favorite[]
-  preferences UserPreference[]
+  preferences          UserPreference[]
 
   @@index([email])
   @@index([phoneCountry])
