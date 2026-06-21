@@ -94,13 +94,17 @@ function App() {
 
           <Route path="profile" element={<ProfilePage />} />
 
-          <Route path="favorites" element={<FavoritesPage />} />
-
-          <Route path="add" element={<AddListingPage />} />
 
           <Route path="listings/:id/edit" element={<EditListingPage />} />
 
           <Route path="rental-requests" element={<OwnerRentalRequestsPage />} />
+
+          <Route path="dispute-chat" element={<MyDisputeConversationsPage />} />
+
+          <Route
+            path="dispute-chat/:conversationId"
+            element={<DisputeConversationPage />}
+          />
 
           <Route path="guests/:guestId" element={<PublicGuestProfilePage />} />
         </Route>
@@ -139,9 +143,17 @@ function App() {
 
           <Route path="favorites" element={<FavoritesPage />} />
 
+
           <Route path="bookings" element={<ExpatriateBookingsPage />} />
 
           <Route path="bookings/:id" element={<BookingDetailPage />} />
+
+          <Route path="dispute-chat" element={<MyDisputeConversationsPage />} />
+
+          <Route
+            path="dispute-chat/:conversationId"
+            element={<DisputeConversationPage />}
+          />
 
           <Route path="hosts/:hostId" element={<PublicHostProfilePage />} />
 

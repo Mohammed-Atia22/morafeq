@@ -308,7 +308,7 @@ export function ExpatriateBookingsPage() {
                   />
                   <div className="absolute right-3 top-3">
                     <span
-                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold text-white shadow backdrop-blur-md ${badge.className}`}
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold text-black shadow backdrop-blur-md ${badge.className}`}
                     >
                       {badge.text}
                     </span>
