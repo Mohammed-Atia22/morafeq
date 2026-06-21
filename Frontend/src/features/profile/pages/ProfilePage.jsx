@@ -200,8 +200,7 @@ function FavoritesPreview({
   pendingFavoriteIds,
   profileRole,
 }) {
-  const favoritesPath =
-    profileRole === "HOST" ? "/owner/favorites" : "/expatriate/favorites";
+  const favoritesPath = "/expatriate/favorites";
 
   return (
     <SectionCard
@@ -401,10 +400,12 @@ export function ProfilePage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard
-          value={favoriteTotal.toLocaleString("ar-EG")}
-          label="شقق محفوظة"
-        />
+        {profile?.role === "GUEST" && (
+          <StatCard
+            value={favoriteTotal.toLocaleString("ar-EG")}
+            label="شقق محفوظة"
+          />
+        )}
         <StatCard
           value={Number(profile?._count?.listings ?? 0).toLocaleString("ar-EG")}
           label="عقارات منشورة"
@@ -415,14 +416,16 @@ export function ProfilePage() {
         />
       </div>
 
-      <FavoritesPreview
-        favorites={visibleFavorites}
-        total={favoriteTotal}
-        loading={favoritesLoading}
-        onFavoriteToggle={toggleFavorite}
-        pendingFavoriteIds={pendingIds}
-        profileRole={profile?.role}
-      />
+      {profile?.role === "GUEST" && (
+        <FavoritesPreview
+          favorites={visibleFavorites}
+          total={favoriteTotal}
+          loading={favoritesLoading}
+          onFavoriteToggle={toggleFavorite}
+          pendingFavoriteIds={pendingIds}
+          profileRole={profile?.role}
+        />
+      )}
 
       <SectionCard
         title="المعلومات الشخصية"

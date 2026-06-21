@@ -103,7 +103,7 @@ icon: ( <svg
 },
 
 {
-to: "/dispute-chat",
+to: "/expatriate/dispute-chat",
 end: false,
 label: "محادثات النزاع",
 icon: ( <svg

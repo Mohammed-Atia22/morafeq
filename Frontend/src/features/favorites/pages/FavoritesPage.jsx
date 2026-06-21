@@ -1,9 +1,18 @@
 import { useCallback } from "react";
+import { Navigate } from "react-router-dom";
 import { ListingsGrid } from "../../expatriate/components/home/ListingsGrid";
 import { useFavoriteToggle } from "../hooks/useFavoriteToggle";
 import { useFavorites } from "../hooks/useFavorites";
+import { useAuth } from "../../auth/hooks/useAuth";
 
 export function FavoritesPage() {
+  const { user } = useAuth();
+
+  // Redirect owners away from favorites page
+  if (user?.role === "HOST") {
+    return <Navigate to="/owner" replace />;
+  }
+
   const {
     favorites,
     total,

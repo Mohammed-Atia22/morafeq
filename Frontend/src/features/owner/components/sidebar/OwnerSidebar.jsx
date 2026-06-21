@@ -231,7 +231,7 @@ className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition
     /> */}
 
     <SidebarNavItem
-      to="/dispute-chat"
+      to="/owner/dispute-chat"
       label="محادثات النزاع"
       icon={ClipboardIcon}
       className={itemClassName}
