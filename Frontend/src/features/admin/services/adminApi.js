@@ -34,9 +34,28 @@ export const adminApi = {
       body: JSON.stringify({ reason }),
     }),
 
+  unsuspendListing: (id) =>
+    apiRequest(`/admin/listings/${id}/unsuspend`, {
+      method: "PATCH",
+    }),
+
+  deleteListing: (id) =>
+    apiRequest(`/admin/listings/${id}`, {
+      method: "DELETE",
+    }),
+
   // Users
-  getUsers: (page = 1, limit = 20) =>
-    apiRequest(`/admin/users?page=${page}&limit=${limit}`),
+  getUsers: (query = {}) => {
+    const params = new URLSearchParams();
+    if (query.page) params.append("page", query.page);
+    if (query.limit) params.append("limit", query.limit);
+    if (query.role) params.append("role", query.role);
+    if (query.verificationStatus) {
+      params.append("verificationStatus", query.verificationStatus);
+    }
+    const queryString = params.toString();
+    return apiRequest(`/admin/users${queryString ? `?${queryString}` : ""}`);
+  },
 
   updateUser: (id, data) =>
     apiRequest(`/admin/users/${id}`, {

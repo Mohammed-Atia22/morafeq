@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import {  DisputeParticipantType,BookingStatus,ListingStatus , ReviewType ,NotificationType,} from '@prisma/client';
+import {  DisputeParticipantType,BookingStatus,ListingStatus , ReviewType ,NotificationType, UserRole,} from '@prisma/client';
 import {
   calculateCapacity,
   CAPACITY_HOLDING_BOOKING_STATUSES,
@@ -16,6 +16,7 @@ import { ApproveListingDto } from './dto/approve-listing.dto';
 import { RejectListingDto } from './dto/reject-listing.dto';
 import { AdminQueryListingsDto } from './dto/query-listings.dto';
 import { AdminUpdateUserDto } from './dto/update-user.dto';
+import { AdminQueryUsersDto } from './dto/query-users.dto';
 import { AdminQueryDisputesDto } from './dto/query-disputes.dto';
 import { QueryDisputeMessagesDto } from './dto/query-dispute-messages.dto';
 import { OpenDisputeConversationDto } from './dto/open-dispute-conversation.dto';
@@ -1793,13 +1794,83 @@ async sendPrivateDisputeMessage(
     });
   }
 
+  async unsuspendListing(listingId: number) {
+    const listing = await this.prisma.listing.findFirst({
+      where: { id: listingId, isDeleted: false },
+    });
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (listing.status !== ListingStatus.SUSPENDED) {
+      throw new BadRequestException(
+        `Cannot unsuspend a listing with status: ${listing.status}`,
+      );
+    }
+
+    const updatedListing = await this.prisma.listing.update({
+      where: { id: listingId },
+      data: {
+        status: ListingStatus.ACTIVE,
+        rejectionReason: null,
+      },
+    });
+
+    try {
+      await this.ragService.syncListingToVectorDB(updatedListing.id);
+    } catch (syncError) {
+      console.error(
+        'Failed to sync unsuspended listing to vector DB:',
+        syncError,
+      );
+    }
+
+    return updatedListing;
+  }
+
+  async deleteListing(listingId: number) {
+    const listing = await this.prisma.listing.findFirst({
+      where: { id: listingId, isDeleted: false },
+    });
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (listing.status !== ListingStatus.SUSPENDED) {
+      throw new BadRequestException(
+        `Only suspended listings can be deleted from this action. Current status: ${listing.status}`,
+      );
+    }
+
+    await this.prisma.listing.update({
+      where: { id: listingId },
+      data: {
+        isDeleted: true,
+        status: ListingStatus.INACTIVE,
+      },
+    });
+
+    return { message: 'Listing deleted successfully' };
+  }
+
   // ─── Get all users ─────────────────────────
 
-  async getUsers(page = 1, limit = 20) {
+  async getUsers(query: AdminQueryUsersDto = {}) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
+    const where = {
+      ...(query.role ? { role: query.role } : {}),
+      ...(query.verificationStatus
+        ? { verificationStatus: query.verificationStatus }
+        : {}),
+    };
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
+        where,
         skip,
         take:    limit,
         orderBy: { createdAt: 'desc' },
@@ -1829,7 +1900,7 @@ async sendPrivateDisputeMessage(
           },
         },
       }),
-      this.prisma.user.count(),
+      this.prisma.user.count({ where }),
     ]);
 
     return {
@@ -1903,6 +1974,9 @@ async sendPrivateDisputeMessage(
       approvedListings,
       totalBookings,
       confirmedBookings,
+      totalTenants,
+      totalOwners,
+      totalAdmins,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.listing.count({ where: { isDeleted: false } }),
@@ -1919,11 +1993,17 @@ async sendPrivateDisputeMessage(
     },
   },
 }),
+      this.prisma.user.count({ where: { role: UserRole.GUEST } }),
+      this.prisma.user.count({ where: { role: UserRole.HOST } }),
+      this.prisma.user.count({ where: { role: UserRole.ADMIN } }),
     ]);
 
     return {
       users: {
         total: totalUsers,
+        tenants: totalTenants,
+        owners: totalOwners,
+        admins: totalAdmins,
       },
       listings: {
         total:    totalListings,

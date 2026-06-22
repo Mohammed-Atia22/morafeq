@@ -8,12 +8,19 @@ export function useAdminUsers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
+  const [role, setRole] = useState("");
+  const [verificationStatus, setVerificationStatus] = useState("");
 
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await adminApi.getUsers(page, 10);
+      const res = await adminApi.getUsers({
+        page,
+        limit: 10,
+        role,
+        verificationStatus,
+      });
       setUsers(res.data);
       setMeta(res.meta);
     } catch (err) {
@@ -21,7 +28,7 @@ export function useAdminUsers() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, role, verificationStatus]);
 
   useEffect(() => {
     fetchUsers();
@@ -95,6 +102,16 @@ export function useAdminUsers() {
     error,
     page,
     setPage,
+    role,
+    setRole: (newRole) => {
+      setRole(newRole);
+      setPage(1);
+    },
+    verificationStatus,
+    setVerificationStatus: (newStatus) => {
+      setVerificationStatus(newStatus);
+      setPage(1);
+    },
     changeUserRole,
     toggleUserActive,
     deactivateUser,

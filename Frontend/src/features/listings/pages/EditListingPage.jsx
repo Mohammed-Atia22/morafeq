@@ -118,7 +118,7 @@ const listingToForm = (listing) => ({
 export default function EditListingPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { setActiveSection, logout } = useOutletContext();
+  const { user, setActiveSection, logout } = useOutletContext();
   const [form, setForm] = useState(null);
   const [listingTitle, setListingTitle] = useState("");
   const [loading, setLoading] = useState(true);
@@ -131,6 +131,9 @@ export default function EditListingPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [originalStatus, setOriginalStatus] = useState("");
   const [showApprovalWarning, setShowApprovalWarning] = useState(false);
+  const isAdminEditor = user?.role === "ADMIN";
+  const requiresApprovalConfirmation =
+    ["ACTIVE", "APPROVED"].includes(originalStatus) && !isAdminEditor;
 
   useEffect(() => {
     setActiveSection?.("listings");
@@ -247,7 +250,11 @@ export default function EditListingPage() {
         await uploadSelectedPhotos(id, selectedPhotos);
       }
 
-      toast.success("تم تحديث العقار بنجاح");
+      toast.success(
+        requiresApprovalConfirmation
+          ? "تم حفظ التعديلات بنجاح. تم تحويل العقار إلى بانتظار الموافقة، وسيظهر للمستخدمين مرة أخرى بعد موافقة المسؤول."
+          : "تم تحديث العقار بنجاح",
+      );
       navigate("/owner");
     } catch (caughtError) {
       toast.error(caughtError.message || "تعذر تحديث العقار");
@@ -259,7 +266,7 @@ export default function EditListingPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (originalStatus === "APPROVED" && !showApprovalWarning) {
+    if (requiresApprovalConfirmation && !showApprovalWarning) {
       setShowApprovalWarning(true);
       return;
     }
@@ -600,10 +607,13 @@ export default function EditListingPage() {
       {showApprovalWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-6 text-right shadow-2xl">
-            <h2 className="text-xl font-black text-[#172033]">تنبيه</h2>
-            <p className="mt-4 text-sm leading-7 text-slate-600">
-              عند تعديل هذا العقار سيتم إخفاؤه مؤقتاً من قائمة العقارات حتى تتم
-              مراجعة التعديلات والموافقة عليها من قبل الإدارة.
+            <h2 className="text-xl font-black text-[#172033]">
+              تأكيد حفظ التعديلات
+            </h2>
+            <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-600">
+              لقد قمت بتعديل عقار نشط. بعد حفظ التعديلات، سيتم تحويل العقار إلى بانتظار الموافقة ولن يكون ظاهرًا للمستخدمين حتى يقوم المسؤول بمراجعته والموافقة عليه.
+
+              هل ترغب في المتابعة؟
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
               <button
@@ -621,7 +631,7 @@ export default function EditListingPage() {
                 }}
                 className="h-11 rounded-xl bg-[#0b62d8] px-5 text-sm font-black text-white transition hover:bg-[#0754bd]"
               >
-                موافقة والمتابعة
+                متابعة
               </button>
             </div>
           </div>

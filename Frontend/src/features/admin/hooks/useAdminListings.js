@@ -64,6 +64,30 @@ export function useAdminListings(initialStatus = "") {
     }
   };
 
+  const unsuspendListing = async (id) => {
+    try {
+      await adminApi.unsuspendListing(id);
+      toast.success("تم إعادة تفعيل العقار بنجاح");
+      fetchListings();
+      return true;
+    } catch (err) {
+      toast.error(err.message || "فشلت عملية إعادة تفعيل العقار");
+      return false;
+    }
+  };
+
+  const deleteListing = async (id) => {
+    try {
+      await adminApi.deleteListing(id);
+      toast.success("تم حذف العقار بنجاح");
+      fetchListings();
+      return true;
+    } catch (err) {
+      toast.error(err.message || "فشل حذف العقار");
+      return false;
+    }
+  };
+
   return {
     listings,
     meta,
@@ -79,6 +103,8 @@ export function useAdminListings(initialStatus = "") {
     approveListing,
     rejectListing,
     suspendListing,
+    unsuspendListing,
+    deleteListing,
     refreshListings: fetchListings,
   };
 }
