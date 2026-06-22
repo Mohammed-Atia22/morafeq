@@ -11,6 +11,7 @@ import { chatApi } from "../services/chatApi";
 import { useChatSocket } from "./useChatSocket";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { translateErrorMessage } from "../../../shared/services/api";
+import { useChatContext } from "../context/ChatContext";
 
 export function useChatPage() {
 const { user } = useAuth();
@@ -19,15 +20,13 @@ const [searchParams] = useSearchParams();
 const conversationIdParam =
 searchParams.get("conversationId");
 
-const [conversations, setConversations] = useState([]);
+const { conversations, refreshConversations } = useChatContext();
 const [selectedConversationId, setSelectedConversationId] =
 useState(null);
 
 const [messages, setMessages] = useState([]);
 const [content, setContent] = useState("");
 
-const [isLoadingConversations, setIsLoadingConversations] =
-useState(true);
 const [isLoadingMessages, setIsLoadingMessages] =
 useState(false);
 const [isSending, setIsSending] = useState(false);
@@ -201,53 +200,29 @@ conversations.forEach((conversation) => {
 });
 }, [conversations, isConnected, joinConversation]);
 
-// جلب قائمة المحادثات
+// Set selected conversation from URL param
 useEffect(() => {
-const loadConversations = async () => {
-try {
-setIsLoadingConversations(true);
-setError("");
+if (conversations.length > 0 && conversationIdParam) {
+  const requestedConversationId =
+    Number(conversationIdParam);
 
-
-    const data =
-      await chatApi.getConversations();
-
-    setConversations(data);
-
-    if (data.length > 0 && conversationIdParam) {
-      const requestedConversationId =
-        Number(conversationIdParam);
-
-      const requestedConversationExists =
-        Number.isInteger(requestedConversationId) &&
-        data.some(
-          (conversation) =>
-            conversation.id ===
-            requestedConversationId,
-        );
-
-      setSelectedConversationId(
-        requestedConversationExists
-          ? requestedConversationId
-          : null,
-      );
-    } else {
-      setSelectedConversationId(null);
-    }
-  } catch (requestError) {
-    setError(
-      requestError.message ||
-        "تعذر تحميل المحادثات",
+  const requestedConversationExists =
+    Number.isInteger(requestedConversationId) &&
+    conversations.some(
+      (conversation) =>
+        conversation.id ===
+        requestedConversationId,
     );
-  } finally {
-    setIsLoadingConversations(false);
-  }
-};
 
-loadConversations();
-
-
-}, [conversationIdParam]);
+  setSelectedConversationId(
+    requestedConversationExists
+      ? requestedConversationId
+      : null,
+  );
+} else {
+  setSelectedConversationId(null);
+}
+}, [conversationIdParam, conversations]);
 
 // فتح المحادثة
 useEffect(() => {
@@ -452,7 +427,6 @@ isConnected,
 socketId,
 socketError,
 
-isLoadingConversations,
 isLoadingMessages,
 isSending,
 error,
@@ -460,6 +434,7 @@ error,
 setContent,
 selectConversation,
 submitMessage,
+refreshConversations,
 
 
 };

@@ -9,6 +9,8 @@ function AuthenticatedAIAssistant() {
     sessionId,
     sessions,
     sessionsLoading,
+    activeSessionLoading,
+    deletingSessionId,
     isOpen,
     openSidebar,
     closeSidebar,
@@ -35,6 +37,8 @@ function AuthenticatedAIAssistant() {
         sessionId={sessionId}
         sessions={sessions}
         sessionsLoading={sessionsLoading}
+        activeSessionLoading={activeSessionLoading}
+        deletingSessionId={deletingSessionId}
         onSend={sendMessage}
         onNewChat={startNewChat}
         onSelectSession={selectSession}

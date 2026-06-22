@@ -8,7 +8,7 @@ import { useFavorites } from "../../favorites/hooks/useFavorites";
 import { useBooking } from "../../bookings/hooks/useBooking";
 import { useProfile } from "../../profile/hooks/useProfile";
 import { useGuestReviews } from "../../reviews/hooks/useGuestReviews";
-import { chatApi } from "../../chat/services/chatApi";
+import { useChatContext } from "../../chat/context/ChatContext";
 
 export function ExpatriateHomePage() {
   const { user } = useAuth();
@@ -22,9 +22,8 @@ export function ExpatriateHomePage() {
   } = useBooking();
   const { profile, completeness } = useProfile();
   const { meta: reviewMeta } = useGuestReviews(user?.id);
+  const { conversations, isLoading: messagesLoading } = useChatContext();
   const [displayListings, setDisplayListings] = useState([]);
-  const [conversationCount, setConversationCount] = useState(null);
-  const [messagesLoading, setMessagesLoading] = useState(true);
 
   useEffect(() => {
     setDisplayListings(listings);
@@ -47,29 +46,6 @@ export function ExpatriateHomePage() {
     fetchListings({ limit: 6 });
     fetchBookings();
   }, [fetchBookings, fetchListings]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadConversations = async () => {
-      try {
-        setMessagesLoading(true);
-        const conversations = await chatApi.getConversations();
-        if (!cancelled) {
-          setConversationCount(Array.isArray(conversations) ? conversations.length : 0);
-        }
-      } catch {
-        if (!cancelled) setConversationCount(null);
-      } finally {
-        if (!cancelled) setMessagesLoading(false);
-      }
-    };
-
-    loadConversations();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const metrics = useMemo(
     () => buildDashboardMetrics(bookings, profile, completeness),
@@ -110,6 +86,8 @@ export function ExpatriateHomePage() {
       </section>
 
       <QuickActions onNavigate={navigate} />
+
+      <MessagesAndAiCard conversations={conversations} loading={messagesLoading} />
 
       {/* Listings section */}
       <section className="rounded-[24px] border border-[#E5EBF6] bg-white p-5 shadow-[0_14px_32px_rgba(31,57,104,0.08)]">
@@ -358,7 +336,9 @@ function ReviewsCard({ meta }) {
   );
 }
 
-function MessagesAndAiCard({ conversationCount, loading }) {
+function MessagesAndAiCard({ conversations, loading }) {
+  const conversationCount = Array.isArray(conversations) ? conversations.length : 0;
+
   return (
     <section className="rounded-[24px] border border-[#E5EBF6] bg-white p-5 shadow-[0_14px_32px_rgba(31,57,104,0.08)]">
       <SectionTitle title="التواصل ورفيق" subtitle="رسائلك والمساعد الذكي" />
@@ -368,12 +348,12 @@ function MessagesAndAiCard({ conversationCount, loading }) {
           className="rounded-2xl bg-[#F6F8FE] px-4 py-3"
         >
           <p className="text-lg font-black text-[#111D35]">
-            {loading || conversationCount === null
+            {loading
               ? "الرسائل"
               : conversationCount.toLocaleString("ar-EG")}
           </p>
           <p className="mt-1 text-xs font-bold text-slate-500">
-            {conversationCount === null ? "انتقل إلى صفحة الرسائل" : "محادثات"}
+            {conversationCount === 0 ? "انتقل إلى صفحة الرسائل" : "محادثات"}
           </p>
         </Link>
         <div className="rounded-2xl bg-blue-50 px-4 py-3 text-[#1f5bd7]">

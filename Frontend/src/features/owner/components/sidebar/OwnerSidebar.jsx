@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
 NavLink,
 useLocation,
@@ -15,7 +15,7 @@ SettingsIcon,
 UserIcon,
 } from "../common/OwnerIcons";
 
-import { chatApi } from './../../../chat/services/chatApi';
+import { useChatContext } from './../../../chat/context/ChatContext';
 import { VerificationBadge } from "../../../verification/components/VerificationBadge";
 
 function ClipboardIcon({ className }) {
@@ -29,15 +29,13 @@ function ClipboardIcon({ className }) {
 export function OwnerSidebar({ user, logout }) {
 const navigate = useNavigate();
 const location = useLocation();
+const { unreadCount } = useChatContext();
 
 const ownerSection =
 location.state?.ownerSection || "dashboard";
 
 const isOwnerHome =
 location.pathname === "/owner";
-
-const [unreadMessagesCount, setUnreadMessagesCount] =
-useState(0);
 
 const itemClassName = (active) =>
 [
@@ -46,78 +44,6 @@ active
 ? "bg-[#e9f0ff] text-[#0b62d8]"
 : "text-slate-500 hover:bg-slate-50 hover:text-[#0b62d8]",
 ].join(" ");
-
-const loadUnreadMessagesCount = useCallback(async () => {
-if (!user?.id) {
-setUnreadMessagesCount(0);
-return;
-}
-
-
-try {
-  const conversations =
-    await chatApi.getConversations();
-
-  const totalUnreadMessages = conversations.reduce(
-    (total, conversation) =>
-      total + Number(conversation.unreadCount ?? 0),
-    0,
-  );
-
-  setUnreadMessagesCount(totalUnreadMessages);
-} catch (error) {
-  console.error(
-    "Failed to load unread messages count:",
-    error,
-  );
-}
-
-
-}, [user?.id]);
-
-useEffect(() => {
-loadUnreadMessagesCount();
-
-
-const intervalId = window.setInterval(
-  loadUnreadMessagesCount,
-  10000,
-);
-
-const handleWindowFocus = () => {
-  loadUnreadMessagesCount();
-};
-
-const handleUnreadChanged = () => {
-  loadUnreadMessagesCount();
-};
-
-window.addEventListener("focus", handleWindowFocus);
-
-window.addEventListener(
-  "chat-unread-changed",
-  handleUnreadChanged,
-);
-
-return () => {
-  window.clearInterval(intervalId);
-
-  window.removeEventListener(
-    "focus",
-    handleWindowFocus,
-  );
-
-  window.removeEventListener(
-    "chat-unread-changed",
-    handleUnreadChanged,
-  );
-};
-
-
-}, [
-loadUnreadMessagesCount,
-location.pathname,
-]);
 
 const showAddListing = () => {
 navigate("/owner", {
@@ -215,8 +141,8 @@ className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition
       label="الرسائل"
       icon={MessageIcon}
       badge={
-        unreadMessagesCount > 0
-          ? unreadMessagesCount
+        unreadCount > 0
+          ? unreadCount
           : undefined
       }
       danger

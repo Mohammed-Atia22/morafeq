@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./features/auth/context/AuthContext";
 import { useAuth } from "./features/auth/hooks/useAuth";
 import { ProtectedRoute } from "./app/routes/ProtectedRoute";
+import { ChatProvider } from "./features/chat/context/ChatContext";
 
 import Layout from "./app/layouts/MainLayout";
 import OwnerLayout from "./app/layouts/OwnerLayout";
@@ -70,8 +71,8 @@ function ProfileRedirect() {
 function App() {
   return (
     <AuthProvider>
-      {" "}
-      <Routes>
+      <ChatProvider>
+        <Routes>
         {/* Public and authentication routes */}
         <Route element={<Layout />}>
           <Route index element={<LandingPage />} />
@@ -233,6 +234,7 @@ function App() {
       </Routes>
       <AIAssistant />
       <Toaster />
+      </ChatProvider>
     </AuthProvider>
   );
 }

@@ -1,7 +1,5 @@
 import {
-useCallback,
 useEffect,
-useState,
 } from "react";
 import {
 NavLink,
@@ -10,7 +8,7 @@ useNavigate,
 } from "react-router-dom";
 
 import { useAuth } from "../../../auth/hooks/useAuth";
-import { chatApi } from "../../../chat/services/chatApi";
+import { useChatContext } from "../../../chat/context/ChatContext";
 import { VerificationBadge } from "../../../verification/components/VerificationBadge";
 
 const NAV_ITEMS = [
@@ -143,88 +141,7 @@ export function ExpatriateSidebar() {
 const { user, logout } = useAuth();
 const navigate = useNavigate();
 const location = useLocation();
-
-const [unreadMessagesCount, setUnreadMessagesCount] =
-useState(0);
-
-const loadUnreadMessagesCount = useCallback(async () => {
-if (!user?.id) {
-setUnreadMessagesCount(0);
-return;
-}
-
-
-try {
-  const conversations =
-    await chatApi.getConversations();
-
-  const totalUnreadMessages = conversations.reduce(
-    (total, conversation) =>
-      total +
-      Number(conversation.unreadCount ?? 0),
-    0,
-  );
-
-  setUnreadMessagesCount(totalUnreadMessages);
-} catch (error) {
-  console.error(
-    "Failed to load unread messages count:",
-    error,
-  );
-}
-
-
-}, [user?.id]);
-
-useEffect(() => {
-loadUnreadMessagesCount();
-
-
-// تحديث دوري لو وصلت رسالة والمستخدم مش فاتح الشات
-const intervalId = window.setInterval(
-  loadUnreadMessagesCount,
-  10000,
-);
-
-// تحديث لما المستخدم يرجع للنافذة
-const handleWindowFocus = () => {
-  loadUnreadMessagesCount();
-};
-
-// تحديث فور تعليم الرسائل كمقروءة
-const handleUnreadChanged = () => {
-  loadUnreadMessagesCount();
-};
-
-window.addEventListener(
-  "focus",
-  handleWindowFocus,
-);
-
-window.addEventListener(
-  "chat-unread-changed",
-  handleUnreadChanged,
-);
-
-return () => {
-  window.clearInterval(intervalId);
-
-  window.removeEventListener(
-    "focus",
-    handleWindowFocus,
-  );
-
-  window.removeEventListener(
-    "chat-unread-changed",
-    handleUnreadChanged,
-  );
-};
-
-
-}, [
-loadUnreadMessagesCount,
-location.pathname,
-]);
+const { unreadCount } = useChatContext();
 
 return (
 <> <div className="border-b border-slate-200 p-4">
@@ -264,12 +181,12 @@ className="flex w-full items-center gap-3 rounded-xl bg-[#eef3ff] p-3 transition
 
         const showUnreadBadge =
           isMessagesItem &&
-          unreadMessagesCount > 0;
+          unreadCount > 0;
 
         const displayedUnreadCount =
-          unreadMessagesCount > 99
+          unreadCount > 99
             ? "99+"
-            : unreadMessagesCount;
+            : unreadCount;
 
         return (
           <NavLink

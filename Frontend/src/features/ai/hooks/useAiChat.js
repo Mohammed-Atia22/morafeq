@@ -41,6 +41,8 @@ export function useAiChat() {
   const [sessionId, setSessionId] = useState(() => loadSavedState().sessionId);
   const [sessions, setSessions] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [activeSessionLoading, setActiveSessionLoading] = useState(false);
+  const [deletingSessionId, setDeletingSessionId] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState(null);
@@ -144,6 +146,7 @@ export function useAiChat() {
     setSessionId(nextSessionId);
     setError(null);
     setIsTyping(false);
+    setActiveSessionLoading(true);
 
     try {
       const response = await aiApi.getSession(nextSessionId);
@@ -156,18 +159,34 @@ export function useAiChat() {
       setError(
         err?.message || "تعذر تحميل المحادثة، يرجى المحاولة مرة أخرى.",
       );
+    } finally {
+      setActiveSessionLoading(false);
     }
   }, []);
 
   const deleteSession = useCallback(
     async (sessionToDelete) => {
-      await aiApi.deleteSession(sessionToDelete);
-      if (sessionToDelete === sessionId) {
-        startNewChat();
+      const previousSessions = sessions;
+      setDeletingSessionId(sessionToDelete);
+      setSessions((current) =>
+        current.filter((session) => session.sessionId !== sessionToDelete),
+      );
+
+      try {
+        await aiApi.deleteSession(sessionToDelete);
+        if (sessionToDelete === sessionId) {
+          startNewChat();
+        }
+      } catch (err) {
+        setSessions(previousSessions);
+        setError(
+          err?.message || "تعذر حذف المحادثة، يرجى المحاولة مرة أخرى.",
+        );
+      } finally {
+        setDeletingSessionId(null);
       }
-      await refreshSessions();
     },
-    [refreshSessions, sessionId, startNewChat],
+    [sessionId, sessions, startNewChat],
   );
 
   return {
@@ -175,6 +194,8 @@ export function useAiChat() {
     sessionId,
     sessions,
     sessionsLoading,
+    activeSessionLoading,
+    deletingSessionId,
     isOpen,
     openSidebar,
     closeSidebar,
