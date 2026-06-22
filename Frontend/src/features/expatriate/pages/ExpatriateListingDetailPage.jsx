@@ -8,7 +8,7 @@ import { AmenitiesSection } from "../components/listing-detail/AmenitiesSection"
 import { ListingReviewsSection } from "../../reviews/components/ListingReviewsSection";
 import { BookingCard } from "../components/listing-detail/BookingCard";
 import { LocationInsightButton } from "../components/listing-detail/LocationInsightButton";
-import { CurrentTenantsSummaryButton } from "../components/listing-detail/CurrentTenantsSummaryButton";
+import { RoommateCompatibilityButton } from "../components/listing-detail/RoommateCompatibilityButton";
 import { usersApi } from "../../profile/services/usersApi";
 import { useAuth } from "../../auth/hooks/useAuth";
 
@@ -48,133 +48,9 @@ function DetailSkeleton() {
 }
 
 // ─── Page ─────────────────────────────────────
-const ROOMMATE_PREFERENCE_LABELS = {
-  non_smoker: "غير مدخن",
-  smoker: "مدخن",
-  early_riser: "يستيقظ مبكراً",
-  night_owl: "يسهر ليلاً",
-  quiet: "هادئ",
-  social: "اجتماعي",
-  clean_freak: "يحب النظافة",
-  pet_friendly: "محب للحيوانات",
-  no_pets: "لا يفضل الحيوانات",
-  studies_at_home: "يدرس في المنزل",
-  studies_at_library: "يدرس في المكتبة",
-  group_study: "يفضل الدراسة الجماعية",
-  football: "كرة القدم",
-  gaming: "الألعاب الإلكترونية",
-  reading: "القراءة",
-  gym: "الجيم",
-  music: "الموسيقى",
-  cooking: "الطبخ",
-  traveling: "السفر",
-  cairo_university: "جامعة القاهرة",
-  ain_shams_university: "جامعة عين شمس",
-  helwan_university: "جامعة حلوان",
-  german_university_cairo: "الجامعة الألمانية بالقاهرة",
-  american_university_cairo: "الجامعة الأمريكية بالقاهرة",
-};
-
-function getRoommateBadgeText(status) {
-  switch (status) {
-    case "CHECK_IN_PENDING":
-    case "COMPLETED":
-      return "زميل سكن مؤكد";
-    case "PENDING_PAYMENT":
-      return "محجوز بانتظار الدفع";
-    default:
-      return "زميل سكن";
-  }
-}
-
-function getGuestPreferences(guest) {
-  if (!guest?.preferences || !Array.isArray(guest.preferences)) return [];
-  return guest.preferences
-    .map((pref) => pref.preferenceKey || pref)
-    .filter(Boolean);
-}
-
-function getPreferenceLabel(key) {
-  return ROOMMATE_PREFERENCE_LABELS[key] || key.replace(/_/g, " ");
-}
-
-function calculateCompatibilityScore(myPrefs, guestPrefs) {
-  if (!myPrefs?.size || !guestPrefs?.length) return 0;
-  let score = 0;
-  guestPrefs.forEach((pref) => {
-    if (myPrefs.has(pref)) score += 1;
-  });
-  return score;
-}
-
-function formatCompatibilityText(score, total) {
-  if (!total) return "0%";
-  const percent = Math.round((score / total) * 100);
-  return `${score} من ${total} خيارات · ${percent}%`;
-}
-
 export function ExpatriateListingDetailPage() {
   const { id } = useParams();
-  const { user } = useAuth();
   const { listing, loading, error } = useListingDetail(id);
-  const [myPreferences, setMyPreferences] = useState([]);
-
-  useEffect(() => {
-    let mounted = true;
-    const loadMyPreferences = async () => {
-      if (!user?.id) return;
-      try {
-        const data = await usersApi.getMyPreferences();
-        if (!mounted) return;
-        setMyPreferences(
-          Array.isArray(data) ? data : data?.preferenceKeys || [],
-        );
-      } catch {
-        if (mounted) setMyPreferences([]);
-      }
-    };
-
-    loadMyPreferences();
-    return () => {
-      mounted = false;
-    };
-  }, [user]);
-
-  const currentTenants = useMemo(
-    () =>
-      (listing?.bookings || [])
-        .filter((booking) => booking?.guest && booking.status)
-        .map((booking) => ({
-          ...booking,
-          guest: {
-            ...booking.guest,
-            preferences: booking.guest.preferences || [],
-          },
-        })),
-    [listing],
-  );
-
-  const compatibilityMap = useMemo(() => {
-    const mySet = new Set(myPreferences);
-    return new Map(
-      currentTenants.map((booking) => [
-        booking.id,
-        calculateCompatibilityScore(mySet, getGuestPreferences(booking.guest)),
-      ]),
-    );
-  }, [currentTenants, myPreferences]);
-
-  const averageCompatibility = useMemo(() => {
-    if (currentTenants.length === 0 || myPreferences.length === 0) return null;
-    const scores = Array.from(compatibilityMap.values());
-    const total = scores.reduce((sum, score) => sum + score, 0);
-    const totalPrefs = currentTenants.reduce(
-      (sum, booking) => sum + getGuestPreferences(booking.guest).length,
-      0,
-    );
-    if (totalPrefs === 0) return null;
-    return Math.round((total / totalPrefs) * 100);
-  }, [compatibilityMap, currentTenants, myPreferences]);
 
   return (
     <div dir="rtl" className="max-w-6xl space-y-5">
@@ -226,12 +102,8 @@ export function ExpatriateListingDetailPage() {
             {/* Host */}
             <HostCard host={listing.host} listingId={listing.id} />
 
-            {/* Current tenants */}
-            <CurrentTenantsSummaryButton
-              listingId={listing.id}
-              tenantCount={currentTenants.length}
-              averageCompatibility={averageCompatibility}
-            />
+            {/* Roommate Compatibility */}
+            <RoommateCompatibilityButton listingId={listing.id} />
 
             {/* Amenities */}
             <AmenitiesSection amenities={listing.amenities ?? []} />

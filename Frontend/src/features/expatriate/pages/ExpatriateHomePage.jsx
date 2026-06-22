@@ -138,11 +138,6 @@ function buildDashboardMetrics(bookings, profile, completeness) {
     "REFUNDED",
     "CANCELLED_AFTER_DISPUTE",
   ];
-  const preferences = Array.isArray(profile?.preferences)
-    ? profile.preferences
-    : Array.isArray(profile?.preferences?.preferenceKeys)
-      ? profile.preferences.preferenceKeys
-      : [];
 
   return {
     activeBookings: bookings.filter((booking) =>
@@ -161,14 +156,14 @@ function buildDashboardMetrics(bookings, profile, completeness) {
       bookings.find((booking) => activeStatuses.includes(booking.status)) ??
       bookings[0] ??
       null,
-    preferencesCount: preferences.length,
+    roommateProfileCompleted: profile?.roommateProfileCompleted || false,
     profileFactors: [
       { label: "الصورة الشخصية", complete: Boolean(profile?.avatarUrl) },
       {
         label: "التحقق",
         complete: profile?.verificationStatus === "APPROVED",
       },
-      { label: "التفضيلات", complete: preferences.length > 0 },
+      { label: "بيانات التوافق", complete: profile?.roommateProfileCompleted || false },
       {
         label: "المعلومات الأساسية",
         complete: Boolean(profile?.firstName && profile?.lastName && profile?.phone),
@@ -305,22 +300,22 @@ function ProfileCompletionCard({ completeness, factors, verificationStatus }) {
   );
 }
 
-function PreferencesCard({ preferencesCount, isComplete }) {
+function RoommateProfileCard({ isComplete }) {
   return (
     <section className="rounded-[24px] border border-[#E5EBF6] bg-white p-5 shadow-[0_14px_32px_rgba(31,57,104,0.08)]">
-      <SectionTitle title="مطابقة الزملاء" subtitle="تفضيلات السكن" />
+      <SectionTitle title="مطابقة الزملاء" subtitle="بيانات التوافق" />
       <div className="mt-5 rounded-2xl bg-[#F6F8FE] p-4">
         <p className="text-2xl font-black text-[#111D35]">
-          {preferencesCount.toLocaleString("ar-EG")}
+          {isComplete ? "مكتملة" : "غير مكتملة"}
         </p>
         <p className="mt-1 text-xs font-bold text-slate-500">
-          {isComplete ? "تفضيلات جاهزة للمطابقة" : "أكمل تفضيلاتك لتحسين المطابقة"}
+          {isComplete ? "بيانات التوافق جاهزة للمطابقة" : "أكمل بيانات التوافق لتحسين المطابقة"}
         </p>
         <Link
-          to="/expatriate/profile"
+          to="/expatriate/profile/roommate-profile"
           className="mt-4 block h-10 rounded-xl bg-[#1f5bd7] px-4 py-2 text-center text-sm font-black text-white"
         >
-          إعداد التفضيلات
+          {isComplete ? "تعديل بيانات التوافق" : "إكمال بيانات التوافق"}
         </Link>
       </div>
     </section>
@@ -399,7 +394,7 @@ function QuickActions({ onNavigate }) {
     { label: "حجوزاتي", path: "/expatriate/bookings" },
     { label: "الرسائل", path: "/expatriate/messages" },
     { label: "الملف الشخصي", path: "/expatriate/profile" },
-    { label: "إعداد التفضيلات", path: "/expatriate/profile" },
+    { label: "بيانات التوافق", path: "/expatriate/profile/roommate-profile" },
   ];
 
   return (

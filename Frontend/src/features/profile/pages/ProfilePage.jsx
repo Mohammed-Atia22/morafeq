@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useProfile } from "../hooks/useProfile";
 import { AvatarUploader } from "../components/AvatarUploader";
 import { ProfileInfoForm } from "../components/ProfileInfoForm";
-import { PreferencesSection } from "../components/PreferencesSection";
+import { RoommateProfileSection } from "../components/RoommateProfileSection";
 import { ChangePasswordForm } from "../components/ChangePasswordForm";
 import { useVerification } from "../../verification/hooks/useVerification";
 import { VerificationBadge } from "../../verification/components/VerificationBadge";
@@ -442,12 +442,12 @@ export function ProfilePage() {
         <AccountInfo profile={profile} />
       </SectionCard>
 
-      <SectionCard title="تفضيلاتي" action={null}>
+      <SectionCard title="بيانات توافق الزملاء" action={null}>
         {profile?.role === "GUEST" ? (
-          <PreferencesSection profile={profile} onSaved={loadProfile} />
+          <RoommateProfileSection profile={profile} onSaved={loadProfile} />
         ) : (
           <div className="rounded-2xl bg-slate-50 px-5 py-6 text-sm text-slate-600">
-            تفضيلات زملاء السكن متاحة فقط لحسابات الطلاب المغتربين.
+            بيانات توافق الزملاء متاحة فقط لحسابات الطلاب المغتربين.
           </div>
         )}
       </SectionCard>

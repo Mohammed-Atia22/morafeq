@@ -31,9 +31,11 @@ import { ExpatriateSearchPage } from "./features/expatriate/pages/ExpatriateSear
 import { ExpatriateListingDetailPage } from "./features/expatriate/pages/ExpatriateListingDetailPage";
 import { ExpatriateLocationInsightPage } from "./features/expatriate/pages/ExpatriateLocationInsightPage";
 import { ExpatriateCurrentTenantsPage } from "./features/expatriate/pages/ExpatriateCurrentTenantsPage";
+import { ExpatriateRoommateCompatibilityPage } from "./features/expatriate/pages/ExpatriateRoommateCompatibilityPage";
 import { ExpatriateMessagesPage } from "./features/expatriate/pages/ExpatriateMessagesPage";
 
 import { ProfilePage } from "./features/profile/pages/ProfilePage";
+import { RoommateProfileForm } from "./features/profile/components/RoommateProfileForm";
 
 import AddListingPage from "./features/listings/pages/AddListingPage";
 import EditListingPage from "./features/listings/pages/EditListingPage";
@@ -139,7 +141,14 @@ function App() {
             element={<ExpatriateCurrentTenantsPage />}
           />
 
+          <Route
+            path="listings/:id/roommate-compatibility"
+            element={<ExpatriateRoommateCompatibilityPage />}
+          />
+
           <Route path="profile" element={<ProfilePage />} />
+
+          <Route path="profile/roommate-profile" element={<RoommateProfileForm />} />
 
           <Route path="favorites" element={<FavoritesPage />} />
 

@@ -51,12 +51,14 @@ export function useProfile() {
 
     try {
       const data = await usersApi.getMe();
-      // fetch preferences separately and attach if available
+      // fetch roommate profile separately and attach if available
       try {
-        const prefs = await usersApi.getMyPreferences();
-        if (prefs) data.preferences = prefs;
+        const roommateProfile = await usersApi.getMyRoommateProfile();
+        if (roommateProfile) {
+          data.roommateProfileCompleted = roommateProfile.isCompleted;
+        }
       } catch (e) {
-        // silently ignore if preferences endpoint not available
+        // silently ignore if roommate profile endpoint not available
       }
       setProfile(data);
       setForm(buildProfileForm(data));
@@ -78,11 +80,15 @@ export function useProfile() {
       setError(null);
       try {
         const data = await usersApi.getMe();
-        // try to load preferences and attach
+        // try to load roommate profile and attach
         try {
-          const prefs = await usersApi.getMyPreferences();
-          if (prefs) data.preferences = prefs;
-        } catch (e) {}
+          const roommateProfile = await usersApi.getMyRoommateProfile();
+          if (roommateProfile) {
+            data.roommateProfileCompleted = roommateProfile.isCompleted;
+          }
+        } catch (e) {
+          // silently ignore if roommate profile endpoint not available
+        }
 
         if (!cancelled) {
           setProfile(data);
@@ -178,8 +184,8 @@ export function useProfile() {
           profile.phone,
           profile.bio,
           profile.gender,
-          // preferences considered complete when array exists and non-empty
-          (profile.preferences && profile.preferences.length > 0) || false,
+          // roommate profile considered complete when isCompleted is true
+          profile.roommateProfileCompleted || false,
         ];
         const filled = fields.filter(Boolean).length;
         const profileFieldsScore = Math.round((filled / fields.length) * 90);

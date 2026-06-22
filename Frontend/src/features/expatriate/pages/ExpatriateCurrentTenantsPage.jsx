@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useListingDetail } from "../hooks/useListingDetail";
-import { usersApi } from "../../profile/services/usersApi";
-import { useAuth } from "../../auth/hooks/useAuth";
 
 // ─── Breadcrumb ───────────────────────────────
 function Breadcrumb({ title }) {
@@ -30,64 +28,9 @@ function Breadcrumb({ title }) {
   );
 }
 
-// ─── Preference labels ─────────────────────────
-const ROOMMATE_PREFERENCE_LABELS = {
-  non_smoker: "غير مدخن",
-  smoker: "مدخن",
-  early_riser: "يستيقظ مبكراً",
-  night_owl: "يسهر ليلاً",
-  quiet: "هادئ",
-  social: "اجتماعي",
-  clean_freak: "يحب النظافة",
-  pet_friendly: "محب للحيوانات",
-  no_pets: "لا يفضل الحيوانات",
-  studies_at_home: "يدرس في المنزل",
-  studies_at_library: "يدرس في المكتبة",
-  group_study: "يفضل الدراسة الجماعية",
-  football: "كرة القدم",
-  gaming: "الألعاب الإلكترونية",
-  reading: "القراءة",
-  gym: "الجيم",
-  music: "الموسيقى",
-  cooking: "الطبخ",
-  traveling: "السفر",
-  cairo_university: "جامعة القاهرة",
-  ain_shams_university: "جامعة عين شمس",
-  helwan_university: "جامعة حلوان",
-  german_university_cairo: "الجامعة الألمانية بالقاهرة",
-  american_university_cairo: "الجامعة الأمريكية بالقاهرة",
-};
-
-function getGuestPreferences(guest) {
-  if (!guest?.preferences || !Array.isArray(guest.preferences)) return [];
-  return guest.preferences
-    .map((pref) => pref.preferenceKey || pref)
-    .filter(Boolean);
-}
-
-function getPreferenceLabel(key) {
-  return ROOMMATE_PREFERENCE_LABELS[key] || key.replace(/_/g, " ");
-}
-
-function calculateCompatibilityScore(myPrefs, guestPrefs) {
-  if (!myPrefs?.size || !guestPrefs?.length) return 0;
-  let score = 0;
-  guestPrefs.forEach((pref) => {
-    if (myPrefs.has(pref)) score += 1;
-  });
-  return score;
-}
-
-function getCompatibilityColor(percent) {
-  if (percent >= 90) return "bg-[#18C57A] text-white shadow-emerald-200";
-  if (percent >= 80) return "bg-[#1557E6] text-white shadow-blue-200";
-  if (percent >= 50) return "bg-[#F5A400] text-white shadow-amber-200";
-  return "bg-[#EF4444] text-white shadow-red-200";
-}
 
 // ─── Tenant Card Component ─────────────────────
-function TenantCard({ booking, compatibilityPercent }) {
-  const guestPrefs = getGuestPreferences(booking.guest);
+function TenantCard({ booking }) {
   const guestName =
     `${booking.guest.firstName || ""} ${booking.guest.lastName || ""}`.trim() ||
     "مستأجر";
@@ -95,18 +38,9 @@ function TenantCard({ booking, compatibilityPercent }) {
 
   return (
     <article className="relative flex min-h-[294px] flex-col overflow-hidden rounded-[22px] border border-[#E4EAF5] bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]">
-      <div
-        className={`absolute right-78 top-5 z-10 flex h-[50px] w-[50px] flex-col items-center justify-center rounded-full border-[3px] border-white text-center text-[10px] font-black leading-[1.05] shadow-lg ${getCompatibilityColor(
-          compatibilityPercent
-        )}`}
-      >
-        <span className="text-[13px]">{compatibilityPercent}%</span>
-        <span>توافق</span>
-      </div>
-
       {/* Tenant Info */}
       <div className="flex flex-1 flex-col px-5 pb-4 pt-5">
-        <div className="flex items-start gap-4 pl-10">
+        <div className="flex items-start gap-4">
         {/* Avatar */}
         {booking.guest.avatarUrl ? (
           <img
@@ -154,26 +88,6 @@ function TenantCard({ booking, compatibilityPercent }) {
         </div>
       </div>
 
-      {/* Preferences */}
-        <div className="mt-5 flex min-h-[82px] flex-col">
-          <p className="mb-2 text-xs font-black text-[#0B1B35]">التفضيلات</p>
-          {guestPrefs.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {guestPrefs.map((key) => (
-              <span
-                key={key}
-                className="rounded-full bg-[#EEF3FA] px-2.5 py-1 text-[11px] font-bold leading-5 text-slate-600"
-              >
-                {getPreferenceLabel(key)}
-              </span>
-            ))}
-          </div>
-          ) : (
-            <p className="rounded-full bg-[#F4F7FB] px-3 py-1.5 text-xs font-bold text-slate-400">
-              لا توجد تفضيلات مضافة
-            </p>
-          )}
-        </div>
       </div>
 
       {/* View Profile Button */}
@@ -192,30 +106,7 @@ function TenantCard({ booking, compatibilityPercent }) {
 // ─── Main Page Component ───────────────────────
 export function ExpatriateCurrentTenantsPage() {
   const { id } = useParams();
-  const { user } = useAuth();
   const { listing, loading, error } = useListingDetail(id);
-  const [myPreferences, setMyPreferences] = useState([]);
-
-  useEffect(() => {
-    let mounted = true;
-    const loadMyPreferences = async () => {
-      if (!user?.id) return;
-      try {
-        const data = await usersApi.getMyPreferences();
-        if (!mounted) return;
-        setMyPreferences(
-          Array.isArray(data) ? data : data?.preferenceKeys || [],
-        );
-      } catch {
-        if (mounted) setMyPreferences([]);
-      }
-    };
-
-    loadMyPreferences();
-    return () => {
-      mounted = false;
-    };
-  }, [user]);
 
   const currentTenants = useMemo(
     () =>
@@ -225,34 +116,10 @@ export function ExpatriateCurrentTenantsPage() {
           ...booking,
           guest: {
             ...booking.guest,
-            preferences: booking.guest.preferences || [],
           },
         })),
     [listing],
   );
-
-  const compatibilityMap = useMemo(() => {
-    const mySet = new Set(myPreferences);
-    return new Map(
-      currentTenants.map((booking) => {
-        const guestPrefs = getGuestPreferences(booking.guest);
-        const score = calculateCompatibilityScore(mySet, guestPrefs);
-        const percent = guestPrefs.length > 0
-          ? Math.round((score / guestPrefs.length) * 100)
-          : 0;
-        return [booking.id, percent];
-      }),
-    );
-  }, [currentTenants, myPreferences]);
-
-  const averageCompatibility = useMemo(() => {
-    if (!currentTenants.length) return 0;
-    const total = currentTenants.reduce(
-      (sum, booking) => sum + (compatibilityMap.get(booking.id) ?? 0),
-      0,
-    );
-    return Math.round(total / currentTenants.length);
-  }, [compatibilityMap, currentTenants]);
 
   return (
     <div dir="rtl" className="mx-auto max-w-6xl space-y-6">
@@ -288,7 +155,7 @@ export function ExpatriateCurrentTenantsPage() {
                 السكان الحاليون
               </h1>
               <p className="mt-2 text-sm font-medium text-slate-500">
-                تعرف على المستأجرين الحاليين ونسبة التوافق معهم قبل الحجز.
+                تعرف على المستأجرين الحاليين في هذا العقار.
               </p>
               {listing.title && (
                 <p className="mx-auto mt-2 max-w-md truncate text-xs font-bold text-[#1752F0]">
@@ -308,18 +175,18 @@ export function ExpatriateCurrentTenantsPage() {
               </div>
               <div className="rounded-2xl border border-[#E4EAF5] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
                 <p className="text-2xl font-black text-[#0B1B35]">
-                  {averageCompatibility}%
+                  {listing?.rooms?.length || 0}
                 </p>
                 <p className="mt-1 text-xs font-bold text-slate-500">
-                  متوسط التوافق
+                  عدد الغرف
                 </p>
               </div>
               <div className="rounded-2xl border border-[#E4EAF5] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
                 <p className="text-2xl font-black text-[#0B1B35]">
-                  {myPreferences.length}
+                  {listing?.monthlyRent || 0}
                 </p>
                 <p className="mt-1 text-xs font-bold text-slate-500">
-                  تفضيلاتك للمطابقة
+                  الإيجار الشهري (ج.م)
                 </p>
               </div>
             </div>
@@ -357,7 +224,6 @@ export function ExpatriateCurrentTenantsPage() {
                 <TenantCard
                   key={booking.id}
                   booking={booking}
-                  compatibilityPercent={compatibilityMap.get(booking.id) ?? 0}
                 />
               ))}
             </div>

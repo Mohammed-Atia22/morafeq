@@ -56,4 +56,16 @@ export const usersApi = {
       body: JSON.stringify(payload),
     }),
   getUserPreferences: (userId) => apiRequest(`/users/${userId}/preferences`),
+
+  /**
+   * Roommate Profile endpoints
+   */
+  getMyRoommateProfile: () => apiRequest(`/roommate-profile/me`),
+  updateMyRoommateProfile: (payload) =>
+    apiRequest(`/roommate-profile/me`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  getListingRoommateMatches: (listingId) =>
+    apiRequest(`/roommate-matching/listings/${listingId}/roommates`),
 };
