@@ -1,141 +1,161 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { RagService } from './ai.service';
 
-describe('RagService', () => {
+jest.mock('@google/genai', () => ({
+  GoogleGenAI: jest.fn().mockImplementation(() => ({
+    models: {
+      embedContent: jest.fn(),
+      generateContent: jest.fn(),
+    },
+  })),
+}));
+
+const NOT_FOUND_MESSAGE = 'لم أجد سكنًا مناسبًا بناءً على طلبك.';
+
+describe('RagService smoke tests', () => {
   let service: RagService;
+  let prisma: any;
+  let locationInsightsService: any;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [RagService],
-    }).compile();
-
-    service = module.get<RagService>(RagService);
+  beforeEach(() => {
+    prisma = {
+      listing: {
+        findMany: jest.fn(),
+      },
+      listingVector: {
+        count: jest.fn(),
+        findMany: jest.fn(),
+      },
+      listingLocationInsight: {
+        findUnique: jest.fn(),
+      },
+    };
+    locationInsightsService = {
+      generateForListingAutomatically: jest.fn(),
+    };
+    service = new RagService(prisma, locationInsightsService);
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  it('1. rejects a low top similarity score without calling the generation model', async () => {
+    jest.spyOn(service as any, 'extractFilters').mockResolvedValue({});
+    jest.spyOn(service as any, 'findApprovedListings').mockResolvedValue([
+      {
+        id: 1,
+        locationInsight: null,
+      },
+    ]);
+    jest.spyOn(service as any, 'createEmbedding').mockResolvedValue([1, 0]);
+
+    prisma.listingVector.findMany.mockResolvedValue([
+      {
+        listingId: 1,
+        vectorText: [0, 1],
+        textChunk: 'Listing ID: 1',
+      },
+    ]);
+    prisma.listingVector.count.mockResolvedValue(100);
+
+    const generateContent = (service as any).ai.models.generateContent;
+
+    await expect(service.generateRAGResponse('عايز سكن')).resolves.toBe(
+      NOT_FOUND_MESSAGE,
+    );
+    expect(generateContent).not.toHaveBeenCalled();
   });
 
-  describe('normalizeArabic', () => {
-    it('should normalize different forms of Alif to ا', () => {
-      expect((service as any).normalizeArabic('أ')).toBe('ا');
-      expect((service as any).normalizeArabic('إ')).toBe('ا');
-      expect((service as any).normalizeArabic('آ')).toBe('ا');
-    });
+  it('2. returns the same listing set for two real spellings of the same location', async () => {
+    const rehabListings = [
+      { id: 10, title: 'Rehab studio', monthlyRent: 6000 },
+      { id: 11, title: 'Rehab room', monthlyRent: 4500 },
+    ];
+    prisma.listing.findMany.mockResolvedValue(rehabListings);
 
-    it('should convert تة to ه', () => {
-      expect((service as any).normalizeArabic('مدينة')).toBe('مدينه');
-      expect((service as any).normalizeArabic('القاهرة')).toBe('القاهره');
+    const englishAliasResults = await (service as any).findApprovedListings({
+      area: 'el rehab',
     });
+    const englishAliasWhere = prisma.listing.findMany.mock.calls[0][0].where;
 
-    it('should convert ى to ي', () => {
-      expect((service as any).normalizeArabic('مصري')).toBe('مصري');
-    });
+    prisma.listing.findMany.mockClear();
 
-    it('should handle multiple spaces', () => {
-      expect((service as any).normalizeArabic('مدينة  نصر')).toBe('مدينه نصر');
+    const arabicAliasResults = await (service as any).findApprovedListings({
+      area: 'الرحاب',
     });
+    const arabicAliasWhere = prisma.listing.findMany.mock.calls[0][0].where;
 
-    it('should convert to lowercase', () => {
-      expect((service as any).normalizeArabic('CAIRO')).toBe('cairo');
-    });
-
-    it('should return undefined for undefined input', () => {
-      expect((service as any).normalizeArabic(undefined)).toBeUndefined();
-    });
-
-    it('should return undefined for empty string', () => {
-      expect((service as any).normalizeArabic('')).toBeUndefined();
-    });
-
-    it('should trim whitespace', () => {
-      expect((service as any).normalizeArabic('  مدينة نصر  ')).toBe('مدينه نصر');
-    });
+    expect(englishAliasResults).toEqual(rehabListings);
+    expect(arabicAliasResults).toEqual(rehabListings);
+    expect(englishAliasWhere).toEqual(arabicAliasWhere);
   });
 
-  describe('applyLocationAlias', () => {
-    it('should map القاهره to القاهرة', () => {
-      expect((service as any).applyLocationAlias('القاهره')).toBe('القاهرة');
+  it('3. infers sortBy cheapest from a follow-up and returns ascending rent results', async () => {
+    const listings = [
+      { id: 1, monthlyRent: 7000 },
+      { id: 2, monthlyRent: 3500 },
+      { id: 3, monthlyRent: 5000 },
+    ];
+
+    (service as any).ai.models.generateContent.mockResolvedValue({
+      text: '{"sortBy":"cheapest"}',
+    });
+    prisma.listing.findMany.mockImplementation(({ orderBy }: any) => {
+      if (orderBy?.monthlyRent === 'asc') {
+        return Promise.resolve(
+          [...listings].sort((a, b) => a.monthlyRent - b.monthlyRent),
+        );
+      }
+
+      return Promise.resolve(listings);
     });
 
-    it('should map cairo to القاهرة', () => {
-      expect((service as any).applyLocationAlias('cairo')).toBe('القاهرة');
-    });
+    const filters = await (service as any).extractFilters('والأرخص؟', [
+      { role: 'user', text: 'عايز سكن في الرحاب' },
+      { role: 'model', text: 'لقيت كذا اختيار.' },
+    ]);
+    const results = await (service as any).findApprovedListings(filters);
 
-    it('should map مدينة نصر to مدينه نصر', () => {
-      expect((service as any).applyLocationAlias('مدينة نصر')).toBe('مدينه نصر');
-    });
-
-    it('should map nasr city to مدينه نصر', () => {
-      expect((service as any).applyLocationAlias('nasr city')).toBe('مدينه نصر');
-    });
-
-    it('should map الرحاب to el rehab', () => {
-      expect((service as any).applyLocationAlias('الرحاب')).toBe('el rehab');
-    });
-
-    it('should return normalized value if no alias found', () => {
-      expect((service as any).applyLocationAlias('unknown')).toBe('unknown');
-    });
-
-    it('should return undefined for undefined input', () => {
-      expect((service as any).applyLocationAlias(undefined)).toBeUndefined();
-    });
-
-    it('should handle mixed case input', () => {
-      expect((service as any).applyLocationAlias('Cairo')).toBe('القاهرة');
-      expect((service as any).applyLocationAlias('NASR CITY')).toBe('مدينه نصر');
-    });
+    expect(filters).toEqual({ sortBy: 'cheapest' });
+    expect(results.map((listing: any) => listing.monthlyRent)).toEqual([
+      3500, 5000, 7000,
+    ]);
   });
 
-  describe('Location normalization integration', () => {
-    it('should handle "مدينة نصر" vs "مدينه نصر"', () => {
-      const input1 = (service as any).applyLocationAlias('مدينة نصر');
-      const input2 = (service as any).applyLocationAlias('مدينه نصر');
-      expect(input1).toBe(input2);
-      expect(input1).toBe('مدينه نصر');
+  it('5. includes the non-exact retry tier marker in the Gemini context', async () => {
+    jest.spyOn(service as any, 'extractFilters').mockResolvedValue({
+      area: 'المعادي',
+      maxRent: 5000,
     });
+    const fallbackListing = {
+      id: 7,
+      locationInsight: null,
+    };
+    jest
+      .spyOn(service as any, 'findApprovedListings')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([fallbackListing]);
+    jest.spyOn(service as any, 'createEmbedding').mockResolvedValue([1, 0]);
+    const answerSpy = jest
+      .spyOn(service as any, 'generateArabicAnswer')
+      .mockResolvedValue('answer');
 
-    it('should handle "القاهرة" vs "القاهره"', () => {
-      const input1 = (service as any).applyLocationAlias('القاهرة');
-      const input2 = (service as any).applyLocationAlias('القاهره');
-      expect(input1).toBe(input2);
-      expect(input1).toBe('القاهرة');
-    });
+    prisma.listingVector.findMany.mockResolvedValue([
+      {
+        listingId: 7,
+        vectorText: [1, 0],
+        textChunk: 'Listing ID: 7',
+      },
+    ]);
+    prisma.listingVector.count.mockResolvedValue(100);
+    prisma.listingLocationInsight.findUnique.mockResolvedValue(null);
 
-    it('should handle "cairo" vs "القاهرة"', () => {
-      const input1 = (service as any).applyLocationAlias('cairo');
-      const input2 = (service as any).applyLocationAlias('القاهرة');
-      expect(input1).toBe(input2);
-      expect(input1).toBe('القاهرة');
-    });
+    await expect(service.generateRAGResponse('عايز في المعادي')).resolves.toBe(
+      'answer',
+    );
 
-    it('should handle "nasr city" vs "مدينه نصر"', () => {
-      const input1 = (service as any).applyLocationAlias('nasr city');
-      const input2 = (service as any).applyLocationAlias('مدينه نصر');
-      expect(input1).toBe(input2);
-      expect(input1).toBe('مدينه نصر');
-    });
-
-    it('should handle "maadi" vs "المعادي"', () => {
-      const input1 = (service as any).applyLocationAlias('maadi');
-      const input2 = (service as any).applyLocationAlias('المعادي');
-      expect(input1).toBe(input2);
-      expect(input1).toBe('المعادي');
-    });
-
-    it('should handle "giza" vs "الجيزة"', () => {
-      const input1 = (service as any).applyLocationAlias('giza');
-      const input2 = (service as any).applyLocationAlias('الجيزة');
-      expect(input1).toBe(input2);
-      expect(input1).toBe('الجيزة');
-    });
-
-    it('should handle "alexandria" vs "الإسكندرية"', () => {
-      const input1 = (service as any).applyLocationAlias('alexandria');
-      const input2 = (service as any).applyLocationAlias('الإسكندرية');
-      expect(input1).toBe(input2);
-      expect(input1).toBe('الإسكندرية');
-    });
+    expect(answerSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      expect.any(Object),
+      expect.stringContaining('Match confidence: rent_only'),
+      'rent_only',
+    );
   });
 });

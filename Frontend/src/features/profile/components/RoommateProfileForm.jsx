@@ -24,6 +24,82 @@ const STEPS = [
   { id: 3, title: "التعايش المشترك" },
 ];
 
+const ROOMMATE_PROFILE_FIELDS = [
+  "occupationType",
+  "university",
+  "faculty",
+  "academicYear",
+  "ageRange",
+  "preferredMinRent",
+  "preferredMaxRent",
+  "preferredRoomType",
+  "preferredCity",
+  "preferredGovernorate",
+  "sleepSchedule",
+  "studyFrequency",
+  "cleanlinessLevel",
+  "smokingStatus",
+  "smokingTolerance",
+  "guestPreference",
+  "privacyLevel",
+  "cookingFrequency",
+  "expenseStyle",
+  "conflictStyle",
+  "interests",
+];
+
+const initialRoommateProfileForm = {
+  occupationType: "",
+  university: "",
+  faculty: "",
+  academicYear: "",
+  ageRange: "",
+  preferredMinRent: "",
+  preferredMaxRent: "",
+  preferredRoomType: "",
+  preferredCity: "",
+  preferredGovernorate: "",
+  sleepSchedule: "",
+  studyFrequency: "",
+  cleanlinessLevel: "",
+  smokingStatus: "",
+  smokingTolerance: "",
+  guestPreference: "",
+  privacyLevel: "",
+  cookingFrequency: "",
+  expenseStyle: "",
+  conflictStyle: "",
+  interests: [],
+};
+
+const normalizeRoommateProfileForm = (profile = {}) =>
+  ROOMMATE_PROFILE_FIELDS.reduce(
+    (acc, field) => {
+      if (field === "interests") {
+        acc.interests = Array.isArray(profile.interests) ? profile.interests : [];
+        return acc;
+      }
+
+      acc[field] = profile[field] ?? "";
+      return acc;
+    },
+    { ...initialRoommateProfileForm }
+  );
+
+const buildRoommateProfilePayload = (formData) => {
+  const payload = normalizeRoommateProfileForm(formData);
+
+  return {
+    ...payload,
+    preferredMinRent: payload.preferredMinRent
+      ? parseInt(payload.preferredMinRent, 10)
+      : null,
+    preferredMaxRent: payload.preferredMaxRent
+      ? parseInt(payload.preferredMaxRent, 10)
+      : null,
+  };
+};
+
 export function RoommateProfileForm() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
@@ -69,7 +145,7 @@ export function RoommateProfileForm() {
         const profileResp = await usersApi.getMyRoommateProfile();
         if (profileResp?.isCompleted && profileResp?.profile) {
           setExistingProfile(profileResp.profile);
-          setFormData(profileResp.profile);
+          setFormData(normalizeRoommateProfileForm(profileResp.profile));
         }
       } catch (e) {
         setError(e.message || "فشل في تحميل البيانات");
@@ -158,16 +234,11 @@ export function RoommateProfileForm() {
 
     setSaving(true);
     try {
-      // Convert empty strings to null for number fields
-      const payload = {
-        ...formData,
-        preferredMinRent: formData.preferredMinRent ? parseInt(formData.preferredMinRent, 10) : null,
-        preferredMaxRent: formData.preferredMaxRent ? parseInt(formData.preferredMaxRent, 10) : null,
-      };
+      const payload = buildRoommateProfilePayload(formData);
       await usersApi.updateMyRoommateProfile(payload);
       setSuccess("تم حفظ بيانات التوافق بنجاح");
       setTimeout(() => {
-        navigate("/profile");
+        navigate("/expatriate/profile");
       }, 1500);
     } catch (e) {
       setError(e.message || "فشل في حفظ البيانات");
