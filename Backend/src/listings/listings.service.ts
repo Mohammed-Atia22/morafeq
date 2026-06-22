@@ -907,7 +907,10 @@ export class ListingsService {
     await this.reindexSearchableListing(updatedListing.id);
 
     if (shouldRequireReview) {
-      await this.notifyAdminsListingNeedsReview(updatedListing.id);
+      await this.notifyAdminsListingNeedsReview(
+        updatedListing.id,
+        { includeHost: true },
+      );
     }
 
     return updatedListing;
@@ -946,7 +949,7 @@ export class ListingsService {
       );
     }
 
-    return this.prisma.listing.update({
+    const submittedListing = await this.prisma.listing.update({
       where: { id },
       data: {
         status: ListingStatus.PENDING_APPROVAL,
@@ -961,6 +964,17 @@ export class ListingsService {
         approvedAt: true,
       },
     });
+
+    await this.notifyAdminsListingNeedsReview(
+      submittedListing.id,
+      {
+        title: 'عقار جديد يحتاج مراجعة',
+        reason: 'HOST_SUBMITTED_LISTING',
+        includeHost: false,
+      },
+    );
+
+    return submittedListing;
   }
 
   // ─── Upload photos ─────────────────────────
@@ -1191,11 +1205,27 @@ export class ListingsService {
     });
 
     if (result.count > 0) {
-      await this.notifyAdminsListingNeedsReview(listingId);
+      await this.notifyAdminsListingNeedsReview(
+        listingId,
+        { includeHost: true },
+      );
     }
   }
 
-  private async notifyAdminsListingNeedsReview(listingId: number) {
+  private async notifyAdminsListingNeedsReview(
+    listingId: number,
+    options: {
+      title?: string;
+      reason?: string;
+      includeHost?: boolean;
+    } = {},
+  ) {
+    const includeHost = options.includeHost ?? false;
+    const reason =
+      options.reason ?? 'HOST_UPDATED_ACTIVE_LISTING';
+    const title =
+      options.title ?? 'عقار محدث يحتاج مراجعة';
+
     const [listing, admins] = await Promise.all([
       this.prisma.listing.findUnique({
         where: { id: listingId },

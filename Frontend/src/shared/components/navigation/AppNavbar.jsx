@@ -1,25 +1,8 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
+import { NotificationBell } from "../../../features/notifications/components/NotificationBell";
 import logo1 from "../../../../images/logo 1.png";
 import logo2 from "../../../../images/logo 2.png";
-
-function BellIcon({ className }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15 17H9m9-1V11a6 6 0 1 0-12 0v5l-2 2h16l-2-2ZM10 20h4"
-      />
-    </svg>
-  );
-}
 
 const navLinkClass = ({ isActive }) =>
   [
@@ -99,13 +82,16 @@ export function AppNavbar() {
 
           <div className="flex items-center gap-3">
             {isAuthenticated ? (
-              <button
-                type="button"
-                onClick={logout}
-                className="rounded-lg bg-[#075fd6] px-5 py-3 text-sm font-black text-white shadow transition hover:bg-[#0754bd]"
-              >
-                تسجيل الخروج
-              </button>
+              <>
+                <NotificationBell enabled={isAuthenticated} />
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="rounded-lg bg-[#075fd6] px-5 py-3 text-sm font-black text-white shadow transition hover:bg-[#0754bd]"
+                >
+                  تسجيل الخروج
+                </button>
+              </>
             ) : (
               <>
                 <NavLink
@@ -174,13 +160,7 @@ export function AppNavbar() {
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
-              <button
-                type="button"
-                className="relative grid h-10 w-10 place-items-center rounded-full text-[#172033] transition hover:bg-blue-50 hover:text-[#075fd6]"
-              >
-                <BellIcon className="h-5 w-5" />
-                <span className="absolute bottom-2 right-2 h-2 w-2 rounded-full bg-red-500" />
-              </button>
+              <NotificationBell enabled={isAuthenticated} />
               <span className="hidden text-sm font-black text-[#172033] sm:block">
                 {user?.firstName ? `مرحبا، ${user.firstName}` : "مرحبا بك"}
               </span>

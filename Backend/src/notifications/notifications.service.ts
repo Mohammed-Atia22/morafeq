@@ -9,6 +9,7 @@ import {
   Notification,
   NotificationType,
   Prisma,
+  UserRole,
 } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -26,6 +27,11 @@ export interface NotifyUserInput {
 
   shouldSendEmail?: boolean;
   emailSubject?: string;
+}
+
+export interface QueryNotificationsInput {
+  page?: number;
+  limit?: number;
 }
 
 @Injectable()
@@ -151,6 +157,166 @@ export class NotificationsService {
    */
   async findUserNotifications(
     userId: number,
+    query: QueryNotificationsInput = {},
+  ) {
+    const page = query.page ?? 1;
+    const limit = Math.min(query.limit ?? 20, 50);
+    const skip = (page - 1) * limit;
+
+    const [user, notifications, total, unreadCount] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      }),
+      this.prisma.notification.findMany({
+        where: {
+          userId,
+        },
+        skip,
+        take: limit,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      this.prisma.notification.count({
+        where: {
+          userId,
+        },
+      }),
+      this.getUnreadCount(userId),
+    ]);
+
+    const role = user?.role ?? UserRole.GUEST;
+
+    return {
+      data: notifications.map((notification) =>
+        this.serializeNotification(notification, role),
+      ),
+      meta: {
+        total,
+        unreadCount,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async findOneForUser(
+    userId: number,
+    notificationId: number,
+  ) {
+    const [user, notification] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      }),
+      this.prisma.notification.findFirst({
+        where: {
+          id: notificationId,
+          userId,
+        },
+      }),
+    ]);
+
+    if (!notification) {
+      throw new NotFoundException(
+        'Notification not found',
+      );
+    }
+
+    return this.serializeNotification(
+      notification,
+      user?.role ?? UserRole.GUEST,
+    );
+  }
+
+  async getUnreadSummary(userId: number) {
+    return {
+      unreadCount: await this.getUnreadCount(userId),
+    };
+  }
+
+  private serializeNotification(
+    notification: Notification,
+    role: UserRole,
+  ) {
+    return {
+      id: notification.id,
+      userId: notification.userId,
+      role,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      isRead: notification.isRead,
+      createdAt: notification.createdAt,
+      link: this.resolveNotificationLink(
+        notification,
+        role,
+      ),
+      metadata: notification.metadata,
+    };
+  }
+
+  private resolveNotificationLink(
+    notification: Notification,
+    role: UserRole,
+  ) {
+    const metadata =
+      notification.metadata &&
+      typeof notification.metadata === 'object' &&
+      !Array.isArray(notification.metadata)
+        ? (notification.metadata as Record<string, unknown>)
+        : {};
+
+    if (typeof metadata.link === 'string') {
+      return metadata.link;
+    }
+
+    const roleHome =
+      role === UserRole.ADMIN
+        ? '/admin'
+        : role === UserRole.HOST
+          ? '/owner'
+          : '/expatriate';
+
+    if (notification.relatedEntity === 'listing') {
+      return role === UserRole.ADMIN
+        ? '/admin/listings'
+        : '/owner';
+    }
+
+    if (notification.relatedEntity === 'booking') {
+      if (role === UserRole.ADMIN) {
+        return '/admin/complaints';
+      }
+
+      return role === UserRole.HOST
+        ? '/owner/bookings'
+        : '/expatriate/bookings';
+    }
+
+    if (
+      notification.relatedEntity === 'verification'
+    ) {
+      return role === UserRole.ADMIN
+        ? '/admin/users'
+        : '/profile';
+    }
+
+    if (
+      notification.relatedEntity === 'conversation'
+    ) {
+      return role === UserRole.HOST
+        ? '/owner/messages'
+        : '/expatriate/messages';
+    }
+
+    return roleHome;
+  }
+
+  async findUserNotificationRecords(
+    userId: number,
   ): Promise<Notification[]> {
     return this.prisma.notification.findMany({
       where: {
@@ -182,14 +348,19 @@ export class NotificationsService {
   async markAsRead(
     userId: number,
     notificationId: number,
-  ): Promise<Notification> {
-    const notification =
-      await this.prisma.notification.findFirst({
+  ) {
+    const [user, notification] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      }),
+      this.prisma.notification.findFirst({
         where: {
           id: notificationId,
           userId,
         },
-      });
+      }),
+    ]);
 
     if (!notification) {
       throw new NotFoundException(
@@ -198,18 +369,27 @@ export class NotificationsService {
     }
 
     if (notification.isRead) {
-      return notification;
+      return this.serializeNotification(
+        notification,
+        user?.role ?? UserRole.GUEST,
+      );
     }
 
-    return this.prisma.notification.update({
-      where: {
-        id: notification.id,
-      },
-      data: {
-        isRead: true,
-        readAt: new Date(),
-      },
-    });
+    const updatedNotification =
+      await this.prisma.notification.update({
+        where: {
+          id: notification.id,
+        },
+        data: {
+          isRead: true,
+          readAt: new Date(),
+        },
+      });
+
+    return this.serializeNotification(
+      updatedNotification,
+      user?.role ?? UserRole.GUEST,
+    );
   }
 
   /**
@@ -332,4 +512,3 @@ export class NotificationsService {
       .replaceAll("'", '&#039;');
   }
 }
-
