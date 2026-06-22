@@ -22,12 +22,14 @@ import { OpenDisputeConversationDto } from './dto/open-dispute-conversation.dto'
 import { SendDisputeMessageDto } from './dto/send-dispute-message.dto';
 import * as CryptoJS from 'crypto-js';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RagService } from '../ai/ai.service';
 
 @Injectable()
 export class AdminService {
   constructor(
     private prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly ragService: RagService,
   ) {}
 
   private decryptPhone(phone: string | null): string | null {
@@ -1668,6 +1670,8 @@ async sendPrivateDisputeMessage(
       notificationError,
     );
   }
+
+  await this.ragService.syncListingToVectorDB(updatedListing.id);
 
   return updatedListing;
 }

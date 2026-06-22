@@ -96,7 +96,7 @@ function TenantCard({ booking, compatibilityPercent }) {
   return (
     <article className="relative flex min-h-[294px] flex-col overflow-hidden rounded-[22px] border border-[#E4EAF5] bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]">
       <div
-        className={`absolute -left-2 top-5 z-10 flex h-[50px] w-[50px] flex-col items-center justify-center rounded-full border-[3px] border-white text-center text-[10px] font-black leading-[1.05] shadow-lg ${getCompatibilityColor(
+        className={`absolute right-78 top-5 z-10 flex h-[50px] w-[50px] flex-col items-center justify-center rounded-full border-[3px] border-white text-center text-[10px] font-black leading-[1.05] shadow-lg ${getCompatibilityColor(
           compatibilityPercent
         )}`}
       >

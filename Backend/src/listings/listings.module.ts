@@ -5,9 +5,10 @@ import { UploadsModule } from '../uploads/uploads.module';
 import { AreasModule } from 'src/areas/areas.module';
 import { LocationInsightsModule } from './../location-insights/location-insights.module';
 import { ReviewsModule } from 'src/reviews/reviews.module';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
-  imports: [UploadsModule,AreasModule,LocationInsightsModule,ReviewsModule],
+  imports: [UploadsModule,AreasModule,LocationInsightsModule,ReviewsModule,AiModule],
 providers: [ListingsService],
   controllers: [ListingsController],
   exports: [ListingsService],

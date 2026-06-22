@@ -1,34 +1,78 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
-import { PrismaService } from '../prisma/prisma.service'; // Adjust path based on your project structure
+import {
+  GenderPreference,
+  ListingStatus,
+  Prisma,
+  PropertyType,
+  RoomType,
+} from '@prisma/client';
 
-export interface ChatMessage {
-  role: 'user' | 'model';
-  text: string;
-}
+import { LocationInsightsService } from '../location-insights/location-insights.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { ListingSearchFilters, VectorMatch } from './rag.interfaces';
+
+type ChatHistoryItem = { role: 'user' | 'model'; text: string };
 
 @Injectable()
 export class RagService {
-  private ai: GoogleGenAI;
+  private readonly logger = new Logger(RagService.name);
+  private readonly ai: GoogleGenAI;
+  private readonly embeddingModel = 'gemini-embedding-001';
+  private readonly generationModel = 'gemini-2.5-flash';
+  private readonly maxFilteredListings = 80;
+  private readonly maxVectorMatches = 5;
+  private readonly relevanceThreshold = Number(
+    process.env.RAG_RELEVANCE_THRESHOLD ?? 0.72,
+  );
+ private readonly searchableListingStatuses: ListingStatus[] = [
+  ListingStatus.ACTIVE,
+  ListingStatus.APPROVED,
+];
 
-  constructor(private prisma: PrismaService, private httpService: HttpService) {
-    // Initialize the official Google Gen AI SDK
+  private readonly LOCATION_ALIASES: Record<string, string> = {
+    'القاهره': 'القاهرة',
+    'cairo': 'القاهرة',
+    'مدينة نصر': 'مدينه نصر',
+    'مدينه نصر': 'مدينه نصر',
+    'nasr city': 'مدينه نصر',
+    'الرحاب': 'el rehab',
+    'el rehab': 'el rehab',
+    'maadi': 'المعادي',
+    'المعادي': 'المعادي',
+    'giza': 'الجيزة',
+    'الجيزه': 'الجيزة',
+    'alexandria': 'الإسكندرية',
+    'الإسكندريه': 'الإسكندرية',
+    'mansoura': 'المنصورة',
+    'المنصوره': 'المنصورة',
+  };
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly locationInsightsService: LocationInsightsService,
+  ) {
     this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   }
 
-  /**
-   * 1. INGESTION PHASE (MySQL Edition)
-   * Run this when a listing is created or modified.
-   */
   async syncListingToVectorDB(listingId: number): Promise<void> {
-    const listing = await this.prisma.listing.findUnique({
-      where: { id: listingId, isDeleted: false },
+    // Ingestion now embeds a richer, retrieval-optimized text chunk instead of
+    // only the basic listing fields, so semantic search can understand amenities,
+    // rooms, rental rules, and cached area context.
+    const listing = await this.prisma.listing.findFirst({
+      where: { id: listingId },
       include: {
         amenities: true,
-        rooms: true,
+        rooms: { include: { images: true }, orderBy: { roomNumber: 'asc' } },
         area: true,
+        category: true,
+        locationInsight: true,
       },
     });
 
@@ -36,286 +80,782 @@ export class RagService {
       throw new NotFoundException(`Listing with ID ${listingId} not found.`);
     }
 
-    // Build the structural paragraph for semantic AI lookup
-    const textChunk = `
-      Listing ID: ${listing.id}
-      Title: ${listing.title}
-      Description: ${listing.description}
-      Configuration: This is a ${listing.roomType.replace(/_/g, ' ')} inside a ${listing.propertyType.toLowerCase()}.
-      Capacity: Accommodates up to ${listing.maxTenants} students. Has ${listing.bedrooms} bedrooms, ${listing.beds} beds, and ${listing.bathrooms} bathrooms.
-      Financials: Monthly rent is ${listing.monthlyRent} ${listing.currency}. Security deposit is ${listing.depositAmount} ${listing.currency}.
-      Location: Located in ${listing.city}, ${listing.governorate}, near ${listing.nearbyLandmark || 'local amenities'}. Area: ${listing.area?.name || 'N/A'}.
-      Inclusions: Internet is ${listing.internetIncluded ? 'INCLUDED' : 'NOT INCLUDED'}. Utilities are ${listing.utilitiesIncluded ? 'INCLUDED' : 'PAID SEPARATELY'}. Furnished: ${listing.furnished ? 'YES' : 'NO'}.
-      Rules: Gender preference: ${listing.genderPreference}. Smoking policy: ${listing.smokingPolicy.replace(/_/g, ' ')}.
-      Status: Currently ${listing.status}.
-    `.trim();
+    this.logger.log(
+      `[RAG DEBUG] listing=${listing.id} status=${listing.status} isDeleted=${listing.isDeleted} allowedStatuses=${JSON.stringify(this.searchableListingStatuses)}`
+    );
+
+    if (
+      listing.isDeleted ||
+      !this.searchableListingStatuses.includes(listing.status as ListingStatus)
+    ) {
+      throw new BadRequestException(
+        `Listing ${listing.id} cannot be indexed because status=${listing.status} and isDeleted=${listing.isDeleted}. Only ACTIVE or APPROVED, non-deleted listings are allowed.`,
+      );
+    }
+
+    const textChunk = this.buildListingTextChunk(listing);
 
     try {
-      // Generate numeric vector embedding (768 numbers)
-      const embeddingResponse = await this.ai.models.embedContent({
-        model: 'gemini-embedding-001',
-        contents: textChunk,
-      });
+      const vectorValues = await this.createEmbedding(textChunk, 'listing-sync');
 
-      // Strict TypeScript Type Guard check
-      if (!embeddingResponse.embeddings || embeddingResponse.embeddings.length === 0) {
-        throw new InternalServerErrorException('Failed to generate embedding from Google API.');
+      if (vectorValues.length === 0) {
+        throw new Error(`Listing ${listing.id} embedding is empty.`);
       }
 
-      const vectorValues = embeddingResponse.embeddings[0].values;
-      if (!vectorValues) {
-        throw new InternalServerErrorException('Embedding values missing from Google API response.');
-      }
+      console.log(
+        `Listing ${listing.id} embedded (${vectorValues.length} dimensions)`,
+      );
 
-      // Save or update directly in your MySQL listing_vectors table via Prisma
       await this.prisma.listingVector.upsert({
         where: { listingId: listing.id },
         update: {
-          vectorText: vectorValues, 
-          textChunk: textChunk,
+          vectorText: vectorValues,
+          textChunk,
         },
         create: {
           listingId: listing.id,
           vectorText: vectorValues,
-          textChunk: textChunk,
+          textChunk,
         },
       });
-    } catch (err) {
-      console.error(`[MySQL RAG Ingestion Error] Failed for listing ${listingId}:`, err);
-      throw new InternalServerErrorException('Failed to process and store vector embedding.');
+
+      this.logger.log(
+        `[RAG Sync] Listing ${listing.id} vector saved successfully (${vectorValues.length} dimensions).`,
+      );
+    } catch (error) {
+      this.logRuntimeError(
+        `[RAG Sync] Failed to process listing ${listingId}`,
+        error,
+      );
+      throw new InternalServerErrorException(
+        `Failed to process and store vector embedding: ${this.errorMessage(
+          error,
+        )}`,
+      );
     }
   }
 
-  /**
-   * 2. RETRIEVAL & GENERATION PHASE (Conversational MySQL Edition)
-   */
-  async generateRAGResponse(studentQuery: string, history: ChatMessage[] = []): Promise<string> {
+  async rebuildAllApprovedListings() {
+    const listings = await this.prisma.listing.findMany({
+      where: {
+        status: {
+          in: this.searchableListingStatuses,
+        },
+        isDeleted: false,
+      },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+
+    let processed = 0;
+    let failed = 0;
+
+    for (const listing of listings) {
+      console.log(`Syncing listing ${listing.id}...`);
+
+      try {
+        await this.syncListingToVectorDB(listing.id);
+        processed++;
+        console.log(`✓ Listing ${listing.id} indexed`);
+      } catch (error) {
+        failed++;
+        console.error(`✗ Failed listing ${listing.id}`);
+        this.logRuntimeError(
+          `[RAG Rebuild] Failed listing ${listing.id}`,
+          error,
+        );
+      }
+    }
+
+    this.logger.log(
+      `[RAG Rebuild] Finished. processed=${processed}, failed=${failed}`,
+    );
+
+    return {
+      success: true,
+      processed,
+      failed,
+    };
+  }
+
+  private async getTotalIndexedListings(): Promise<number> {
+    const count = await this.prisma.listingVector.count();
+    return count;
+  }
+
+  async generateRAGResponse(
+    studentQuery: string,
+    history: ChatHistoryItem[] = [],
+  ): Promise<string> {
     try {
-      let searchInterfaceQuery = studentQuery;
+      // Retrieval order is intentionally: filters -> SQL -> vector search -> AI.
+      // This keeps hard constraints such as city, rent, and status out of the
+      // embedding model and prevents inactive/draft listings from leaking.
+      const filters = await this.extractFilters(studentQuery, history);
+      let filteredListings = await this.findApprovedListings(filters);
 
-      // Step A1: If chat history exists, condense the follow-up question into a standalone vector search query
-      if (history.length > 0) {
-        const historySummary = history
-          .map((msg) => `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${msg.text}`)
-          .join('\n');
+      // Retry logic: if initial filtering returns 0 listings, try progressively looser filters
+      if (filteredListings.length === 0) {
+        this.logger.log('[RAG Search] SQL filtering returned 0 listings. Starting retry logic.');
 
-        const rewritePrompt = `
-          Given the following conversation history and a follow-up question, rewrite the follow-up question into a standalone search phrase or question that contains all structural context (location, property rules, preferences) required for an optimized vector database search. Do not write a conversational reply, only return the standalone search query.
-          
-          Chat History:
-          ${historySummary}
-          
-          Follow-up Question: "${studentQuery}"
-          
-          Standalone Question:
-        `;
+        // Retry 1: Only rent filters (remove location constraints)
+        if (filters.maxRent !== undefined || filters.minRent !== undefined) {
+          this.logger.log('[RAG Search] Retry 1: Using only rent filters');
+          const rentOnlyFilters: ListingSearchFilters = {
+            maxRent: filters.maxRent,
+            minRent: filters.minRent,
+          };
+          filteredListings = await this.findApprovedListings(rentOnlyFilters);
+          if (filteredListings.length > 0) {
+            this.logger.log(`[RAG Search] Retry 1 succeeded: ${filteredListings.length} listings found`);
+          }
+        }
 
-        const rewriteOutput = await this.ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: rewritePrompt,
-        });
+        // Retry 2: Only governorate (remove city and area constraints)
+        if (filteredListings.length === 0 && filters.governorate) {
+          this.logger.log('[RAG Search] Retry 2: Using only governorate filter');
+          const governorateOnlyFilters: ListingSearchFilters = {
+            governorate: filters.governorate,
+          };
+          filteredListings = await this.findApprovedListings(governorateOnlyFilters);
+          if (filteredListings.length > 0) {
+            this.logger.log(`[RAG Search] Retry 2 succeeded: ${filteredListings.length} listings found`);
+          }
+        }
 
-        if (rewriteOutput.text) {
-          searchInterfaceQuery = rewriteOutput.text.trim();
+        // Retry 3: No location filters, only non-location constraints
+        if (filteredListings.length === 0) {
+          this.logger.log('[RAG Search] Retry 3: Using only non-location filters');
+          const nonLocationFilters: ListingSearchFilters = {
+            maxRent: filters.maxRent,
+            minRent: filters.minRent,
+            furnished: filters.furnished,
+            internetIncluded: filters.internetIncluded,
+            utilitiesIncluded: filters.utilitiesIncluded,
+            genderPreference: filters.genderPreference,
+            roomType: filters.roomType,
+            propertyType: filters.propertyType,
+          };
+          filteredListings = await this.findApprovedListings(nonLocationFilters);
+          if (filteredListings.length > 0) {
+            this.logger.log(`[RAG Search] Retry 3 succeeded: ${filteredListings.length} listings found`);
+          }
+        }
+
+        // Final fallback: Get all approved listings and rely on vector search
+        if (filteredListings.length === 0) {
+          this.logger.log('[RAG Search] Retry 4: Getting all approved listings for vector search');
+          const allApprovedFilters: ListingSearchFilters = {};
+          filteredListings = await this.findApprovedListings(allApprovedFilters);
+          if (filteredListings.length > 0) {
+            this.logger.log(`[RAG Search] Retry 4 succeeded: ${filteredListings.length} listings found`);
+          }
+        }
+
+        if (filteredListings.length === 0) {
+          this.logger.log('[RAG Search] All retry attempts failed. No listings available.');
+          return 'لم أجد سكنًا مناسبًا بناءً على طلبك.';
         }
       }
 
-      // Step A2: Vectorize the query (either rewritten or raw initial query)
-      const embeddingResponse = await this.ai.models.embedContent({
-        model: 'gemini-embedding-001',
-        contents: searchInterfaceQuery,
-      });
-
-      if (!embeddingResponse.embeddings || embeddingResponse.embeddings.length === 0) {
-        throw new InternalServerErrorException('Failed to generate query embedding from Google API.');
-      }
-
-      const queryVector = embeddingResponse.embeddings[0].values;
-      const queryVectorString = JSON.stringify(queryVector);
-
-      // Step B: Vector search — top 3 matching listings from MySQL using your exact math lookup
-      const matches: any[] = await this.prisma.$queryRaw`
-        SELECT 
-          v.listingId, 
-          v.textChunk,
-          (
-            SELECT SUM(CAST(JSON_EXTRACT(v.vectorText, CONCAT('$[', idx, ']')) AS DECIMAL(10,6)) * CAST(JSON_EXTRACT(${queryVectorString}, CONCAT('$[', idx, ']')) AS DECIMAL(10,6)))
-            FROM (
-              SELECT n AS idx FROM (
-                SELECT a.N + b.N * 10 + c.N * 100 AS n
-                FROM (SELECT 0 AS N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) a
-                CROSS JOIN (SELECT 0 AS N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) b
-                CROSS JOIN (SELECT 0 AS N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7) c
-              ) numbers WHERE n < 768
-            ) indexes
-          ) AS similarity
-        FROM listing_vectors v
-        ORDER BY similarity DESC
-        LIMIT 3;
-      `;
-
-      const listingIds = matches.map((m) => Number(m.listingId));
-
-      // Step B2: Fetch coordinates for the matched listings
-      const matchedListings = await this.prisma.listing.findMany({
-        where: { id: { in: listingIds } },
-        select: { id: true, lat: true, lng: true, area: { select: { name: true } } },
-      });
-
-      // Step B3: Fetch live nearby-services data for each matched listing in parallel
-      const nearbyServicesPerListing = await Promise.all(
-        matchedListings.map(async (listing) => {
-          if (!listing.lat || !listing.lng) {
-            return { listingId: listing.id, services: 'Location data not available for this listing.' };
-          }
-          const services = await this.fetchNearbyServices(Number(listing.lat), Number(listing.lng));
-          return { listingId: listing.id, services };
-        }),
-      );
-      
-      const servicesByListingId = new Map(
-        nearbyServicesPerListing.map((s) => [Number(s.listingId), s.services]),
-      );
-
-      // Step C: Combine listing text chunk + its live nearby-services context
-      const extractedContexts = matches
-        .map((match) => {
-          const services = servicesByListingId.get(Number(match.listingId));
-          return `
-            ${match.textChunk}
-            Nearby services (live data): ${services ?? 'Not available'}
-          `.trim();
-        })
-        .join('\n\n---\n\n');
-
-      if (!extractedContexts) {
-        return "I couldn't find any student housing options matching your exact parameters right now.";
-      }
-
-      // Step D: Format conversation history into structural format required by SDK chats
-      const sdkHistory = history.map((msg) => ({
-        role: msg.role,
-        parts: [{ text: msg.text }],
-      }));
-
-      // Step E: Create Multi-Turn Chat instance
-      const systemInstruction = `
-        You are an elite student housing assistant.
-        Each listing contains two sources of information:
-        1. Listing information.
-        2. Nearby services information.
-
-        VERY IMPORTANT:
-        Whenever nearby services information exists, ALWAYS mention it in the answer, even if the user did not explicitly ask about pharmacies or hospitals. Do not ignore nearby services.
-        Include the number of hospitals, pharmacies, universities, restaurants and transport stations if available.
-        Never say nearby services are unavailable unless the context explicitly says so.
-        
-        Answer in Arabic.
-      `;
-
-      const chat = this.ai.chats.create({
-        model: 'gemini-2.5-flash',
-        history: sdkHistory,
-        config: {
-          systemInstruction,
-          temperature: 0.2,
+      // Gemini embeddings are still used, but only after deterministic Prisma
+      // filtering has reduced the candidate set.
+      const queryVector = await this.createEmbedding(studentQuery, 'query');
+      const vectorRows = await this.prisma.listingVector.findMany({
+        where: {
+          listingId: {
+            in: filteredListings.map((listing) => listing.id),
+          },
         },
       });
 
-      const dynamicPrompt = `
-        Context Source Data:
-        ${extractedContexts}
+      if (vectorRows.length === 0) {
+        this.logger.warn(
+          '[RAG Search] Empty vector database for SQL-filtered listings.',
+        );
+        return 'لم أجد سكنًا مناسبًا بناءً على طلبك.';
+      }
 
-        Student Question: "${studentQuery}"
-        
-        Response requirements:
-        - Recommend the apartment.
-        - Mention price.
-        - Mention location.
-        - Mention nearby hospitals.
-        - Mention nearby pharmacies.
-        - Mention nearby universities.
-        - Mention nearby transportation.
+      const matches = this.searchVectors(vectorRows, queryVector);
+      const topScore = matches[0]?.similarity ?? 0;
 
-        Answer in Arabic.
+      // Dynamic threshold based on dataset size
+      const totalIndexedListings = await this.getTotalIndexedListings();
+      const dynamicThreshold =
+        totalIndexedListings < 20 ? 0.60 : this.relevanceThreshold;
 
-        Response:
-      `;
+      this.logger.log(`[RAG Search] Total indexed listings: ${totalIndexedListings}`);
+      this.logger.log(`[RAG Search] Dynamic threshold: ${dynamicThreshold}`);
+      this.logger.log(`[RAG Search] Vector matches returned: ${matches.length}`);
+      this.logger.log(`[RAG Search] Top similarity score: ${topScore}`);
 
-      // Step F: Send message through the ongoing chat context pipeline
-      const generationOutput = await chat.sendMessage({
-        message: dynamicPrompt,
-      });
+      // Fallback: if we have filtered listings and vector matches, allow Gemini to answer
+      // even if similarity is below threshold (useful for small datasets)
+      const shouldReject =
+        matches.length === 0 ||
+        (topScore < dynamicThreshold && filteredListings.length === 0);
 
-      return generationOutput.text || "I'm sorry, I couldn't formulate a proper response.";
-    } catch (err) {
-      console.error('[MySQL RAG Runtime Error]', err);
-      throw new InternalServerErrorException('Error scanning matching data vectors.');
+      if (shouldReject) {
+        this.logger.log(
+          `[RAG Search] Rejected: matches=${matches.length}, topScore=${topScore}, threshold=${dynamicThreshold}, reason=${matches.length === 0 ? 'no matches' : 'below threshold'}`,
+        );
+        return 'لم أجد سكنًا مناسبًا بناءً على طلبك.';
+      }
+
+      if (topScore < dynamicThreshold) {
+        this.logger.log(
+          `[RAG Search] Below threshold but proceeding with fallback: filteredListings=${filteredListings.length}, matches=${matches.length}, topScore=${topScore}, threshold=${dynamicThreshold}`,
+        );
+      }
+
+      const listingById = new Map(
+        filteredListings.map((listing) => [listing.id, listing]),
+      );
+      const context = await this.buildResponseContext(matches, listingById);
+
+      if (!context) {
+        this.logger.warn('[RAG Search] Empty response context after matching.');
+        return 'لم أجد سكنًا مناسبًا بناءً على طلبك.';
+      }
+
+      const response = await this.generateArabicAnswer(
+        studentQuery,
+        history,
+        filters,
+        context,
+      );
+
+      return response || 'لم أتمكن من صياغة رد مناسب الآن.';
+    } catch (error) {
+      this.logRuntimeError('[RAG Runtime] generateRAGResponse failed', error);
+      throw new InternalServerErrorException(
+        `تعذر البحث في بيانات السكن الآن: ${this.errorMessage(error)}`,
+      );
     }
   }
 
-  private async fetchNearbyServices(lat: number, lng: number, radiusMeters = 10000): Promise<string> {
-    const query = `
-      [out:json][timeout:15];
-      (
-        node["amenity"="pharmacy"](around:${radiusMeters},${lat},${lng});
-        node["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
-        node["amenity"="university"](around:${radiusMeters},${lat},${lng});
-        node["amenity"="restaurant"](around:${radiusMeters},${lat},${lng});
-        node["amenity"="supermarket"](around:${radiusMeters},${lat},${lng});
-        node["public_transport"="station"](around:${radiusMeters},${lat},${lng});
-        node["railway"="station"](around:${radiusMeters},${lat},${lng});
-        node["highway"="bus_stop"](around:${radiusMeters},${lat},${lng});
-      );
-      out body;
+  private async createEmbedding(text: string, label: string): Promise<number[]> {
+    const response = await this.ai.models.embedContent({
+      model: this.embeddingModel,
+      contents: text,
+    });
+
+    this.logger.log(`[RAG Embedding] ${label} text length: ${text.length}`);
+    this.logger.log(
+      `[RAG Embedding] ${label} embeddings returned: ${
+        response.embeddings?.length ?? 0
+      }`,
+    );
+
+    const vectorValues = response.embeddings?.[0]?.values;
+
+    if (!vectorValues || vectorValues.length === 0) {
+      throw new Error(`Missing embedding values for ${label}.`);
+    }
+
+    this.assertNumericVector(vectorValues, `generated ${label} embedding`);
+    this.logger.log(
+      `[RAG Embedding] ${label} generated embedding values count: ${vectorValues.length}`,
+    );
+    this.logger.log(
+      `[RAG Embedding] ${label} embedding length: ${vectorValues.length}`,
+    );
+
+    return vectorValues;
+  }
+
+  private async extractFilters(
+    studentQuery: string,
+    history: ChatHistoryItem[],
+  ): Promise<ListingSearchFilters> {
+    // Gemini extracts structured filters, but failures never stop search; an
+    // empty filter object falls back to approved listings plus vector relevance.
+    const systemInstruction = `
+      Extract structured housing search filters from the latest user question.
+      Return only valid JSON. Do not include markdown.
+      Allowed keys: city, governorate, area, maxRent, minRent, furnished, internetIncluded, utilitiesIncluded, genderPreference, roomType, propertyType.
+      Allowed genderPreference values: MALE, FEMALE, ANY.
+      Allowed roomType values: ENTIRE_PLACE, PRIVATE_ROOM, SHARED_ROOM.
+      Allowed propertyType values: APARTMENT, HOUSE, VILLA, CABIN, STUDIO, OTHER.
+      Omit keys that are not clearly requested.
+    `;
+
+    const prompt = `
+      Recent chat:
+      ${history
+        .slice(-6)
+        .map((item) => `${item.role}: ${item.text}`)
+        .join('\n')}
+
+      Latest user question:
+      ${studentQuery}
     `;
 
     try {
-      const response = await firstValueFrom(
-        this.httpService.post('https://overpass-api.de/api/interpreter', query, {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            Accept: '*/*',
-            'User-Agent': 'Moraafeq/1.0 (contact@moraafeq.local)',
-          },
-          timeout: 15000,
-        }),
-      );
+      const output = await this.ai.models.generateContent({
+        model: this.generationModel,
+        contents: prompt,
+        config: {
+          systemInstruction,
+          temperature: 0,
+        },
+      });
 
-      const elements = response.data?.elements ?? [];
-      if (elements.length === 0) {
-        return 'No notable nearby services found in this area.';
-      }
+      const raw = output.text?.trim() ?? '{}';
+      const jsonText = raw.replace(/^```json\s*/i, '').replace(/```$/i, '');
+      const parsed = JSON.parse(jsonText);
 
-      const counts: Record<string, number> = {};
-      const namedPlaces: string[] = [];
+      this.logger.log(`[RAG Filters Raw] ${JSON.stringify(parsed)}`);
 
-      for (const el of elements) {
-        const type =
-          el.tags?.amenity ||
-          el.tags?.public_transport ||
-          el.tags?.railway ||
-          el.tags?.highway ||
-          'other';
+      const filters = this.normalizeFilters(parsed);
 
-        counts[type] = (counts[type] ?? 0) + 1;
-
-        if (el.tags?.name && namedPlaces.length < 10) {
-          namedPlaces.push(`${el.tags.name} (${type})`);
-        }
-      }
-
-      const summaryLines = Object.entries(counts)
-        .map(([type, count]) => `${count} ${type}(s)`)
-        .join(', ');
-
-      return `
-        Nearby services within ${radiusMeters}m: ${summaryLines}.
-        Named places include: ${namedPlaces.join(', ') || 'none with names available'}.
-      `.trim();
-    } catch (err: any) {
-      console.error('[Overpass Fetch Error] Message:', err?.message);
-      return 'Nearby services data is temporarily unavailable.';
+      this.logger.log(`[RAG Filters Normalized] ${JSON.stringify(filters)}`);
+      return filters;
+    } catch (error) {
+      this.logRuntimeError('[RAG Filters] Gemini extraction failed', error);
+      return {};
     }
+  }
+
+  private normalizeFilters(value: Record<string, unknown>): ListingSearchFilters {
+    const filters: ListingSearchFilters = {};
+
+    if (typeof value.city === 'string' && value.city.trim()) {
+      filters.city = this.applyLocationAlias(value.city.trim());
+    }
+
+    if (typeof value.governorate === 'string' && value.governorate.trim()) {
+      filters.governorate = this.applyLocationAlias(value.governorate.trim());
+    }
+
+    if (typeof value.area === 'string' && value.area.trim()) {
+      filters.area = this.applyLocationAlias(value.area.trim());
+    }
+
+    if (typeof value.maxRent === 'number' && Number.isFinite(value.maxRent)) {
+      filters.maxRent = Math.max(0, Math.floor(value.maxRent));
+    }
+
+    if (typeof value.minRent === 'number' && Number.isFinite(value.minRent)) {
+      filters.minRent = Math.max(0, Math.floor(value.minRent));
+    }
+
+    for (const key of [
+      'furnished',
+      'internetIncluded',
+      'utilitiesIncluded',
+    ] as const) {
+      if (typeof value[key] === 'boolean') {
+        filters[key] = value[key];
+      }
+    }
+
+    if (
+      typeof value.genderPreference === 'string' &&
+      Object.values(GenderPreference).includes(
+        value.genderPreference as GenderPreference,
+      )
+    ) {
+      filters.genderPreference = value.genderPreference as GenderPreference;
+    }
+
+    if (
+      typeof value.roomType === 'string' &&
+      Object.values(RoomType).includes(value.roomType as RoomType)
+    ) {
+      filters.roomType = value.roomType as RoomType;
+    }
+
+    if (
+      typeof value.propertyType === 'string' &&
+      Object.values(PropertyType).includes(value.propertyType as PropertyType)
+    ) {
+      filters.propertyType = value.propertyType as PropertyType;
+    }
+
+    return filters;
+  }
+
+  private async findApprovedListings(filters: ListingSearchFilters) {
+    // Status and deletion checks are hard-coded safety rails for RAG. The AI
+    // layer only searches approved, non-deleted listings regardless of prompt.
+    const where: Prisma.ListingWhereInput = {
+      status: {
+        in: this.searchableListingStatuses,
+      },
+      isDeleted: false,
+      ...(filters.city && {
+        city: { contains: filters.city },
+      }),
+      ...(filters.governorate && {
+        governorate: { contains: filters.governorate },
+      }),
+      ...(filters.area && {
+        area: { name: { contains: filters.area } },
+      }),
+      ...(filters.maxRent !== undefined && {
+        monthlyRent: { lte: filters.maxRent },
+      }),
+      ...(filters.minRent !== undefined && {
+        monthlyRent: {
+          ...(filters.maxRent !== undefined && { lte: filters.maxRent }),
+          gte: filters.minRent,
+        },
+      }),
+      ...(filters.furnished !== undefined && {
+        furnished: filters.furnished,
+      }),
+      ...(filters.internetIncluded !== undefined && {
+        internetIncluded: filters.internetIncluded,
+      }),
+      ...(filters.utilitiesIncluded !== undefined && {
+        utilitiesIncluded: filters.utilitiesIncluded,
+      }),
+      ...(filters.genderPreference && {
+        genderPreference: filters.genderPreference,
+      }),
+      ...(filters.roomType && {
+        roomType: filters.roomType,
+      }),
+      ...(filters.propertyType && {
+        propertyType: filters.propertyType,
+      }),
+    };
+
+    this.logger.log(`[RAG SQL] city=${filters.city || 'none'}`);
+    this.logger.log(`[RAG SQL] governorate=${filters.governorate || 'none'}`);
+    this.logger.log(`[RAG SQL] area=${filters.area || 'none'}`);
+    this.logger.log(`[RAG SQL] maxRent=${filters.maxRent ?? 'none'}`);
+    this.logger.log(`[RAG SQL] minRent=${filters.minRent ?? 'none'}`);
+
+    const listings = await this.prisma.listing.findMany({
+      where,
+      take: this.maxFilteredListings,
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        area: true,
+        category: true,
+        amenities: true,
+        rooms: { include: { images: true }, orderBy: { roomNumber: 'asc' } },
+        locationInsight: true,
+      },
+    });
+
+    this.logger.log(`[RAG SQL] Filtered approved listings: ${listings.length}`);
+    return listings;
+  }
+
+  private searchVectors(
+    rows: Array<{ listingId: number; vectorText: Prisma.JsonValue; textChunk: string }>,
+    queryVector: number[],
+  ): VectorMatch[] {
+    // Vectors are scored in TypeScript so malformed JSON, wrong dimensions, or
+    // corrupted values can be skipped per listing instead of failing the request.
+    const matches: VectorMatch[] = [];
+
+    for (const row of rows) {
+      const storedVector = this.parseStoredVector(row.vectorText, row.listingId);
+
+      if (!storedVector) {
+        continue;
+      }
+
+      if (storedVector.length !== queryVector.length) {
+        this.logger.warn(
+          `[RAG Vector Integrity] Dimension mismatch for listing ${row.listingId}. stored=${storedVector.length}, query=${queryVector.length}`,
+        );
+        continue;
+      }
+
+      matches.push({
+        listingId: row.listingId,
+        textChunk: row.textChunk,
+        similarity: this.cosineSimilarity(queryVector, storedVector),
+      });
+    }
+
+    return matches
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, this.maxVectorMatches);
+  }
+
+  private parseStoredVector(
+    value: Prisma.JsonValue,
+    listingId: number,
+  ): number[] | null {
+    let parsed: unknown = value;
+
+    if (typeof value === 'string') {
+      try {
+        parsed = JSON.parse(value);
+      } catch (error) {
+        this.logRuntimeError(
+          `[RAG Vector Integrity] Corrupted JSON vector for listing ${listingId}`,
+          error,
+        );
+        return null;
+      }
+    }
+
+    if (!Array.isArray(parsed)) {
+      this.logger.warn(
+        `[RAG Vector Integrity] Malformed vector for listing ${listingId}: not an array.`,
+      );
+      return null;
+    }
+
+    const numericVector = parsed.map((item) =>
+      typeof item === 'number' ? item : Number(item),
+    );
+
+    try {
+      this.assertNumericVector(numericVector, `stored vector ${listingId}`);
+      return numericVector;
+    } catch (error) {
+      this.logRuntimeError(
+        `[RAG Vector Integrity] Invalid vector values for listing ${listingId}`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  private assertNumericVector(vector: number[], label: string) {
+    if (!Array.isArray(vector) || vector.length === 0) {
+      throw new Error(`${label} is empty or missing.`);
+    }
+
+    const invalidIndex = vector.findIndex(
+      (item) => typeof item !== 'number' || !Number.isFinite(item),
+    );
+
+    if (invalidIndex !== -1) {
+      throw new Error(`${label} has invalid value at index ${invalidIndex}.`);
+    }
+  }
+
+  private cosineSimilarity(a: number[], b: number[]) {
+    let dot = 0;
+    let aMagnitude = 0;
+    let bMagnitude = 0;
+
+    for (let index = 0; index < a.length; index++) {
+      dot += a[index] * b[index];
+      aMagnitude += a[index] * a[index];
+      bMagnitude += b[index] * b[index];
+    }
+
+    if (aMagnitude === 0 || bMagnitude === 0) {
+      return 0;
+    }
+
+    return dot / (Math.sqrt(aMagnitude) * Math.sqrt(bMagnitude));
+  }
+
+  private async buildResponseContext(
+    matches: VectorMatch[],
+    listingById: Map<number, any>,
+  ): Promise<string> {
+    const blocks = await Promise.all(
+      matches.map(async (match) => {
+        const listing = listingById.get(match.listingId);
+
+        if (!listing) {
+          return null;
+        }
+
+        const insight = await this.getCachedOrGeneratedLocationInsight(
+          match.listingId,
+          listing.locationInsight,
+        );
+
+        return `
+          Similarity score: ${match.similarity.toFixed(4)}
+          ${match.textChunk}
+          Cached location insight: ${this.formatLocationInsight(insight)}
+        `.trim();
+      }),
+    );
+
+    return blocks.filter(Boolean).join('\n\n---\n\n');
+  }
+
+  private async getCachedOrGeneratedLocationInsight(
+    listingId: number,
+    currentInsight: any,
+  ) {
+    // Prefer cached insights to avoid calling Overpass on every RAG request.
+    // Live generation is only a fallback for listings that have no cache yet.
+    if (currentInsight) {
+      return currentInsight;
+    }
+
+    const cached = await this.prisma.listingLocationInsight.findUnique({
+      where: { listingId },
+    });
+
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      return await this.locationInsightsService.generateForListingAutomatically(
+        listingId,
+      );
+    } catch (error) {
+      this.logRuntimeError(
+        `[RAG Location] Failed to generate location insight for listing ${listingId}`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  private async generateArabicAnswer(
+    studentQuery: string,
+    history: ChatHistoryItem[],
+    filters: ListingSearchFilters,
+    context: string,
+  ) {
+    const systemInstruction = `
+      You are Morafeq's Arabic student housing assistant.
+      Answer only from the verified listing context.
+      Never invent listings, prices, facilities, availability, or nearby services.
+      If the context does not satisfy the request, answer exactly: لم أجد سكنًا مناسبًا بناءً على طلبك.
+      Keep recommendations concise, practical, and student-friendly.
+      Mention rent, city/area, room type, furnishing, internet/utilities, and important rules when available.
+    `;
+
+    const prompt = `
+      Extracted filters:
+      ${JSON.stringify(filters)}
+
+      Recent chat:
+      ${history
+        .slice(-6)
+        .map((item) => `${item.role}: ${item.text}`)
+        .join('\n')}
+
+      Verified context:
+      ${context}
+
+      Student question:
+      ${studentQuery}
+    `;
+
+    const output = await this.ai.models.generateContent({
+      model: this.generationModel,
+      contents: prompt,
+      config: {
+        systemInstruction,
+        temperature: 0.2,
+      },
+    });
+
+    return output.text?.trim();
+  }
+
+  private buildListingTextChunk(listing: any) {
+    const amenities = listing.amenities
+      ?.map((amenity: any) => amenity.amenityKey)
+      .filter(Boolean)
+      .join(', ');
+
+    const rooms = listing.rooms
+      ?.map((room: any) =>
+        [
+          `Room ${room.roomNumber}`,
+          room.roomName ? `name ${room.roomName}` : null,
+          `capacity ${room.capacity}`,
+          `occupied ${room.occupiedCount ?? 0}`,
+          room.images?.length ? `${room.images.length} images` : null,
+        ]
+          .filter(Boolean)
+          .join(', '),
+      )
+      .join(' | ');
+
+    return `
+      Listing ID: ${listing.id}
+      Title: ${listing.title}
+      Description: ${listing.description}
+      Property: ${this.humanize(listing.propertyType)} with ${this.humanize(
+        listing.roomType,
+      )}.
+      Capacity and layout: max ${listing.maxTenants} tenants, ${listing.bedrooms} bedrooms, ${listing.beds} beds, ${listing.bathrooms} bathrooms.
+      Rooms: ${rooms || 'No individual room details recorded.'}
+      Location: ${listing.streetName}, ${listing.area?.name || 'unknown area'}, ${listing.city}, ${listing.governorate}, ${listing.country}.
+      Landmark and arrival: ${listing.nearbyLandmark || 'No landmark'}; ${listing.arrivalInstructions || 'No arrival instructions'}.
+      Rental details: ${listing.monthlyRent} ${listing.currency} monthly rent, ${listing.depositAmount} ${listing.currency} deposit, minimum stay ${listing.minimumStayMonths} months, maximum stay ${listing.maximumStayMonths ?? 'not specified'} months.
+      Availability: available from ${this.formatDate(listing.availableFrom)}.
+      Included services: furnished ${listing.furnished ? 'yes' : 'no'}, internet ${listing.internetIncluded ? 'included' : 'not included'}, utilities ${listing.utilitiesIncluded ? 'included' : 'not included'}.
+      Amenities: ${amenities || 'No amenities recorded.'}
+      Preferences and rules: gender preference ${listing.genderPreference}, smoking policy ${this.humanize(listing.smokingPolicy)}.
+      Area insight: ${this.formatLocationInsight(listing.locationInsight)}
+      Status: ${listing.status}.
+    `.trim();
+  }
+
+  private formatLocationInsight(insight: any) {
+    if (!insight) {
+      return 'No cached location insight available.';
+    }
+
+    return [
+      insight.nearbyServices
+        ? `nearby services ${JSON.stringify(insight.nearbyServices)}`
+        : null,
+      insight.advantages
+        ? `advantages ${JSON.stringify(insight.advantages)}`
+        : null,
+      insight.disadvantages
+        ? `disadvantages ${JSON.stringify(insight.disadvantages)}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join('; ');
+  }
+
+  private humanize(value: string) {
+    return value?.replace(/_/g, ' ').toLowerCase();
+  }
+
+  private normalizeArabic(text?: string): string | undefined {
+    if (!text) return text;
+
+    return text
+      .toLowerCase()
+      .replace(/[أإآ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/ى/g, 'ي')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private applyLocationAlias(text?: string): string | undefined {
+    if (!text) return text;
+    const normalized = this.normalizeArabic(text);
+    return this.LOCATION_ALIASES[normalized || ''] || normalized;
+  }
+
+  private formatDate(value: Date | string) {
+    return new Date(value).toISOString().slice(0, 10);
+  }
+
+  private logRuntimeError(message: string, error: unknown) {
+    if (error instanceof Error) {
+      this.logger.error(`${message}: ${error.message}`, error.stack);
+      return;
+    }
+
+    this.logger.error(`${message}: ${JSON.stringify(error)}`);
+  }
+
+  private errorMessage(error: unknown) {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    return String(error);
   }
 }

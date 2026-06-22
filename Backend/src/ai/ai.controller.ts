@@ -79,4 +79,10 @@ export class RagController {
       message: `Listing model ${listingId} has been successfully embedded and indexed inside MySQL.`,
     };
   }
+
+  @Post('rebuild-all')
+  @HttpCode(HttpStatus.OK)
+  async rebuildAllListingVectors() {
+    return this.ragService.rebuildAllApprovedListings();
+  }
 }

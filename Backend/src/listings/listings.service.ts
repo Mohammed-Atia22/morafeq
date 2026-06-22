@@ -21,6 +21,7 @@ import { SearchListingDto } from './dto/search-listing.dto';
 import { SetAmenitiesDto } from './dto/set-amenities.dto';
 import { BlockDatesDto } from './dto/block-dates.dto';
 import { LocationInsightsService } from './../location-insights/location-insights.service';
+import { RagService } from '../ai/ai.service';
 import {
   calculateCapacity,
   CAPACITY_HOLDING_BOOKING_STATUSES,
@@ -36,6 +37,7 @@ export class ListingsService {
     private readonly areasService: AreasService,
     private uploads: UploadsService,
     private readonly locationInsightsService: LocationInsightsService,
+    private readonly ragService: RagService,
   ) {}
 
   async create(hostId: number, dto: CreateListingDto) {
@@ -712,7 +714,7 @@ export class ListingsService {
       }
     }
 
-    return this.prisma.listing.update({
+    const updatedListing = await this.prisma.listing.update({
       where: { id },
       data: {
         ...(dto.title !== undefined && {
@@ -878,6 +880,10 @@ export class ListingsService {
         category: true,
       },
     });
+
+    await this.reindexSearchableListing(updatedListing.id);
+
+    return updatedListing;
   }
 
   // ─── Publish listing ───────────────────────
@@ -1030,7 +1036,13 @@ export class ListingsService {
       });
     }
 
-    return this.prisma.listingAmenity.findMany({ where: { listingId: id } });
+    const amenities = await this.prisma.listingAmenity.findMany({
+      where: { listingId: id },
+    });
+
+    await this.reindexSearchableListing(id);
+
+    return amenities;
   }
 
   // ─── Get availability ──────────────────────
@@ -1091,6 +1103,27 @@ export class ListingsService {
     });
 
     return { message: 'Dates unblocked' };
+  }
+
+  private async reindexSearchableListing(listingId: number) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      select: {
+        id: true,
+        status: true,
+        isDeleted: true,
+      },
+    });
+
+    if (
+      !listing ||
+      listing.isDeleted ||
+      !([ListingStatus.ACTIVE, ListingStatus.APPROVED] as ListingStatus[]).includes(listing.status)
+    ) {
+      return;
+    }
+
+    await this.ragService.syncListingToVectorDB(listing.id);
   }
 
   // ─── Private: verify ownership ─────────────
@@ -1158,7 +1191,7 @@ export class ListingsService {
   async createRoom(listingId: number, hostId: number, dto: CreateRoomDto) {
     await this.verifyOwnership(listingId, hostId);
 
-    return this.prisma.room.create({
+    const room = await this.prisma.room.create({
       data: {
         apartmentId: listingId,
         roomNumber: dto.roomNumber,
@@ -1167,6 +1200,10 @@ export class ListingsService {
       },
       include: { images: true },
     });
+
+    await this.reindexSearchableListing(listingId);
+
+    return room;
   }
 
   async updateRoom(
@@ -1189,7 +1226,7 @@ export class ListingsService {
       );
     }
 
-    return this.prisma.room.update({
+    const updatedRoom = await this.prisma.room.update({
       where: { id: roomId },
       data: {
         ...(dto.roomNumber !== undefined && { roomNumber: dto.roomNumber }),
@@ -1198,6 +1235,10 @@ export class ListingsService {
       },
       include: { images: true },
     });
+
+    await this.reindexSearchableListing(listingId);
+
+    return updatedRoom;
   }
 
   async deleteRoom(listingId: number, roomId: number, hostId: number) {
@@ -1214,6 +1255,8 @@ export class ListingsService {
     }
 
     await this.prisma.room.delete({ where: { id: roomId } });
+    await this.reindexSearchableListing(listingId);
+
     return { message: 'تم حذف الغرفة بنجاح' };
   }
 
@@ -1246,9 +1289,13 @@ export class ListingsService {
       })),
     });
 
-    return this.prisma.room.findUnique({
+    const roomWithImages = await this.prisma.room.findUnique({
       where: { id: roomId },
       include: { images: true },
     });
+
+    await this.reindexSearchableListing(listingId);
+
+    return roomWithImages;
   }
 }
