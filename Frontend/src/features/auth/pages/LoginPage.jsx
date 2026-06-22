@@ -19,16 +19,16 @@ const schema = zod.object({
     .string()
     .trim()
     .toLowerCase()
-    .nonempty("البريد الإلكتروني مطلوب")
-    .email("أدخل بريد إلكتروني صحيح"),
+    .nonempty(LOGIN_ERROR_MESSAGE)
+    .email(LOGIN_ERROR_MESSAGE),
 
   password: zod
     .string()
-    .nonempty("كلمة المرور مطلوبة")
-    .min(8, "كلمة المرور يجب ألا تقل عن 8 أحرف")
+    .nonempty(LOGIN_ERROR_MESSAGE)
+    .min(8, LOGIN_ERROR_MESSAGE)
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/,
-      "استخدم حرف كبير وصغير ورقم ورمز",
+      LOGIN_ERROR_MESSAGE,
     ),
 });
 export function LoginPage() {
@@ -40,7 +40,7 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
   });
@@ -55,9 +55,13 @@ export function LoginPage() {
       } else {
         navigate(getRoleHomePath(data.user.role), { replace: true });
       }
-    } catch (error) {
+    } catch {
       setServerError(LOGIN_ERROR_MESSAGE);
     }
+  };
+
+  const onInvalid = () => {
+    setServerError(LOGIN_ERROR_MESSAGE);
   };
 
   return (
@@ -75,10 +79,14 @@ export function LoginPage() {
           </>
         }
       >
-        <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+        <form
+          className="space-y-5"
+          noValidate
+          onSubmit={handleSubmit(onSubmit, onInvalid)}
+        >
           <AuthMessage>{serverError}</AuthMessage>
 
-          <FormField label="البريد الإلكتروني" error={errors.email}>
+          <FormField label="البريد الإلكتروني">
             <input
               className={inputClass}
               type="email"
@@ -87,7 +95,7 @@ export function LoginPage() {
             />
           </FormField>
 
-          <FormField label="كلمة المرور" error={errors.password}>
+          <FormField label="كلمة المرور">
             <input
               className={inputClass}
               type="password"

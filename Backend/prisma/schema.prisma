@@ -643,6 +643,7 @@ model ListingVector {
 model ChatSession {
   id        String        @id @default(uuid())
   userId    Int? // Optional: link to your Student/User table if you have one
+  isDeleted Boolean       @default(false)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   messages  ChatMessage[]

@@ -45,7 +45,7 @@ export function ForgotPasswordPage() {
         title="إعادة تعيين كلمة المرور"
         subtitle="أدخل بريدك الإلكتروني لنرسل لك رمز التحقق"
       >
-        <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+        <form className="space-y-5" noValidate onSubmit={handleSubmit(onSubmit)}>
           <AuthMessage>{serverError}</AuthMessage>
 
           <FormField label="البريد الإلكتروني" error={errors.email}>

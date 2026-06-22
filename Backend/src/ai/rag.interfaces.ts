@@ -8,6 +8,7 @@ export interface ListingSearchFilters {
   city?: string;
   governorate?: string;
   area?: string;
+  sortBy?: 'cheapest' | 'newest' | 'closest';
   maxRent?: number;
   minRent?: number;
   furnished?: boolean;
@@ -16,6 +17,7 @@ export interface ListingSearchFilters {
   genderPreference?: GenderPreference;
   roomType?: RoomType;
   propertyType?: PropertyType;
+  wantsCompatibilityMatch?: boolean;
 }
 
 export interface VectorMatch {

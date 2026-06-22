@@ -22,6 +22,7 @@ import { SetAmenitiesDto } from './dto/set-amenities.dto';
 import { BlockDatesDto } from './dto/block-dates.dto';
 import { LocationInsightsService } from './../location-insights/location-insights.service';
 import { RagService } from '../ai/ai.service';
+import { applyLocationAlias } from '../ai/location-normalization';
 import {
   calculateCapacity,
   CAPACITY_HOLDING_BOOKING_STATUSES,
@@ -68,10 +69,15 @@ export class ListingsService {
       throw new BadRequestException('Invalid availableFrom date');
     }
 
+    const canonicalAreaName = applyLocationAlias(dto.areaName) ?? dto.areaName;
+    const canonicalCity = applyLocationAlias(dto.city) ?? dto.city;
+    const canonicalGovernorate =
+      applyLocationAlias(dto.governorate) ?? dto.governorate;
+
     const area = await this.areasService.findOrCreateArea({
-      name: dto.areaName,
-      city: dto.city,
-      governorate: dto.governorate,
+      name: canonicalAreaName,
+      city: canonicalCity,
+      governorate: canonicalGovernorate,
       country: dto.country ?? 'Egypt',
       googlePlaceId: dto.googlePlaceId,
     });
@@ -93,8 +99,8 @@ export class ListingsService {
         nearbyLandmark: dto.nearbyLandmark,
         arrivalInstructions: dto.arrivalInstructions,
 
-        city: dto.city,
-        governorate: dto.governorate,
+        city: canonicalCity,
+        governorate: canonicalGovernorate,
         country: dto.country ?? 'Egypt',
 
         lat: dto.lat,
@@ -696,9 +702,15 @@ export class ListingsService {
       dto.country !== undefined ||
       dto.googlePlaceId !== undefined
     ) {
-      const areaName = dto.areaName ?? currentListing?.area?.name;
-      const city = dto.city ?? currentListing?.city;
-      const governorate = dto.governorate ?? currentListing?.governorate;
+      const areaName =
+        applyLocationAlias(dto.areaName ?? currentListing?.area?.name) ??
+        currentListing?.area?.name;
+      const city =
+        applyLocationAlias(dto.city ?? currentListing?.city) ??
+        currentListing?.city;
+      const governorate =
+        applyLocationAlias(dto.governorate ?? currentListing?.governorate) ??
+        currentListing?.governorate;
       const country = dto.country ?? currentListing?.country ?? 'Egypt';
 
       if (areaName && city && governorate) {
@@ -758,11 +770,11 @@ export class ListingsService {
         }),
 
         ...(dto.city !== undefined && {
-          city: dto.city,
+          city: applyLocationAlias(dto.city) ?? dto.city,
         }),
 
         ...(dto.governorate !== undefined && {
-          governorate: dto.governorate,
+          governorate: applyLocationAlias(dto.governorate) ?? dto.governorate,
         }),
 
         ...(dto.country !== undefined && {

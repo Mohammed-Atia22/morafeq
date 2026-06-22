@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 
 import { AuthProvider } from "./features/auth/context/AuthContext";
+import { useAuth } from "./features/auth/hooks/useAuth";
 import { ProtectedRoute } from "./app/routes/ProtectedRoute";
 
 import Layout from "./app/layouts/MainLayout";
@@ -55,6 +56,16 @@ import BookingDetailPage from "./features/bookings/pages/BookingDetailPage";
 import { PublicHostProfilePage } from "./features/profile/pages/PublicHostProfilePage";
 import { PublicGuestProfilePage } from "./features/profile/pages/PublicGuestProfilePage";
 import { FavoritesPage } from "./features/favorites/pages/FavoritesPage";
+
+function ProfileRedirect() {
+  const { user } = useAuth();
+
+  if (user?.role === "HOST") return <Navigate to="/owner/profile" replace />;
+  if (user?.role === "GUEST") return <Navigate to="/expatriate/profile" replace />;
+  if (user?.role === "ADMIN") return <Navigate to="/admin" replace />;
+
+  return <Navigate to="/" replace />;
+}
 
 function App() {
   return (
@@ -192,7 +203,7 @@ function App() {
           path="profile"
           element={
             <ProtectedRoute>
-              <ProfilePage />
+              <ProfileRedirect />
             </ProtectedRoute>
           }
         />
