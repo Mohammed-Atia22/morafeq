@@ -21,6 +21,8 @@ import { SearchListingDto } from './dto/search-listing.dto';
 import { SetAmenitiesDto } from './dto/set-amenities.dto';
 import { BlockDatesDto } from './dto/block-dates.dto';
 import { LocationInsightsService } from './../location-insights/location-insights.service';
+import { RagService } from '../ai/ai.service';
+import { applyLocationAlias } from '../ai/location-normalization';
 import {
   calculateCapacity,
   CAPACITY_HOLDING_BOOKING_STATUSES,
@@ -36,6 +38,7 @@ export class ListingsService {
     private readonly areasService: AreasService,
     private uploads: UploadsService,
     private readonly locationInsightsService: LocationInsightsService,
+    private readonly ragService: RagService,
   ) {}
 
   async create(hostId: number, dto: CreateListingDto) {
@@ -66,10 +69,15 @@ export class ListingsService {
       throw new BadRequestException('Invalid availableFrom date');
     }
 
+    const canonicalAreaName = applyLocationAlias(dto.areaName) ?? dto.areaName;
+    const canonicalCity = applyLocationAlias(dto.city) ?? dto.city;
+    const canonicalGovernorate =
+      applyLocationAlias(dto.governorate) ?? dto.governorate;
+
     const area = await this.areasService.findOrCreateArea({
-      name: dto.areaName,
-      city: dto.city,
-      governorate: dto.governorate,
+      name: canonicalAreaName,
+      city: canonicalCity,
+      governorate: canonicalGovernorate,
       country: dto.country ?? 'Egypt',
       googlePlaceId: dto.googlePlaceId,
     });
@@ -91,8 +99,8 @@ export class ListingsService {
         nearbyLandmark: dto.nearbyLandmark,
         arrivalInstructions: dto.arrivalInstructions,
 
-        city: dto.city,
-        governorate: dto.governorate,
+        city: canonicalCity,
+        governorate: canonicalGovernorate,
         country: dto.country ?? 'Egypt',
 
         lat: dto.lat,
@@ -694,9 +702,15 @@ export class ListingsService {
       dto.country !== undefined ||
       dto.googlePlaceId !== undefined
     ) {
-      const areaName = dto.areaName ?? currentListing?.area?.name;
-      const city = dto.city ?? currentListing?.city;
-      const governorate = dto.governorate ?? currentListing?.governorate;
+      const areaName =
+        applyLocationAlias(dto.areaName ?? currentListing?.area?.name) ??
+        currentListing?.area?.name;
+      const city =
+        applyLocationAlias(dto.city ?? currentListing?.city) ??
+        currentListing?.city;
+      const governorate =
+        applyLocationAlias(dto.governorate ?? currentListing?.governorate) ??
+        currentListing?.governorate;
       const country = dto.country ?? currentListing?.country ?? 'Egypt';
 
       if (areaName && city && governorate) {
@@ -712,7 +726,7 @@ export class ListingsService {
       }
     }
 
-    return this.prisma.listing.update({
+    const updatedListing = await this.prisma.listing.update({
       where: { id },
       data: {
         ...(dto.title !== undefined && {
@@ -756,11 +770,11 @@ export class ListingsService {
         }),
 
         ...(dto.city !== undefined && {
-          city: dto.city,
+          city: applyLocationAlias(dto.city) ?? dto.city,
         }),
 
         ...(dto.governorate !== undefined && {
-          governorate: dto.governorate,
+          governorate: applyLocationAlias(dto.governorate) ?? dto.governorate,
         }),
 
         ...(dto.country !== undefined && {
@@ -878,6 +892,10 @@ export class ListingsService {
         category: true,
       },
     });
+
+    await this.reindexSearchableListing(updatedListing.id);
+
+    return updatedListing;
   }
 
   // ─── Publish listing ───────────────────────
@@ -1030,7 +1048,13 @@ export class ListingsService {
       });
     }
 
-    return this.prisma.listingAmenity.findMany({ where: { listingId: id } });
+    const amenities = await this.prisma.listingAmenity.findMany({
+      where: { listingId: id },
+    });
+
+    await this.reindexSearchableListing(id);
+
+    return amenities;
   }
 
   // ─── Get availability ──────────────────────
@@ -1091,6 +1115,27 @@ export class ListingsService {
     });
 
     return { message: 'Dates unblocked' };
+  }
+
+  private async reindexSearchableListing(listingId: number) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      select: {
+        id: true,
+        status: true,
+        isDeleted: true,
+      },
+    });
+
+    if (
+      !listing ||
+      listing.isDeleted ||
+      !([ListingStatus.ACTIVE, ListingStatus.APPROVED] as ListingStatus[]).includes(listing.status)
+    ) {
+      return;
+    }
+
+    await this.ragService.syncListingToVectorDB(listing.id);
   }
 
   // ─── Private: verify ownership ─────────────
@@ -1158,7 +1203,7 @@ export class ListingsService {
   async createRoom(listingId: number, hostId: number, dto: CreateRoomDto) {
     await this.verifyOwnership(listingId, hostId);
 
-    return this.prisma.room.create({
+    const room = await this.prisma.room.create({
       data: {
         apartmentId: listingId,
         roomNumber: dto.roomNumber,
@@ -1167,6 +1212,10 @@ export class ListingsService {
       },
       include: { images: true },
     });
+
+    await this.reindexSearchableListing(listingId);
+
+    return room;
   }
 
   async updateRoom(
@@ -1189,7 +1238,7 @@ export class ListingsService {
       );
     }
 
-    return this.prisma.room.update({
+    const updatedRoom = await this.prisma.room.update({
       where: { id: roomId },
       data: {
         ...(dto.roomNumber !== undefined && { roomNumber: dto.roomNumber }),
@@ -1198,6 +1247,10 @@ export class ListingsService {
       },
       include: { images: true },
     });
+
+    await this.reindexSearchableListing(listingId);
+
+    return updatedRoom;
   }
 
   async deleteRoom(listingId: number, roomId: number, hostId: number) {
@@ -1214,6 +1267,8 @@ export class ListingsService {
     }
 
     await this.prisma.room.delete({ where: { id: roomId } });
+    await this.reindexSearchableListing(listingId);
+
     return { message: 'تم حذف الغرفة بنجاح' };
   }
 
@@ -1246,9 +1301,13 @@ export class ListingsService {
       })),
     });
 
-    return this.prisma.room.findUnique({
+    const roomWithImages = await this.prisma.room.findUnique({
       where: { id: roomId },
       include: { images: true },
     });
+
+    await this.reindexSearchableListing(listingId);
+
+    return roomWithImages;
   }
 }

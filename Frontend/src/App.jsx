@@ -2,7 +2,9 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 
 import { AuthProvider } from "./features/auth/context/AuthContext";
+import { useAuth } from "./features/auth/hooks/useAuth";
 import { ProtectedRoute } from "./app/routes/ProtectedRoute";
+import { ChatProvider } from "./features/chat/context/ChatContext";
 
 import Layout from "./app/layouts/MainLayout";
 import OwnerLayout from "./app/layouts/OwnerLayout";
@@ -30,9 +32,12 @@ import { AIAssistant } from "./features/ai/components/AIAssistant";
 import { ExpatriateSearchPage } from "./features/expatriate/pages/ExpatriateSearchPage";
 import { ExpatriateListingDetailPage } from "./features/expatriate/pages/ExpatriateListingDetailPage";
 import { ExpatriateLocationInsightPage } from "./features/expatriate/pages/ExpatriateLocationInsightPage";
+import { ExpatriateCurrentTenantsPage } from "./features/expatriate/pages/ExpatriateCurrentTenantsPage";
+import { ExpatriateRoommateCompatibilityPage } from "./features/expatriate/pages/ExpatriateRoommateCompatibilityPage";
 import { ExpatriateMessagesPage } from "./features/expatriate/pages/ExpatriateMessagesPage";
 
 import { ProfilePage } from "./features/profile/pages/ProfilePage";
+import { RoommateProfileForm } from "./features/profile/components/RoommateProfileForm";
 
 import AddListingPage from "./features/listings/pages/AddListingPage";
 import EditListingPage from "./features/listings/pages/EditListingPage";
@@ -53,11 +58,21 @@ import { PublicHostProfilePage } from "./features/profile/pages/PublicHostProfil
 import { PublicGuestProfilePage } from "./features/profile/pages/PublicGuestProfilePage";
 import { FavoritesPage } from "./features/favorites/pages/FavoritesPage";
 
+function ProfileRedirect() {
+  const { user } = useAuth();
+
+  if (user?.role === "HOST") return <Navigate to="/owner/profile" replace />;
+  if (user?.role === "GUEST") return <Navigate to="/expatriate/profile" replace />;
+  if (user?.role === "ADMIN") return <Navigate to="/admin" replace />;
+
+  return <Navigate to="/" replace />;
+}
+
 function App() {
   return (
     <AuthProvider>
-      {" "}
-      <Routes>
+      <ChatProvider>
+        <Routes>
         {/* Public and authentication routes */}
         <Route element={<Layout />}>
           <Route index element={<LandingPage />} />
@@ -93,13 +108,17 @@ function App() {
 
           <Route path="profile" element={<ProfilePage />} />
 
-          <Route path="favorites" element={<FavoritesPage />} />
-
-          <Route path="add" element={<AddListingPage />} />
 
           <Route path="listings/:id/edit" element={<EditListingPage />} />
 
           <Route path="rental-requests" element={<OwnerRentalRequestsPage />} />
+
+          <Route path="dispute-chat" element={<MyDisputeConversationsPage />} />
+
+          <Route
+            path="dispute-chat/:conversationId"
+            element={<DisputeConversationPage />}
+          />
 
           <Route path="guests/:guestId" element={<PublicGuestProfilePage />} />
         </Route>
@@ -129,13 +148,33 @@ function App() {
             element={<ExpatriateLocationInsightPage />}
           />
 
+          <Route
+            path="listings/:id/current-tenants"
+            element={<ExpatriateCurrentTenantsPage />}
+          />
+
+          <Route
+            path="listings/:id/roommate-compatibility"
+            element={<ExpatriateRoommateCompatibilityPage />}
+          />
+
           <Route path="profile" element={<ProfilePage />} />
 
+          <Route path="profile/roommate-profile" element={<RoommateProfileForm />} />
+
           <Route path="favorites" element={<FavoritesPage />} />
+
 
           <Route path="bookings" element={<ExpatriateBookingsPage />} />
 
           <Route path="bookings/:id" element={<BookingDetailPage />} />
+
+          <Route path="dispute-chat" element={<MyDisputeConversationsPage />} />
+
+          <Route
+            path="dispute-chat/:conversationId"
+            element={<DisputeConversationPage />}
+          />
 
           <Route path="hosts/:hostId" element={<PublicHostProfilePage />} />
 
@@ -165,7 +204,7 @@ function App() {
           path="profile"
           element={
             <ProtectedRoute>
-              <ProfilePage />
+              <ProfileRedirect />
             </ProtectedRoute>
           }
         />
@@ -195,6 +234,7 @@ function App() {
       </Routes>
       <AIAssistant />
       <Toaster />
+      </ChatProvider>
     </AuthProvider>
   );
 }

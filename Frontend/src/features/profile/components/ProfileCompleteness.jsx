@@ -5,7 +5,7 @@ const STEPS = [
   { key: "phone", label: "رقم الهاتف" },
   { key: "bio", label: "نبذة شخصية" },
   { key: "gender", label: "الجنس" },
-  { key: "preferences", label: "تفضيلاتي" },
+  { key: "roommateProfileCompleted", label: "بيانات توافق الزملاء" },
 ];
 
 export function ProfileCompleteness({ profile, completeness }) {

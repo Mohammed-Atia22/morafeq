@@ -6,7 +6,6 @@ import {
   PublicProfileHeader,
   PublicProfileSkeletonWrapper,
 } from "../components/PublicProfileHeader";
-import { PreferencesSection } from "../components/PreferencesSection";
 import { useGuestReviews } from "../../reviews/hooks/useGuestReviews";
 import { useDeleteReview } from "../../reviews/hooks/useDeleteReview";
 import { ReviewsPanel } from "../../reviews/components/ReviewsPanel";
@@ -14,6 +13,24 @@ import { ReviewsPanel } from "../../reviews/components/ReviewsPanel";
 export function PublicGuestProfilePage() {
   const { guestId } = useParams();
   const { user } = useAuth();
+
+  // Guard: show error if guestId is missing
+  if (!guestId) {
+    return (
+      <div dir="rtl" className="mx-auto max-w-3xl">
+        <div className="rounded-xl bg-red-50 px-5 py-4 text-sm text-red-600">
+          معرف المستأجر مفقود. يرجى التأكد من الرابط.
+        </div>
+        <Link
+          to="/expatriate"
+          className="mt-4 inline-block text-sm font-bold text-[#1752F0]"
+        >
+          العودة للرئيسية
+        </Link>
+      </div>
+    );
+  }
+
   const {
     profile,
     loading: profileLoading,
@@ -85,10 +102,6 @@ export function PublicGuestProfilePage() {
         reviewCount={meta.total ?? 0}
         loadingRating={reviewsLoading}
       />
-
-      <div className="space-y-4">
-        <PreferencesSection userId={guestId} readOnly />
-      </div>
 
       <ReviewsPanel
         showSummary={false}

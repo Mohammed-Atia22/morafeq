@@ -1,5 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -23,6 +25,8 @@ import { DisputeChatModule } from './dispute-chat/dispute-chat.module';
 import { AiModule } from './ai/ai.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { RoommateProfileModule } from './roommate-profile/roommate-profile.module';
+import { RoommateMatchingModule } from './roommate-matching/roommate-matching.module';
 
 
 @Module({
@@ -31,6 +35,7 @@ import { NotificationsModule } from './notifications/notifications.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -51,8 +56,10 @@ import { NotificationsModule } from './notifications/notifications.module';
     AiModule,
     FavoritesModule,
     NotificationsModule,
+    RoommateProfileModule,
+    RoommateMatchingModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

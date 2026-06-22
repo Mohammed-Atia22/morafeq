@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { RagService } from './ai.service';
 import { RagController } from './ai.controller';
-import { HttpModule } from '@nestjs/axios';
+import { LocationInsightsModule } from '../location-insights/location-insights.module';
+import { RoommateMatchingModule } from 'src/roommate-matching/roommate-matching.module';
 
 @Module({
-  imports:[HttpModule],
+  imports: [LocationInsightsModule,RoommateMatchingModule,],
   controllers: [RagController],
-  providers:   [RagService],
-  exports:     [RagService],
+  providers: [RagService],
+  exports: [RagService],
 })
 export class AiModule {}

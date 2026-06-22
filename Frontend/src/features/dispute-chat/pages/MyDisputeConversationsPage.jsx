@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../auth/hooks/useAuth";
 import { disputeChatApi } from "../services/disputeChatApi";
 import { formatDisputeDate } from "../utils/disputeMessageUtils";
 import { getDisputeStatusLabel } from "../utils/disputeStatusLabels";
 
+function getDisputeChatBasePath(role) {
+  if (role === "HOST") return "/owner/dispute-chat";
+  if (role === "GUEST") return "/expatriate/dispute-chat";
+  return "/dispute-chat";
+}
+
 export function MyDisputeConversationsPage() {
+  const { user } = useAuth();
+  const basePath = getDisputeChatBasePath(user?.role);
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -66,7 +75,7 @@ export function MyDisputeConversationsPage() {
             return (
               <Link
                 key={conversation.id}
-                to={`/dispute-chat/${conversation.id}`}
+                to={`${basePath}/${conversation.id}`}
                 className="flex items-center gap-4 rounded-2xl bg-white p-4 ring-1 ring-slate-100 transition hover:shadow-md"
               >
                 {cover ? (
