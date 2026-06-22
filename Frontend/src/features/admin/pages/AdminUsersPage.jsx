@@ -24,6 +24,10 @@ export function AdminUsersPage() {
     loading,
     page,
     setPage,
+    role,
+    setRole,
+    verificationStatus,
+    setVerificationStatus,
     changeUserRole,
     toggleUserActive,
     approveVerification,
@@ -143,6 +147,30 @@ export function AdminUsersPage() {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-slate-500 font-bold text-xs">
             إجمالي الأعضاء في الصفحة: {filteredUsers.length} مستخدم
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">كل الأدوار</option>
+              <option value="GUEST">مغترب / طالب</option>
+              <option value="HOST">مالك عقار</option>
+              <option value="ADMIN">مسؤول نظام</option>
+            </select>
+            <select
+              value={verificationStatus}
+              onChange={(e) => setVerificationStatus(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">كل حالات التوثيق</option>
+              <option value="NOT_STARTED">غير موثق</option>
+              <option value="PENDING">بانتظار المراجعة</option>
+              <option value="APPROVED">موثق</option>
+              <option value="REJECTED">مرفوض التوثيق</option>
+            </select>
           </div>
 
           <div className="relative">

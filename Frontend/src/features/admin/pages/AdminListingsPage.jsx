@@ -30,13 +30,15 @@ export function AdminListingsPage() {
     approveListing,
     rejectListing,
     suspendListing,
+    unsuspendListing,
+    deleteListing,
   } = useAdminListings("");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedListing, setSelectedListing] = useState(null);
   const [note, setNote] = useState("");
   const [reason, setReason] = useState("");
-  const [actionType, setActionType] = useState(null); // 'approve' | 'reject' | 'suspend'
+  const [actionType, setActionType] = useState(null); // 'approve' | 'reject' | 'suspend' | 'unsuspend' | 'delete'
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -98,6 +100,16 @@ export function AdminListingsPage() {
     setActionType(null);
   };
 
+  const isReadOnlyListing =
+    selectedListing?.status === "REJECTED";
+  const isPendingListing =
+    selectedListing?.status === "PENDING_APPROVAL";
+  const canSuspendListing =
+    selectedListing?.status === "APPROVED" ||
+    selectedListing?.status === "ACTIVE";
+  const isSuspendedListing =
+    selectedListing?.status === "SUSPENDED";
+
   const handleCloseReview = () => {
     setSelectedListing(null);
     setNote("");
@@ -124,6 +136,10 @@ export function AdminListingsPage() {
         return;
       }
       success = await suspendListing(selectedListing.id, reason);
+    } else if (actionType === "unsuspend") {
+      success = await unsuspendListing(selectedListing.id);
+    } else if (actionType === "delete") {
+      success = await deleteListing(selectedListing.id);
     }
 
     if (success) {
@@ -254,7 +270,7 @@ export function AdminListingsPage() {
                         onClick={() => handleOpenReview(listing)}
                         className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline"
                       >
-                        مراجعة
+                        {listing.status === "REJECTED" ? "عرض" : "مراجعة"}
                       </button>
                     </td>
                     <td className="py-4 px-4 text-slate-500">
@@ -550,23 +566,31 @@ export function AdminListingsPage() {
 
               {/* Action Form */}
               <form onSubmit={handleAction} className="border-t border-slate-100 pt-4">
-                {actionType === null ? (
+                {isReadOnlyListing ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
+                    هذا العقار مرفوض ويظهر للقراءة فقط بدون إجراءات مراجعة.
+                  </div>
+                ) : actionType === null ? (
                   <div className="flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setActionType("approve")}
-                      className="rounded-xl bg-green-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-green-700 shadow"
-                    >
-                      قبول وإتاحة الإعلان
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActionType("reject")}
-                      className="rounded-xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-red-700 shadow"
-                    >
-                      رفض الإعلان
-                    </button>
-                    {selectedListing.status === "APPROVED" && (
+                    {isPendingListing && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setActionType("approve")}
+                          className="rounded-xl bg-green-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-green-700 shadow"
+                        >
+                          قبول وإتاحة الإعلان
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActionType("reject")}
+                          className="rounded-xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-red-700 shadow"
+                        >
+                          رفض الإعلان
+                        </button>
+                      </>
+                    )}
+                    {canSuspendListing && (
                       <button
                         type="button"
                         onClick={() => setActionType("suspend")}
@@ -574,6 +598,29 @@ export function AdminListingsPage() {
                       >
                         تعليق مؤقت
                       </button>
+                    )}
+                    {isSuspendedListing && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setActionType("unsuspend")}
+                          className="rounded-xl bg-green-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-green-700 shadow"
+                        >
+                          إعادة التفعيل
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActionType("delete")}
+                          className="rounded-xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-red-700 shadow"
+                        >
+                          حذف العقار
+                        </button>
+                      </>
+                    )}
+                    {!isPendingListing && !canSuspendListing && !isSuspendedListing && (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
+                        لا توجد إجراءات متاحة لهذه الحالة.
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -605,6 +652,18 @@ export function AdminListingsPage() {
                       </div>
                     )}
 
+                    {actionType === "unsuspend" && (
+                      <div className="mb-4 rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-xs font-bold text-green-700">
+                        سيتم إعادة تفعيل العقار وجعله متاحاً مرة أخرى.
+                      </div>
+                    )}
+
+                    {actionType === "delete" && (
+                      <div className="mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
+                        سيتم حذف العقار من قوائم الإدارة والبحث. لا يمكن تنفيذ هذا الإجراء إلا للعقارات المعلقة.
+                      </div>
+                    )}
+
                     <div className="flex justify-end gap-3">
                       <button
                         type="button"
@@ -620,7 +679,11 @@ export function AdminListingsPage() {
                             ? "bg-green-600 hover:bg-green-700"
                             : actionType === "reject"
                               ? "bg-red-600 hover:bg-red-700"
-                              : "bg-orange-500 hover:bg-orange-600"
+                              : actionType === "delete"
+                                ? "bg-red-600 hover:bg-red-700"
+                                : actionType === "unsuspend"
+                                  ? "bg-green-600 hover:bg-green-700"
+                                  : "bg-orange-500 hover:bg-orange-600"
                         }`}
                       >
                         تأكيد الإجراء
