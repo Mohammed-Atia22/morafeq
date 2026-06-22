@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
+  Get,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -12,9 +14,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { RagService } from './ai.service'; // Ensure this matches your filenames
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AskHousingAssistantDto } from './dto/ask-housing-assistant.dto';
 
@@ -36,6 +41,7 @@ export class RagController {
    * Query parameters: ?sessionId=your-uuid-here
    */
   @Post('ask')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async askHousingAssistant(
@@ -58,7 +64,7 @@ export class RagController {
         include: { messages: { orderBy: { createdAt: 'asc' } } },
       });
 
-      if (!session) {
+      if (!session || session.isDeleted) {
         throw new NotFoundException(`Chat session with ID ${activeSessionId} not found.`);
       }
 
@@ -89,6 +95,10 @@ export class RagController {
       this.prisma.chatMessage.create({
         data: { sessionId: activeSessionId, role: 'model', text: aiAnswer },
       }),
+      this.prisma.chatSession.update({
+        where: { id: activeSessionId },
+        data: { updatedAt: new Date() },
+      }),
     ]);
 
     return {
@@ -96,6 +106,105 @@ export class RagController {
       data: {
         sessionId: activeSessionId,
         response: aiAnswer,
+      },
+    };
+  }
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  async listSessions(@CurrentUser() user: any) {
+    const userId = Number(user.id);
+
+    const sessions = await this.prisma.chatSession.findMany({
+      where: { userId, isDeleted: false },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          take: 1,
+        },
+      },
+    });
+
+    return {
+      success: true,
+      data: sessions.map((session) => ({
+        sessionId: session.id,
+        title: this.deriveSessionTitle(session.messages[0]?.text),
+        updatedAt: session.updatedAt,
+      })),
+    };
+  }
+
+  @Delete('sessions/:sessionId')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async deleteSession(
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: any,
+  ) {
+    if (!UUID_PATTERN.test(sessionId)) {
+      throw new BadRequestException('sessionId must be a valid UUID.');
+    }
+
+    const userId = Number(user.id);
+
+    const session = await this.prisma.chatSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session || session.isDeleted) {
+      throw new NotFoundException(`Chat session with ID ${sessionId} not found.`);
+    }
+
+    if (session.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this chat session.');
+    }
+
+    await this.prisma.chatSession.update({
+      where: { id: sessionId },
+      data: { isDeleted: true },
+    });
+
+    return { success: true, message: 'Chat session deleted.' };
+  }
+
+  @Get('sessions/:sessionId')
+  @UseGuards(JwtAuthGuard)
+  async getSession(
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: any,
+  ) {
+    if (!UUID_PATTERN.test(sessionId)) {
+      throw new BadRequestException('sessionId must be a valid UUID.');
+    }
+
+    const userId = Number(user.id);
+    const session = await this.prisma.chatSession.findUnique({
+      where: { id: sessionId },
+      include: { messages: { orderBy: { createdAt: 'asc' } } },
+    });
+
+    if (!session || session.isDeleted) {
+      throw new NotFoundException(`Chat session with ID ${sessionId} not found.`);
+    }
+
+    if (session.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this chat session.');
+    }
+
+    return {
+      success: true,
+      data: {
+        sessionId: session.id,
+        title: this.deriveSessionTitle(session.messages[0]?.text),
+        updatedAt: session.updatedAt,
+        messages: session.messages.map((message) => ({
+          id: message.id,
+          role: message.role === 'model' ? 'assistant' : 'user',
+          text: message.text,
+          createdAt: message.createdAt,
+        })),
       },
     };
   }
@@ -110,19 +219,12 @@ export class RagController {
    * see the TODO if your role enum / guard setup differs.
    */
   @Post('sync/:listingId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @HttpCode(HttpStatus.OK)
   async syncListingRecord(
     @Param('listingId', ParseIntPipe) listingId: number,
-    @CurrentUser() user: any,
   ) {
-    // TODO: confirm the exact admin role value used in your UserRole enum.
-    // This assumes 'ADMIN'; adjust if your project uses a different name
-    // (e.g. 'HOST_ADMIN') or a RolesGuard/@Roles() decorator instead.
-    if (user.role !== 'ADMIN') {
-      throw new ForbiddenException('Only admins can trigger listing re-sync.');
-    }
-
     await this.ragService.syncListingToVectorDB(listingId);
     return {
       success: true,
@@ -136,13 +238,19 @@ export class RagController {
    * as above regarding the exact role check mechanism.
    */
   @Post('rebuild-all')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @HttpCode(HttpStatus.OK)
-  async rebuildAllListingVectors(@CurrentUser() user: any) {
-    if (user.role !== 'ADMIN') {
-      throw new ForbiddenException('Only admins can trigger a full rebuild.');
+  async rebuildAllListingVectors() {
+    return this.ragService.rebuildAllApprovedListings();
+  }
+
+  private deriveSessionTitle(firstMessageText?: string): string {
+    if (!firstMessageText) {
+      return 'محادثة جديدة';
     }
 
-    return this.ragService.rebuildAllApprovedListings();
+    const words = firstMessageText.trim().split(/\s+/);
+    return words.slice(0, 6).join(' ') + (words.length > 6 ? '...' : '');
   }
 }

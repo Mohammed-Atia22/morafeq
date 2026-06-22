@@ -15,6 +15,7 @@ describe('RagService smoke tests', () => {
   let service: RagService;
   let prisma: any;
   let locationInsightsService: any;
+  let roommateMatchingService: any;
 
   beforeEach(() => {
     prisma = {
@@ -32,7 +33,14 @@ describe('RagService smoke tests', () => {
     locationInsightsService = {
       generateForListingAutomatically: jest.fn(),
     };
-    service = new RagService(prisma, locationInsightsService);
+    roommateMatchingService = {
+      getListingRoommates: jest.fn(),
+    };
+    service = new RagService(
+      prisma,
+      locationInsightsService,
+      roommateMatchingService,
+    );
   });
 
   it('1. rejects a low top similarity score without calling the generation model', async () => {

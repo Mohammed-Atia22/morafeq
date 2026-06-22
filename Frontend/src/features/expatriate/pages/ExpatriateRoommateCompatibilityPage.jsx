@@ -50,14 +50,16 @@ function RoommateCard({ roommate }) {
   const reasons = compatibility.topMatchReasons || [];
   const warnings = compatibility.topWarnings || [];
 
-  const displayName = roommate.displayName || 
-    `${roommate.firstName || ""} ${roommate.lastName || ""}`.trim() || "زميل سكن";
+  const displayName =
+    roommate.displayName ||
+    `${roommate.firstName || ""} ${roommate.lastName || ""}`.trim() ||
+    "زميل سكن";
 
   return (
     <article className="relative flex min-h-[294px] flex-col overflow-hidden rounded-[22px] border border-[#E4EAF5] bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]">
       <div
-        className={`absolute right-4 top-5 z-10 flex h-[50px] w-[50px] flex-col items-center justify-center rounded-full border-[3px] border-white text-center text-[10px] font-black leading-[1.05] shadow-lg ${getCompatibilityColor(
-          score
+        className={`absolute right-78 top-5 z-10 flex h-[50px] w-[50px] flex-col items-center justify-center rounded-full border-[3px] border-white text-center text-[10px] font-black leading-[1.05] shadow-lg ${getCompatibilityColor(
+          score,
         )}`}
       >
         <span className="text-[13px]">{score}%</span>
@@ -273,27 +275,34 @@ export function ExpatriateRoommateCompatibilityPage() {
                   </h2>
                   <div
                     className={`flex h-16 w-16 flex-col items-center justify-center rounded-full text-center text-sm font-black leading-tight shadow-lg ${getCompatibilityColor(
-                      listingCompatibility.score
+                      listingCompatibility.score,
                     )}`}
                   >
-                    <span className="text-xl">{listingCompatibility.score}%</span>
+                    <span className="text-xl">
+                      {listingCompatibility.score}%
+                    </span>
                     <span className="text-[10px]">توافق</span>
                   </div>
                 </div>
 
                 <p className="mb-4 text-sm font-semibold text-slate-600">
-                  {listingCompatibility.summary || getCompatibilityBadgeText(listingCompatibility.score)}
+                  {listingCompatibility.summary ||
+                    getCompatibilityBadgeText(listingCompatibility.score)}
                 </p>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="rounded-xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs text-slate-400">توافق مواصفات الشقة</p>
+                    <p className="text-xs text-slate-400">
+                      توافق مواصفات الشقة
+                    </p>
                     <p className="mt-1 text-lg font-black text-[#0B1B35]">
                       {listingCompatibility.propertyScore || 0}%
                     </p>
                   </div>
                   <div className="rounded-xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs text-slate-400">متوسط توافق الزملاء</p>
+                    <p className="text-xs text-slate-400">
+                      متوسط توافق الزملاء
+                    </p>
                     <p className="mt-1 text-lg font-black text-[#0B1B35]">
                       {listingCompatibility.roommatesAverageScore || 0}%
                     </p>
@@ -301,36 +310,46 @@ export function ExpatriateRoommateCompatibilityPage() {
                 </div>
 
                 {/* Top Match Reasons */}
-                {listingCompatibility.topMatchReasons && listingCompatibility.topMatchReasons.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    <p className="text-xs font-black text-[#0B1B35]">أسباب التوافق</p>
-                    {listingCompatibility.topMatchReasons.slice(0, 4).map((reason, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
-                      >
-                        <span>✅</span>
-                        <span>{reason}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {listingCompatibility.topMatchReasons &&
+                  listingCompatibility.topMatchReasons.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-xs font-black text-[#0B1B35]">
+                        أسباب التوافق
+                      </p>
+                      {listingCompatibility.topMatchReasons
+                        .slice(0, 4)
+                        .map((reason, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
+                          >
+                            <span>✅</span>
+                            <span>{reason}</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
 
                 {/* Top Warnings */}
-                {listingCompatibility.topWarnings && listingCompatibility.topWarnings.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    <p className="text-xs font-black text-[#0B1B35]">تنبيهات</p>
-                    {listingCompatibility.topWarnings.slice(0, 3).map((warning, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700"
-                      >
-                        <span>⚠️</span>
-                        <span>{warning}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {listingCompatibility.topWarnings &&
+                  listingCompatibility.topWarnings.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-xs font-black text-[#0B1B35]">
+                        تنبيهات
+                      </p>
+                      {listingCompatibility.topWarnings
+                        .slice(0, 3)
+                        .map((warning, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700"
+                          >
+                            <span>⚠️</span>
+                            <span>{warning}</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
               </div>
             )}
           </section>

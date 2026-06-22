@@ -7,7 +7,13 @@ export function AISidebar({
   isOpen,
   onClose,
   messages,
+  sessionId,
+  sessions = [],
+  sessionsLoading,
   onSend,
+  onNewChat,
+  onSelectSession,
+  onDeleteSession,
   isTyping,
   error,
 }) {
@@ -46,6 +52,62 @@ export function AISidebar({
         >
           إغلاق
         </button>
+      </div>
+
+      <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-sm font-black text-slate-700">المحادثات</p>
+          <button
+            type="button"
+            onClick={onNewChat}
+            className="rounded-full bg-[#4f5be8] px-3 py-1.5 text-xs font-black text-white transition hover:bg-[#3f49c9]"
+          >
+            محادثة جديدة
+          </button>
+        </div>
+
+        <div className="max-h-36 space-y-2 overflow-y-auto pr-1">
+          {sessionsLoading ? (
+            <p className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-slate-500">
+              جاري تحميل المحادثات...
+            </p>
+          ) : sessions.length ? (
+            sessions.map((session) => {
+              const isActive = session.sessionId === sessionId;
+
+              return (
+                <div
+                  key={session.sessionId}
+                  className={`flex w-full items-center gap-2 rounded-2xl border px-3 py-2 text-right transition ${
+                    isActive
+                      ? "border-[#4f5be8] bg-white text-[#2d339c]"
+                      : "border-transparent bg-white text-slate-600 hover:border-slate-200"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelectSession(session.sessionId)}
+                    className="min-w-0 flex-1 truncate text-right text-xs font-bold"
+                  >
+                    {session.title}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteSession(session.sessionId)}
+                    className="shrink-0 rounded-full px-2 py-1 text-xs font-black text-rose-500 hover:bg-rose-50"
+                    aria-label="حذف المحادثة"
+                  >
+                    حذف
+                  </button>
+                </div>
+              );
+            })
+          ) : (
+            <p className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-slate-500">
+              لا توجد محادثات محفوظة بعد.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-hidden">

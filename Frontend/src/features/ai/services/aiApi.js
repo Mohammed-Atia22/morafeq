@@ -11,4 +11,15 @@ export const aiApi = {
       body: JSON.stringify({ query }),
     });
   },
+  listSessions() {
+    return apiRequest("/rag/sessions");
+  },
+  getSession(sessionId) {
+    return apiRequest(`/rag/sessions/${encodeURIComponent(sessionId)}`);
+  },
+  deleteSession(sessionId) {
+    return apiRequest(`/rag/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "DELETE",
+    });
+  },
 };
