@@ -90,6 +90,7 @@ export function ChatProvider({ children }) {
 
   const value = {
     conversations,
+    setConversations,
     unreadCount,
     isLoading,
     error,

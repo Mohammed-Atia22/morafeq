@@ -41,7 +41,6 @@ export class RagController {
    * Query parameters: ?sessionId=your-uuid-here
    */
   @Post('ask')
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async askHousingAssistant(

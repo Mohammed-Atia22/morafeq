@@ -227,13 +227,4 @@ describe('RagController smoke tests', () => {
       Reflect.getMetadata('roles', controller.rebuildAllListingVectors),
     ).toEqual(['ADMIN']);
   });
-
-  it('adds a tight throttle limit to /rag/ask', () => {
-    expect(
-      Reflect.getMetadata('THROTTLER:LIMITdefault', controller.askHousingAssistant),
-    ).toBe(5);
-    expect(
-      Reflect.getMetadata('THROTTLER:TTLdefault', controller.askHousingAssistant),
-    ).toBe(60000);
-  });
 });
