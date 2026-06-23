@@ -1,5 +1,6 @@
 import { setDefaultResultOrder } from 'node:dns';
 import { createTransport, SendMailOptions } from 'nodemailer';
+import SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 setDefaultResultOrder('ipv4first');
 
@@ -11,24 +12,21 @@ export const sendEmail = async (data: SendMailOptions) => {
     throw new Error('Email credentials are not configured');
   }
 
-  const transporter = createTransport({
+  const transportOptions: SMTPTransport.Options = {
     host: 'smtp.gmail.com',
     port: 587,
     secure: false,
     requireTLS: true,
-
     auth: {
       user: emailUser,
       pass: emailPass,
     },
-
-    // Force IPv4 because Railway failed on Gmail IPv6
-    family: 4,
-
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 10000,
-  });
+  };
+
+  const transporter = createTransport(transportOptions);
 
   try {
     return await transporter.sendMail({
