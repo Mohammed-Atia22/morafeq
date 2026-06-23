@@ -155,6 +155,12 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   async googleCallback(@Req() req: Request, @Res() res: Response) {
+    if (!req.user) {
+      return res.redirect(
+        `${process.env.FRONTEND_URL || 'http://localhost:5173'}/register?googleAuth=cancelled`,
+      );
+    }
+
     const result = await this.authService.googleLogin(req.user as any);
     this.setRefreshCookie(res, result.refreshToken);
 
