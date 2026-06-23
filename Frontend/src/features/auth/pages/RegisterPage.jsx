@@ -203,7 +203,7 @@ export function RegisterPage() {
     <AuthLayout>
       <AuthCard
         title="إنشاء حساب جديد"
-        subtitle="انضم إلى سكن وفعّل بريدك الإلكتروني"
+        subtitle="انضم إلى مرافق وفعّل بريدك الإلكتروني"
         activeTab="register"
         footer={
           <>

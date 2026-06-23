@@ -29,12 +29,16 @@ describe('RagService smoke tests', () => {
       listingLocationInsight: {
         findUnique: jest.fn(),
       },
+      user: {
+        findUnique: jest.fn(),
+      },
     };
     locationInsightsService = {
       generateForListingAutomatically: jest.fn(),
     };
     roommateMatchingService = {
       getListingRoommates: jest.fn(),
+      getRoommateProfile: jest.fn(),
     };
     service = new RagService(
       prisma,
@@ -165,5 +169,73 @@ describe('RagService smoke tests', () => {
       expect.stringContaining('Match confidence: rent_only'),
       'rent_only',
     );
+  });
+
+  describe('Compatibility Matching Tests', () => {
+    it('enrichWithCompatibility is never called when query does not mention compatibility', async () => {
+      jest.spyOn(service as any, 'extractFilters').mockResolvedValue({ wantsCompatibilityMatch: false });
+      jest.spyOn(service as any, 'findApprovedListings').mockResolvedValue([
+        { id: 1, title: 'Test Listing' },
+      ]);
+      jest.spyOn(service as any, 'createEmbedding').mockResolvedValue([1, 0]);
+      jest.spyOn(service as any, 'generateArabicAnswer').mockResolvedValue('answer');
+
+      prisma.listingVector.findMany.mockResolvedValue([
+        {
+          listingId: 1,
+          vectorText: [1, 0],
+          textChunk: 'Listing ID: 1',
+        },
+      ]);
+      prisma.listingVector.count.mockResolvedValue(100);
+
+      roommateMatchingService.getRoommateProfile.mockResolvedValue({
+        id: 1,
+        userId: 1,
+      });
+
+      await service.generateRAGResponse(
+        'شقة في القاهرة تحت 5000 جنيه',
+        [],
+        1,
+      );
+
+      expect(roommateMatchingService.getListingRoommates).not.toHaveBeenCalled();
+    });
+
+    it('enrichWithCompatibility is called at most maxVectorMatches times even when filteredListings is larger', async () => {
+      jest.spyOn(service as any, 'extractFilters').mockResolvedValue({ wantsCompatibilityMatch: true });
+      jest.spyOn(service as any, 'findApprovedListings').mockResolvedValue(
+        Array.from({ length: 10 }, (_, i) => ({ id: i + 1, title: `Listing ${i + 1}` })),
+      );
+      jest.spyOn(service as any, 'createEmbedding').mockResolvedValue([1, 0]);
+      jest.spyOn(service as any, 'generateArabicAnswer').mockResolvedValue('answer');
+
+      prisma.listingVector.findMany.mockResolvedValue(
+        Array.from({ length: 5 }, (_, i) => ({
+          listingId: i + 1,
+          vectorText: [1, 0],
+          textChunk: `Listing ID: ${i + 1}`,
+        })),
+      );
+      prisma.listingVector.count.mockResolvedValue(100);
+      prisma.user.findUnique.mockResolvedValue({ id: 1, role: 'GUEST' });
+
+      roommateMatchingService.getRoommateProfile.mockResolvedValue({
+        id: 1,
+        userId: 1,
+      });
+      roommateMatchingService.getListingRoommates.mockResolvedValue([]);
+
+      await service.generateRAGResponse(
+        'محتاج شقة تطابق مواصفاتي',
+        [],
+        1,
+      );
+
+      // Should be called at most 5 times (maxVectorMatches)
+      const callCount = roommateMatchingService.getListingRoommates.mock.calls.length;
+      expect(callCount).toBeLessThanOrEqual(5);
+    });
   });
 });

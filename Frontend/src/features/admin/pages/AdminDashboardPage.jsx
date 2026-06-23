@@ -90,6 +90,9 @@ export function AdminDashboardPage() {
   const approvedListingsCount = stats?.listings?.approved || 0;
   const totalBookings = stats?.bookings?.total || 0;
   const confirmedBookings = stats?.bookings?.confirmed || 0;
+  const totalTenants = stats?.users?.tenants || 0;
+  const totalOwners = stats?.users?.owners || 0;
+  const totalAdmins = stats?.users?.admins || 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -263,36 +266,36 @@ export function AdminDashboardPage() {
               <div>
                 <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
                   <span>المستأجرين (طلاب ومغتربين)</span>
-                  <span>{users.filter(u => u.role === "EXPATRIATE").length} مستخدم</span>
+                  <span>{totalTenants} مستخدم</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-blue-500 rounded-full"
-                    style={{ width: `${totalUsers > 0 ? (users.filter(u => u.role === "EXPATRIATE").length / totalUsers) * 100 : 0}%` }}
+                    style={{ width: `${totalUsers > 0 ? (totalTenants / totalUsers) * 100 : 0}%` }}
                   />
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
                   <span>أصحاب العقارات (ملاك)</span>
-                  <span>{users.filter(u => u.role === "HOST").length} مالك</span>
+                  <span>{totalOwners} مالك</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-orange-500 rounded-full"
-                    style={{ width: `${totalUsers > 0 ? (users.filter(u => u.role === "HOST").length / totalUsers) * 100 : 0}%` }}
+                    style={{ width: `${totalUsers > 0 ? (totalOwners / totalUsers) * 100 : 0}%` }}
                   />
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
                   <span>مسؤولو النظام</span>
-                  <span>{users.filter(u => u.role === "ADMIN").length} مسؤول</span>
+                  <span>{totalAdmins} مسؤول</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-slate-800 rounded-full"
-                    style={{ width: `${totalUsers > 0 ? (users.filter(u => u.role === "ADMIN").length / totalUsers) * 100 : 0}%` }}
+                    style={{ width: `${totalUsers > 0 ? (totalAdmins / totalUsers) * 100 : 0}%` }}
                   />
                 </div>
               </div>

@@ -10,12 +10,14 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Delete,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { ApproveListingDto } from './dto/approve-listing.dto';
 import { RejectListingDto } from './dto/reject-listing.dto';
 import { AdminQueryListingsDto } from './dto/query-listings.dto';
 import { AdminUpdateUserDto } from './dto/update-user.dto';
+import { AdminQueryUsersDto } from './dto/query-users.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -82,14 +84,23 @@ export class AdminController {
     return this.adminService.suspendListing(id, reason);
   }
 
+  @Patch('listings/:id/unsuspend')
+  @HttpCode(HttpStatus.OK)
+  unsuspendListing(@Param('id', ParseIntPipe) id: number) {
+    return this.adminService.unsuspendListing(id);
+  }
+
+  @Delete('listings/:id')
+  @HttpCode(HttpStatus.OK)
+  deleteListing(@Param('id', ParseIntPipe) id: number) {
+    return this.adminService.deleteListing(id);
+  }
+
   // ─── Users ────────────────────────────────
 
   @Get('users')
-  getUsers(
-    @Query('page')  page?:  number,
-    @Query('limit') limit?: number,
-  ) {
-    return this.adminService.getUsers(page, limit);
+  getUsers(@Query() query: AdminQueryUsersDto) {
+    return this.adminService.getUsers(query);
   }
 
   @Patch('users/:id')

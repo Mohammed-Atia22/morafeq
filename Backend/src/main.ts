@@ -11,6 +11,10 @@ async function bootstrap() {
   // Parse cookies
   app.use(cookieParser());
 
+ // Trust proxy for rate limiting behind reverse proxy/load balancer
+ // Uncomment and configure for production when behind a proxy
+ // app.set('trust proxy', 1); // or the number of proxy hops
+
   // Auto validate all incoming requests
   app.useGlobalPipes(
     new ValidationPipe({

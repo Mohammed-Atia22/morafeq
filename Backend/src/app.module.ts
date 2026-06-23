@@ -35,7 +35,13 @@ import { RoommateMatchingModule } from './roommate-matching/roommate-matching.mo
       isGlobal: true,
       envFilePath: '.env',
     }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,
+        limit: process.env.NODE_ENV === 'production' ? 100 : 1000,
+      },
+    ]),
     PrismaModule,
     AuthModule,
     UsersModule,

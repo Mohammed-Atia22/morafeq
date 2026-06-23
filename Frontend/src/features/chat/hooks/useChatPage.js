@@ -20,7 +20,7 @@ const [searchParams] = useSearchParams();
 const conversationIdParam =
 searchParams.get("conversationId");
 
-const { conversations, refreshConversations } = useChatContext();
+const { conversations, setConversations, refreshConversations, isLoading: isLoadingConversations } = useChatContext();
 const [selectedConversationId, setSelectedConversationId] =
 useState(null);
 
@@ -36,6 +36,8 @@ const selectedConversationIdRef = useRef(null);
 const currentUserIdRef = useRef(null);
 const markAsReadRef = useRef(null);
 const joinedConversationIdsRef = useRef(new Set());
+const manuallySelectedRef = useRef(false);
+const conversationsRef = useRef(conversations);
 
 useEffect(() => {
 selectedConversationIdRef.current =
@@ -45,6 +47,10 @@ selectedConversationId;
 useEffect(() => {
 currentUserIdRef.current = user?.id ?? null;
 }, [user?.id]);
+
+useEffect(() => {
+conversationsRef.current = conversations;
+}, [conversations]);
 
 // لما الطرف الآخر يقرأ الرسائل
 const handleMessagesRead = useCallback((data) => {
@@ -162,7 +168,6 @@ if (!isOpenConversation && !isMessageFromCurrentUser) {
   );
 }
 
-
 }, []);
 
 const {
@@ -198,31 +203,22 @@ conversations.forEach((conversation) => {
     joinedConversationIdsRef.current.delete(conversation.id);
   });
 });
-}, [conversations, isConnected, joinConversation]);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [isConnected, joinConversation]);
 
 // Set selected conversation from URL param
 useEffect(() => {
-if (conversations.length > 0 && conversationIdParam) {
+if (conversationIdParam) {
   const requestedConversationId =
     Number(conversationIdParam);
 
-  const requestedConversationExists =
-    Number.isInteger(requestedConversationId) &&
-    conversations.some(
-      (conversation) =>
-        conversation.id ===
-        requestedConversationId,
-    );
-
-  setSelectedConversationId(
-    requestedConversationExists
-      ? requestedConversationId
-      : null,
-  );
+  if (Number.isInteger(requestedConversationId)) {
+    setSelectedConversationId(requestedConversationId);
+  }
 } else {
   setSelectedConversationId(null);
 }
-}, [conversationIdParam, conversations]);
+}, [conversationIdParam]);
 
 // فتح المحادثة
 useEffect(() => {
@@ -327,12 +323,12 @@ markAsRead,
 
 const selectedConversation = useMemo(
 () =>
-conversations.find(
+conversationsRef.current.find(
 (conversation) =>
 conversation.id ===
 selectedConversationId,
 ) ?? null,
-[conversations, selectedConversationId],
+[selectedConversationId],
 );
 
 const selectConversation = useCallback(
@@ -344,6 +340,7 @@ return;
 }
 
 
+  manuallySelectedRef.current = true;
   setContent("");
   setMessages([]);
   setError("");
@@ -427,6 +424,7 @@ isConnected,
 socketId,
 socketError,
 
+isLoadingConversations,
 isLoadingMessages,
 isSending,
 error,

@@ -81,7 +81,7 @@ export class ListingsController {
     @CurrentUser() user: any,
     @Body() dto: UpdateListingDto,
   ) {
-    return this.listingsService.update(id, user.id, dto);
+    return this.listingsService.update(id, user.id, dto, user.role);
   }
 
   // ─── Publish listing ───────────────────────
@@ -126,7 +126,7 @@ export class ListingsController {
     @CurrentUser() user: any,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return this.listingsService.uploadPhotos(id, user.id, files);
+    return this.listingsService.uploadPhotos(id, user.id, files, user.role);
   }
 
   // ─── Delete photo ──────────────────────────
@@ -140,7 +140,7 @@ export class ListingsController {
     @Param('photoId', ParseIntPipe) photoId: number,
     @CurrentUser() user: any,
   ) {
-    return this.listingsService.deletePhoto(id, photoId, user.id);
+    return this.listingsService.deletePhoto(id, photoId, user.id, user.role);
   }
 
   // ─── Set amenities ─────────────────────────
@@ -153,7 +153,7 @@ export class ListingsController {
     @CurrentUser() user: any,
     @Body() dto: SetAmenitiesDto,
   ) {
-    return this.listingsService.setAmenities(id, user.id, dto);
+    return this.listingsService.setAmenities(id, user.id, dto, user.role);
   }
 
   // ─── Get availability ──────────────────────
@@ -179,7 +179,7 @@ export class ListingsController {
     @CurrentUser() user: any,
     @Body() dto: CreateRoomDto,
   ) {
-    return this.listingsService.createRoom(id, user.id, dto);
+    return this.listingsService.createRoom(id, user.id, dto, user.role);
   }
 
   @Patch(':id/rooms/:roomId')
@@ -191,7 +191,7 @@ export class ListingsController {
     @CurrentUser() user: any,
     @Body() dto: UpdateRoomDto,
   ) {
-    return this.listingsService.updateRoom(id, roomId, user.id, dto);
+    return this.listingsService.updateRoom(id, roomId, user.id, dto, user.role);
   }
 
   @Delete(':id/rooms/:roomId')
@@ -203,7 +203,7 @@ export class ListingsController {
     @Param('roomId', ParseIntPipe) roomId: number,
     @CurrentUser() user: any,
   ) {
-    return this.listingsService.deleteRoom(id, roomId, user.id);
+    return this.listingsService.deleteRoom(id, roomId, user.id, user.role);
   }
 
   @Post(':id/rooms/:roomId/images')
@@ -221,7 +221,7 @@ export class ListingsController {
     @CurrentUser() user: any,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return this.listingsService.uploadRoomImages(id, roomId, user.id, files);
+    return this.listingsService.uploadRoomImages(id, roomId, user.id, files, user.role);
   }
 
   // ─── Block dates ───────────────────────────
@@ -234,7 +234,7 @@ export class ListingsController {
     @CurrentUser() user: any,
     @Body() dto: BlockDatesDto,
   ) {
-    return this.listingsService.blockDates(id, user.id, dto);
+    return this.listingsService.blockDates(id, user.id, dto, user.role);
   }
 
   // ─── Unblock dates ─────────────────────────
@@ -248,7 +248,7 @@ export class ListingsController {
     @CurrentUser() user: any,
     @Body('dates') dates: string[],
   ) {
-    return this.listingsService.unblockDates(id, user.id, dates);
+    return this.listingsService.unblockDates(id, user.id, dates, user.role);
   }
 
   // add this endpoint

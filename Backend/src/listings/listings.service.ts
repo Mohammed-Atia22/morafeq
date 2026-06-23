@@ -14,6 +14,7 @@ import {
   BlockReason,
   VerificationStatus,
   RoomType,
+  NotificationType,
 } from '@prisma/client';
 import { AreasService } from '../areas/areas.service';
 import { UploadsService } from '../uploads/uploads.service';
@@ -30,6 +31,7 @@ import {
   resolveReservedPlaces,
 } from '../bookings/booking-capacity';
 import { CreateRoomDto, UpdateRoomDto } from './dto/create-room.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ListingsService {
@@ -39,6 +41,7 @@ export class ListingsService {
     private uploads: UploadsService,
     private readonly locationInsightsService: LocationInsightsService,
     private readonly ragService: RagService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(hostId: number, dto: CreateListingDto) {
@@ -675,12 +678,18 @@ export class ListingsService {
     return this.attachCapacityToListings(listings);
   }
 
-  async update(id: number, hostId: number, dto: UpdateListingDto) {
-    await this.verifyOwnership(id, hostId);
+  async update(
+    id: number,
+    hostId: number,
+    dto: UpdateListingDto,
+    actorRole?: UserRole,
+  ) {
+    await this.verifyOwnership(id, hostId, actorRole);
 
     if (
-      dto.status === ListingStatus.ACTIVE ||
-      dto.status === ListingStatus.APPROVED
+      (dto.status === ListingStatus.ACTIVE ||
+        dto.status === ListingStatus.APPROVED) &&
+      !this.isAdminActor(actorRole)
     ) {
       await this.ensureHostCanPublish(hostId);
     }
@@ -691,7 +700,9 @@ export class ListingsService {
     });
 
     const shouldRequireReview =
-      currentListing?.status === ListingStatus.APPROVED &&
+      (currentListing?.status === ListingStatus.APPROVED ||
+        currentListing?.status === ListingStatus.ACTIVE) &&
+      !this.isAdminActor(actorRole) &&
       Object.keys(dto).length > 0;
 
     let areaId: number | undefined;
@@ -895,6 +906,13 @@ export class ListingsService {
 
     await this.reindexSearchableListing(updatedListing.id);
 
+    if (shouldRequireReview) {
+      await this.notifyAdminsListingNeedsReview(
+        updatedListing.id,
+        { includeHost: true },
+      );
+    }
+
     return updatedListing;
   }
 
@@ -931,7 +949,7 @@ export class ListingsService {
       );
     }
 
-    return this.prisma.listing.update({
+    const submittedListing = await this.prisma.listing.update({
       where: { id },
       data: {
         status: ListingStatus.PENDING_APPROVAL,
@@ -946,12 +964,28 @@ export class ListingsService {
         approvedAt: true,
       },
     });
+
+    await this.notifyAdminsListingNeedsReview(
+      submittedListing.id,
+      {
+        title: 'عقار جديد يحتاج مراجعة',
+        reason: 'HOST_SUBMITTED_LISTING',
+        includeHost: false,
+      },
+    );
+
+    return submittedListing;
   }
 
   // ─── Upload photos ─────────────────────────
 
-  async uploadPhotos(id: number, hostId: number, files: Express.Multer.File[]) {
-    await this.verifyOwnership(id, hostId);
+  async uploadPhotos(
+    id: number,
+    hostId: number,
+    files: Express.Multer.File[],
+    actorRole?: UserRole,
+  ) {
+    await this.verifyOwnership(id, hostId, actorRole);
 
     if (!files?.length) {
       throw new BadRequestException('Please upload at least one photo');
@@ -979,6 +1013,7 @@ export class ListingsService {
     const photoData = await Promise.all(uploadPromises);
 
     await this.prisma.listingPhoto.createMany({ data: photoData });
+    await this.markLiveListingForAdminReview(id, actorRole);
 
     return this.prisma.listingPhoto.findMany({
       where: { listingId: id },
@@ -988,8 +1023,13 @@ export class ListingsService {
 
   // ─── Delete photo ──────────────────────────
 
-  async deletePhoto(listingId: number, photoId: number, hostId: number) {
-    await this.verifyOwnership(listingId, hostId);
+  async deletePhoto(
+    listingId: number,
+    photoId: number,
+    hostId: number,
+    actorRole?: UserRole,
+  ) {
+    await this.verifyOwnership(listingId, hostId, actorRole);
 
     const photo = await this.prisma.listingPhoto.findFirst({
       where: { id: photoId, listingId },
@@ -1028,13 +1068,20 @@ export class ListingsService {
       }
     }
 
+    await this.markLiveListingForAdminReview(listingId, actorRole);
+
     return { message: 'Photo deleted successfully' };
   }
 
   // ─── Set amenities ─────────────────────────
 
-  async setAmenities(id: number, hostId: number, dto: SetAmenitiesDto) {
-    await this.verifyOwnership(id, hostId);
+  async setAmenities(
+    id: number,
+    hostId: number,
+    dto: SetAmenitiesDto,
+    actorRole?: UserRole,
+  ) {
+    await this.verifyOwnership(id, hostId, actorRole);
 
     // Delete existing and recreate — clean approach
     await this.prisma.listingAmenity.deleteMany({ where: { listingId: id } });
@@ -1052,6 +1099,7 @@ export class ListingsService {
       where: { listingId: id },
     });
 
+    await this.markLiveListingForAdminReview(id, actorRole);
     await this.reindexSearchableListing(id);
 
     return amenities;
@@ -1081,8 +1129,13 @@ export class ListingsService {
 
   // ─── Block dates ───────────────────────────
 
-  async blockDates(id: number, hostId: number, dto: BlockDatesDto) {
-    await this.verifyOwnership(id, hostId);
+  async blockDates(
+    id: number,
+    hostId: number,
+    dto: BlockDatesDto,
+    actorRole?: UserRole,
+  ) {
+    await this.verifyOwnership(id, hostId, actorRole);
 
     const data = dto.dates.map((dateStr) => ({
       listingId: id,
@@ -1095,14 +1148,20 @@ export class ListingsService {
       data,
       skipDuplicates: true,
     });
+    await this.markLiveListingForAdminReview(id, actorRole);
 
     return { message: `${dto.dates.length} dates blocked` };
   }
 
   // ─── Unblock dates ─────────────────────────
 
-  async unblockDates(id: number, hostId: number, dates: string[]) {
-    await this.verifyOwnership(id, hostId);
+  async unblockDates(
+    id: number,
+    hostId: number,
+    dates: string[],
+    actorRole?: UserRole,
+  ) {
+    await this.verifyOwnership(id, hostId, actorRole);
 
     const parsedDates = dates.map((d) => new Date(d));
 
@@ -1113,8 +1172,105 @@ export class ListingsService {
         reason: BlockReason.HOST_BLOCKED,
       },
     });
+    await this.markLiveListingForAdminReview(id, actorRole);
 
     return { message: 'Dates unblocked' };
+  }
+
+  private isAdminActor(actorRole?: UserRole) {
+    return actorRole === UserRole.ADMIN;
+  }
+
+  private async markLiveListingForAdminReview(
+    listingId: number,
+    actorRole?: UserRole,
+  ) {
+    if (this.isAdminActor(actorRole)) {
+      return;
+    }
+
+    const result = await this.prisma.listing.updateMany({
+      where: {
+        id: listingId,
+        isDeleted: false,
+        status: {
+          in: [ListingStatus.ACTIVE, ListingStatus.APPROVED],
+        },
+      },
+      data: {
+        status: ListingStatus.PENDING_APPROVAL,
+        submittedAt: new Date(),
+        approvedAt: null,
+      },
+    });
+
+    if (result.count > 0) {
+      await this.notifyAdminsListingNeedsReview(
+        listingId,
+        { includeHost: true },
+      );
+    }
+  }
+
+  private async notifyAdminsListingNeedsReview(
+    listingId: number,
+    options: {
+      title?: string;
+      reason?: string;
+      includeHost?: boolean;
+    } = {},
+  ) {
+    const includeHost = options.includeHost ?? false;
+    const reason =
+      options.reason ?? 'HOST_UPDATED_ACTIVE_LISTING';
+    const title =
+      options.title ?? 'عقار محدث يحتاج مراجعة';
+
+    const [listing, admins] = await Promise.all([
+      this.prisma.listing.findUnique({
+        where: { id: listingId },
+        select: {
+          id: true,
+          title: true,
+          host: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      }),
+      this.prisma.user.findMany({
+        where: {
+          role: UserRole.ADMIN,
+          isActive: true,
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!listing || admins.length === 0) {
+      return;
+    }
+
+    await Promise.allSettled(
+      admins.map((admin) =>
+        this.notificationsService.notifyUser({
+          userId: admin.id,
+          type: NotificationType.LISTING_VERIFICATION_NEEDS_CHANGES,
+          title: 'عقار محدث يحتاج مراجعة',
+          message: `قام المالك ${listing.host.firstName} ${listing.host.lastName} بتعديل العقار "${listing.title}". يحتاج العقار إلى مراجعة وموافقة قبل ظهوره للمستخدمين مرة أخرى.`,
+          relatedEntity: 'listing',
+          relatedEntityId: listing.id,
+          metadata: {
+            listingId: listing.id,
+            listingTitle: listing.title,
+            status: ListingStatus.PENDING_APPROVAL,
+            reason: 'HOST_UPDATED_ACTIVE_LISTING',
+          },
+        }),
+      ),
+    );
   }
 
   private async reindexSearchableListing(listingId: number) {
@@ -1140,7 +1296,11 @@ export class ListingsService {
 
   // ─── Private: verify ownership ─────────────
 
-  private async verifyOwnership(listingId: number, hostId: number) {
+  private async verifyOwnership(
+    listingId: number,
+    hostId: number,
+    actorRole?: UserRole,
+  ) {
     const listing = await this.prisma.listing.findFirst({
       where: { id: listingId, isDeleted: false },
     });
@@ -1149,7 +1309,7 @@ export class ListingsService {
       throw new NotFoundException('Listing not found');
     }
 
-    if (listing.hostId !== hostId) {
+    if (listing.hostId !== hostId && !this.isAdminActor(actorRole)) {
       throw new ForbiddenException(
         'You do not have permission to modify this listing',
       );
@@ -1200,8 +1360,13 @@ export class ListingsService {
     });
   }
 
-  async createRoom(listingId: number, hostId: number, dto: CreateRoomDto) {
-    await this.verifyOwnership(listingId, hostId);
+  async createRoom(
+    listingId: number,
+    hostId: number,
+    dto: CreateRoomDto,
+    actorRole?: UserRole,
+  ) {
+    await this.verifyOwnership(listingId, hostId, actorRole);
 
     const room = await this.prisma.room.create({
       data: {
@@ -1213,6 +1378,7 @@ export class ListingsService {
       include: { images: true },
     });
 
+    await this.markLiveListingForAdminReview(listingId, actorRole);
     await this.reindexSearchableListing(listingId);
 
     return room;
@@ -1223,8 +1389,9 @@ export class ListingsService {
     roomId: number,
     hostId: number,
     dto: UpdateRoomDto,
+    actorRole?: UserRole,
   ) {
-    await this.verifyOwnership(listingId, hostId);
+    await this.verifyOwnership(listingId, hostId, actorRole);
 
     const room = await this.prisma.room.findFirst({
       where: { id: roomId, apartmentId: listingId },
@@ -1248,13 +1415,19 @@ export class ListingsService {
       include: { images: true },
     });
 
+    await this.markLiveListingForAdminReview(listingId, actorRole);
     await this.reindexSearchableListing(listingId);
 
     return updatedRoom;
   }
 
-  async deleteRoom(listingId: number, roomId: number, hostId: number) {
-    await this.verifyOwnership(listingId, hostId);
+  async deleteRoom(
+    listingId: number,
+    roomId: number,
+    hostId: number,
+    actorRole?: UserRole,
+  ) {
+    await this.verifyOwnership(listingId, hostId, actorRole);
 
     const room = await this.prisma.room.findFirst({
       where: { id: roomId, apartmentId: listingId },
@@ -1267,6 +1440,7 @@ export class ListingsService {
     }
 
     await this.prisma.room.delete({ where: { id: roomId } });
+    await this.markLiveListingForAdminReview(listingId, actorRole);
     await this.reindexSearchableListing(listingId);
 
     return { message: 'تم حذف الغرفة بنجاح' };
@@ -1277,8 +1451,9 @@ export class ListingsService {
     roomId: number,
     hostId: number,
     files: Express.Multer.File[],
+    actorRole?: UserRole,
   ) {
-    await this.verifyOwnership(listingId, hostId);
+    await this.verifyOwnership(listingId, hostId, actorRole);
 
     const room = await this.prisma.room.findFirst({
       where: { id: roomId, apartmentId: listingId },
@@ -1306,6 +1481,7 @@ export class ListingsService {
       include: { images: true },
     });
 
+    await this.markLiveListingForAdminReview(listingId, actorRole);
     await this.reindexSearchableListing(listingId);
 
     return roomWithImages;
