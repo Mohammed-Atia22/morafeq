@@ -38,7 +38,7 @@ export function DisputeResolutionActions({
         className={
           layout === "detail"
             ? "flex flex-wrap gap-2"
-            : "grid grid-cols-2 gap-2 border-t border-slate-100 pt-3"
+            : "grid grid-cols-1 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-2"
         }
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.stopPropagation()}

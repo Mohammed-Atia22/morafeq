@@ -218,7 +218,7 @@ export function ExpatriateBookingsPage() {
   return (
     <div className="min-h-screen pb-12 pt-4 text-[#172033]" dir="rtl">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
+      <div className="mb-6 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">حجوزاتي</h1>
           <p className="mt-1 text-xs font-semibold text-slate-500">
@@ -227,7 +227,7 @@ export function ExpatriateBookingsPage() {
         </div>
         <button
           onClick={() => fetchBookings()}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 sm:w-auto cursor-pointer"
         >
           تحديث القائمة
         </button>
@@ -326,7 +326,7 @@ export function ExpatriateBookingsPage() {
 
                   <div className="my-4 border-t border-slate-100" />
 
-                  <div className="grid grid-cols-2 gap-3 text-xs font-semibold text-slate-600">
+                  <div className="grid grid-cols-1 gap-3 text-xs font-semibold text-slate-600 sm:grid-cols-2">
                     <div>
                       <span className="text-slate-400 block">
                         قيمة الإيجار:
@@ -437,7 +437,7 @@ export function ExpatriateBookingsPage() {
                   )}
 
                   {booking.status === "CHECK_IN_PENDING" && (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <button
                         onClick={() =>
                           confirmReceipt(booking.id).then(() => fetchBookings())
@@ -548,7 +548,7 @@ export function ExpatriateBookingsPage() {
       {/* Problem reporting modal */}
       {showProblemModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl text-right">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-4 text-right shadow-xl sm:p-6">
             <h3 className="text-lg font-black text-slate-900 mb-2">
               تقديم شكوى وإيقاف تحرير الدفعة
             </h3>
@@ -582,7 +582,7 @@ export function ExpatriateBookingsPage() {
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#1752F0]"
                 />
               </div>
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                 <button
                   type="submit"
                   className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-black text-white hover:bg-red-700 transition cursor-pointer"
@@ -610,7 +610,7 @@ export function ExpatriateBookingsPage() {
       {/* Booking Cancellation modal */}
       {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl text-right">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 text-right shadow-xl sm:p-6">
             <h3 className="text-base font-black text-slate-900 mb-2">
               تأكيد إلغاء الحجز
             </h3>
@@ -631,7 +631,7 @@ export function ExpatriateBookingsPage() {
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#1752F0]"
                 />
               </div>
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                 <button
                   type="submit"
                   className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-black text-white hover:bg-red-700 transition cursor-pointer"

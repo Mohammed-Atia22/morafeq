@@ -87,7 +87,7 @@ export function ReviewFormDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       <div
         dir="rtl"
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-6"
       >
         <h3 className="text-base font-black text-[#0f172a]">{title}</h3>
         <p className="mt-1 text-xs font-semibold text-slate-500">
@@ -130,7 +130,7 @@ export function ReviewFormDialog({
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             <button
               type="submit"
               disabled={submitting || !isValid()}

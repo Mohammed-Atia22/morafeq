@@ -79,7 +79,7 @@ export default function AdminDisputeDetailsPage() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
+      <div className="flex h-64 items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1752F0] border-t-transparent" />
       </div>
     );
@@ -87,7 +87,7 @@ export default function AdminDisputeDetailsPage() {
 
   if (error || !detail) {
     return (
-      <div dir="rtl" className="space-y-4">
+      <div dir="rtl" className="space-y-4 p-4 sm:p-6 lg:p-8">
         <div className="rounded-xl bg-red-50 p-4 text-sm text-red-600">{error || "النزاع غير موجود"}</div>
         <Link to="/admin/disputes" className="text-sm font-bold text-[#1752F0]">
           العودة للنزاعات
@@ -99,7 +99,7 @@ export default function AdminDisputeDetailsPage() {
   const { booking, guest, host, listing, payment } = detail;
 
   return (
-    <div dir="rtl" className="space-y-5">
+    <div dir="rtl" className="min-h-screen space-y-5 bg-slate-50 p-4 sm:p-6 lg:p-8">
       <nav className="text-xs text-slate-400">
         <Link to="/admin/disputes" className="hover:text-[#1752F0]">
           النزاعات
