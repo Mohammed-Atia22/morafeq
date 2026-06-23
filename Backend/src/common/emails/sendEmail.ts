@@ -1,5 +1,3 @@
-import { Resend } from 'resend';
-
 type SendEmailData = {
   to: string | string[];
   subject: string;
@@ -19,31 +17,45 @@ export const sendEmail = async (data: SendEmailData) => {
     };
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.EMAIL_FROM;
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.BREVO_SENDER_EMAIL;
+  const senderName = process.env.BREVO_SENDER_NAME || 'Morafeq';
 
   if (!apiKey) {
-    throw new Error('RESEND_API_KEY is not configured');
+    throw new Error('BREVO_API_KEY is not configured');
   }
 
-  if (!fromEmail) {
-    throw new Error('EMAIL_FROM is not configured');
+  if (!senderEmail) {
+    throw new Error('BREVO_SENDER_EMAIL is not configured');
   }
 
-  const resend = new Resend(apiKey);
+  const recipients = Array.isArray(data.to) ? data.to : [data.to];
 
-  const result = await resend.emails.send({
-    from: fromEmail,
-    to: data.to,
-    subject: data.subject,
-    html: data.html,
-    text: data.text,
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'api-key': apiKey,
+    },
+    body: JSON.stringify({
+      sender: {
+        name: senderName,
+        email: senderEmail,
+      },
+      to: recipients.map((email) => ({ email })),
+      subject: data.subject,
+      htmlContent: data.html,
+      textContent: data.text,
+    }),
   });
 
-  if (result.error) {
-    console.error('RESEND EMAIL ERROR:', result.error);
-    throw new Error(JSON.stringify(result.error));
+  const result = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    console.error('BREVO EMAIL ERROR:', result);
+    throw new Error(JSON.stringify(result));
   }
 
-  return result.data;
+  return result;
 };
