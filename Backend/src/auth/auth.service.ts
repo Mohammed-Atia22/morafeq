@@ -25,6 +25,7 @@ import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import * as bcrypt from 'bcryptjs';
 import * as CryptoJS from 'crypto-js';
+import * as crypto from 'crypto';
 import { sendEmail } from 'src/common/emails/sendEmail';
 import { OtpRepository } from 'src/repository/otp.repository';
 import { OTPTypes, UserRole, VerificationStatus } from '@prisma/client';
@@ -759,7 +760,16 @@ this.markOtpSent(normalizedEmail, OTPTypes.EMAIL_CONFIRMATION);
   // ─── Private: generate tokens ──────────────
 
   private async generateTokens(userId: number, email: string, role: string) {
-    const payload: JwtPayload = { sub: userId, email, role };
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordHash: true },
+    });
+    const payload: JwtPayload = {
+      sub: userId,
+      email,
+      role,
+      pwdv: this.passwordFingerprint(user?.passwordHash ?? null),
+    };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(payload, {
@@ -775,6 +785,16 @@ this.markOtpSent(normalizedEmail, OTPTypes.EMAIL_CONFIRMATION);
     ]);
 
     return { accessToken, refreshToken };
+  }
+
+  private passwordFingerprint(passwordHash?: string | null) {
+    const secret = this.config.get<string>('JWT_SECRET') ?? 'dev_jwt_secret';
+
+    return crypto
+      .createHmac('sha256', secret)
+      .update(passwordHash ?? 'NO_PASSWORD')
+      .digest('hex')
+      .slice(0, 32);
   }
 
   private getOtpAttemptKey(email: string, otpType: OTPTypes) {
