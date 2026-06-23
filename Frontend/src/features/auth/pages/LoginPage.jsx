@@ -67,7 +67,7 @@ export function LoginPage() {
   return (
     <AuthLayout>
       <AuthCard
-        title="أهلا بك في سكن"
+        title="أهلا بك في مرافق"
         subtitle="منصة السكن الطلابي الأولى في مصر"
         activeTab="login"
         footer={

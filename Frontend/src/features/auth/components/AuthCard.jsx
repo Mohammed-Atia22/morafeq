@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import logo from "../../../../images/logo.png";
+import logo from "../../../../images/w_logo.png";
 
 export function AuthCard({ title, subtitle, activeTab, children, footer }) {
   return (
