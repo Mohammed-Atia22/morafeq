@@ -175,7 +175,7 @@ export function LandingPage() {
               title="أنا صاحب عقار"
               text="أضف عقارك ووصل لآلاف الطلاب الباحثين عن سكن"
               button="أضف عقارك الآن"
-              to="/owner"
+              to="/"
               color="green"
               image={ownerImage}
             />
@@ -183,7 +183,7 @@ export function LandingPage() {
               title="أنا مغترب (طالب)"
               text="أبحث عن سكن مناسب بالقرب من جامعتي"
               button="ابحث عن سكن"
-              to="/expatriate"
+              to="/"
               color="blue"
               image={studentImage}
             />
