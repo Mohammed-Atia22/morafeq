@@ -1,4 +1,7 @@
+import { setDefaultResultOrder } from 'node:dns';
 import { createTransport, SendMailOptions } from 'nodemailer';
+
+setDefaultResultOrder('ipv4first');
 
 export const sendEmail = async (data: SendMailOptions) => {
   const emailUser = process.env.EMAIL_USER || process.env.email;
@@ -10,21 +13,30 @@ export const sendEmail = async (data: SendMailOptions) => {
 
   const transporter = createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
+    port: 587,
+    secure: false,
+    requireTLS: true,
+
     auth: {
       user: emailUser,
       pass: emailPass,
     },
 
-    // Important for Railway: do not hang forever
+    // Force IPv4 because Railway failed on Gmail IPv6
+    family: 4,
+
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 10000,
   });
 
-  return transporter.sendMail({
-    from: `"Morafeq" <${emailUser}>`,
-    ...data,
-  });
+  try {
+    return await transporter.sendMail({
+      from: `"Morafeq" <${emailUser}>`,
+      ...data,
+    });
+  } catch (error) {
+    console.error('SEND EMAIL ERROR:', error);
+    throw error;
+  }
 };
