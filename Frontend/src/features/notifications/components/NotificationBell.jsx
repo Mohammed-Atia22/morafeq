@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../hooks/useNotifications";
 
@@ -59,8 +60,9 @@ function formatRelativeTime(value) {
 
 export function NotificationBell({ enabled = true }) {
   const navigate = useNavigate();
-  const panelRef = useRef(null);
+  const buttonRef = useRef(null);
   const [open, setOpen] = useState(false);
+  const [buttonPosition, setButtonPosition] = useState(null);
   const {
     notifications,
     meta,
@@ -74,11 +76,27 @@ export function NotificationBell({ enabled = true }) {
     loadMore,
   } = useNotifications({ enabled });
 
+  const handleToggle = () => {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setButtonPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        right: rect.right + window.scrollX,
+      });
+    }
+    setOpen((current) => !current);
+    fetchNotifications({ silent: true });
+  };
+
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      setButtonPosition(null);
+      return undefined;
+    }
 
     const handlePointerDown = (event) => {
-      if (!panelRef.current?.contains(event.target)) {
+      if (buttonRef.current && !buttonRef.current.contains(event.target)) {
         setOpen(false);
       }
     };
@@ -86,11 +104,6 @@ export function NotificationBell({ enabled = true }) {
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [open]);
-
-  const handleToggle = () => {
-    setOpen((current) => !current);
-    fetchNotifications({ silent: true });
-  };
 
   const handleNotificationClick = async (notification) => {
     try {
@@ -108,8 +121,9 @@ export function NotificationBell({ enabled = true }) {
   const hasMore = meta.page < meta.totalPages;
 
   return (
-    <div ref={panelRef} className="relative">
+    <div className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={handleToggle}
         className="relative grid h-10 w-10 place-items-center rounded-full text-[#172033] transition hover:bg-blue-50 hover:text-[#075fd6]"
@@ -123,9 +137,10 @@ export function NotificationBell({ enabled = true }) {
         )}
       </button>
 
-      {open && (
+      {open && buttonPosition && createPortal(
         <div
-          className="absolute left-0 top-12 z-50 w-[min(92vw,24rem)] overflow-hidden rounded-xl border border-slate-200 bg-white text-right shadow-2xl"
+          className="fixed z-50 w-[min(92vw,24rem)] overflow-hidden rounded-xl border border-slate-200 bg-white text-right shadow-2xl"
+          style={{ top: `${buttonPosition.top}px`, right: `${window.innerWidth - buttonPosition.right}px` }}
           dir="rtl"
         >
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -216,7 +231,8 @@ export function NotificationBell({ enabled = true }) {
               </button>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
