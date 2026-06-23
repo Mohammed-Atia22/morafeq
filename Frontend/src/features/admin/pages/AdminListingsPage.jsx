@@ -150,12 +150,12 @@ export function AdminListingsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-8 py-4">
+      <header className="flex flex-col gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div>
           <h1 className="text-xl font-bold text-slate-900">إدارة العقارات</h1>
           <p className="mt-0.5 text-xs text-slate-500">مراجعة وإدارة طلبات العقارات الواردة</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto">
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600">
             <CalendarIcon className="h-4 w-4 text-slate-400" />
             <span>اليوم، {new Date().toLocaleDateString("ar-EG", { month: "long", day: "numeric" })}</span>
@@ -166,7 +166,7 @@ export function AdminListingsPage() {
         </div>
       </header>
 
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         {/* Tabs & Search */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           {/* Status Tabs */}
@@ -249,7 +249,7 @@ export function AdminListingsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-            <table className="w-full text-right text-xs">
+            <table className="min-w-[900px] w-full text-right text-xs">
               <thead>
                 <tr className="border-b border-slate-100 font-extrabold text-slate-400">
                   <th className="py-3.5 px-6">الإجراء</th>
@@ -361,13 +361,13 @@ export function AdminListingsPage() {
         {selectedListing && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
             <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl text-right max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+              <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-base font-extrabold text-slate-900">مراجعة العقار: {selectedListing.title}</h3>
                 <button onClick={handleCloseReview} className="text-slate-400 hover:text-slate-600 text-lg font-black">&times;</button>
               </div>
 
               {/* Photos Carousel */}
-              <div className="mb-4 grid grid-cols-3 gap-2">
+              <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {selectedListing.photos?.slice(0, 3).map((photo, index) => (
                   <button
                     key={index}
@@ -388,11 +388,11 @@ export function AdminListingsPage() {
               </div>
 
               {/* Listing Details */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-xs mb-6 border-t border-slate-100 pt-4">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-4 text-xs mb-6 border-t border-slate-100 pt-4 sm:grid-cols-2">
                 {/* 1. Basic Info */}
-                <div className="col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                <div className="sm:col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
                   <h4 className="font-extrabold text-slate-900 mb-2 text-sm border-b border-slate-100 pb-1">المعلومات الأساسية</h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <span className="text-slate-400 font-bold">نوع العقار:</span>
                       <p className="font-extrabold mt-0.5 text-slate-800">
@@ -444,10 +444,10 @@ export function AdminListingsPage() {
                 </div>
 
                 {/* 2. Address & Location */}
-                <div className="col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                <div className="sm:col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
                   <h4 className="font-extrabold text-slate-900 mb-2 text-sm border-b border-slate-100 pb-1">الموقع والعنوان</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
                       <span className="text-slate-400 font-bold">العنوان التفصيلي:</span>
                       <p className="font-extrabold mt-0.5 text-slate-800">
                         {selectedListing.streetName} {selectedListing.buildingNumber ? `عمارة ${selectedListing.buildingNumber}` : ""}
@@ -457,7 +457,7 @@ export function AdminListingsPage() {
                         {` ، ${selectedListing.city} ، ${selectedListing.governorate} ، ${selectedListing.country}`}
                       </p>
                     </div>
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <span className="text-slate-400 font-bold">علامة مميزة قريبة:</span>
                       <p className="font-extrabold mt-0.5 text-slate-800">{selectedListing.nearbyLandmark || "لا يوجد"}</p>
                     </div>
@@ -465,9 +465,9 @@ export function AdminListingsPage() {
                 </div>
 
                 {/* 3. Specs & Rules */}
-                <div className="col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                <div className="sm:col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
                   <h4 className="font-extrabold text-slate-900 mb-2 text-sm border-b border-slate-100 pb-1">المواصفات والقوانين</h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <span className="text-slate-400 font-bold">المساحة والمواصفات:</span>
                       <p className="font-extrabold mt-0.5 text-slate-800">
@@ -519,7 +519,7 @@ export function AdminListingsPage() {
                 </div>
 
                 {/* 4. Amenities list */}
-                <div className="col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                <div className="sm:col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
                   <h4 className="font-extrabold text-slate-900 mb-2 text-sm border-b border-slate-100 pb-1">الميزات والخدمات</h4>
                   {selectedListing.amenities && selectedListing.amenities.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -535,9 +535,9 @@ export function AdminListingsPage() {
                 </div>
 
                 {/* 5. Host Info */}
-                <div className="col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                <div className="sm:col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
                   <h4 className="font-extrabold text-slate-900 mb-2 text-sm border-b border-slate-100 pb-1">معلومات المضيف (المالك)</h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <span className="text-slate-400 font-bold">اسم المضيف:</span>
                       <p className="font-extrabold mt-0.5 text-slate-800">{selectedListing.host?.firstName} {selectedListing.host?.lastName}</p>
@@ -547,7 +547,7 @@ export function AdminListingsPage() {
                       <p className="font-extrabold mt-0.5 text-slate-800">{selectedListing.host?.email}</p>
                     </div>
                     {selectedListing.host?.phone && (
-                      <div className="col-span-2">
+                      <div className="sm:col-span-2">
                         <span className="text-slate-400 font-bold">رقم الهاتف:</span>
                         <p className="font-extrabold mt-0.5 text-slate-800" style={{ direction: "ltr", textAlign: "right" }}>{selectedListing.host?.phone}</p>
                       </div>
@@ -556,7 +556,7 @@ export function AdminListingsPage() {
                 </div>
 
                 {/* 6. Description */}
-                <div className="col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                <div className="sm:col-span-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
                   <span className="text-slate-400 font-bold text-sm block border-b border-slate-100 pb-1 mb-2">الوصف:</span>
                   <p className="font-bold mt-1 text-slate-600 bg-white p-3 rounded-xl border border-slate-100 whitespace-pre-line leading-relaxed">
                     {selectedListing.description}
@@ -571,7 +571,7 @@ export function AdminListingsPage() {
                     هذا العقار مرفوض ويظهر للقراءة فقط بدون إجراءات مراجعة.
                   </div>
                 ) : actionType === null ? (
-                  <div className="flex justify-end gap-3">
+                  <div className="flex flex-col justify-end gap-3 sm:flex-row">
                     {isPendingListing && (
                       <>
                         <button
@@ -664,7 +664,7 @@ export function AdminListingsPage() {
                       </div>
                     )}
 
-                    <div className="flex justify-end gap-3">
+                    <div className="flex flex-col justify-end gap-3 sm:flex-row">
                       <button
                         type="button"
                         onClick={() => setActionType(null)}

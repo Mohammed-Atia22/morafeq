@@ -19,7 +19,7 @@ export default function OwnerLayout() {
         </aside>
 
         {/* Main content pushed left of sidebar */}
-        <main className="flex-1 min-w-0 px-6 py-6 lg:mr-[260px] bg-white">
+        <main className="flex-1 min-w-0 bg-white px-4 py-4 sm:px-6 sm:py-6 lg:mr-[260px]">
           <Outlet context={{ user, logout }} />
         </main>
       </div>

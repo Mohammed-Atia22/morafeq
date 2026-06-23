@@ -39,7 +39,7 @@ export function DisputeListingSection({ listing }) {
             {[listing.city, listing.governorate, listing.country].filter(Boolean).join(" — ")}
           </p>
           <p className="text-slate-600">{listing.description}</p>
-          <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-slate-600">
+          <div className="grid grid-cols-1 gap-2 text-xs font-semibold text-slate-600 sm:grid-cols-2">
             <span>الإيجار: {formatMoney(listing.monthlyRent)}</span>
             <span>التأمين: {formatMoney(listing.depositAmount)}</span>
             <span>النوع: {listing.propertyType}</span>
@@ -55,7 +55,7 @@ export function DisputeListingSection({ listing }) {
             reviewCount={listing.ratingSummary.totalReviews ?? 0}
             size="md"
           />
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {Object.entries(SUB_LABELS).map(([key, label]) => (
               <div key={key} className="rounded-lg bg-slate-50 p-3 text-center">
                 <p className="text-[10px] text-slate-400">{label}</p>

@@ -45,7 +45,7 @@ function ScaleIcon({ className }) {
   );
 }
 
-export function AdminSidebar({ user, logout }) {
+export function AdminSidebar({ user, logout, onNavigate }) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -74,19 +74,19 @@ export function AdminSidebar({ user, logout }) {
 
       {/* Main Navigation links */}
       <nav className="flex-1 space-y-1 px-3">
-        <NavLink to="/admin" end className={({ isActive }) => itemClassName(isActive)}>
+        <NavLink to="/admin" end onClick={onNavigate} className={({ isActive }) => itemClassName(isActive)}>
           <GridIcon className="h-4 w-4 text-center" />
           <span>نظرة عامة</span>
         </NavLink>
-        <NavLink to="/admin/listings" className={({ isActive }) => itemClassName(isActive)}>
+        <NavLink to="/admin/listings" onClick={onNavigate} className={({ isActive }) => itemClassName(isActive)}>
           <HomeIcon className="h-4 w-4 text-center" />
           <span>العقارات</span>
         </NavLink>
-        <NavLink to="/admin/users" className={({ isActive }) => itemClassName(isActive)}>
+        <NavLink to="/admin/users" onClick={onNavigate} className={({ isActive }) => itemClassName(isActive)}>
           <UsersIcon className="h-4 w-4 text-center" />
           <span>المستخدمين</span>
         </NavLink>
-        <NavLink to="/admin/disputes" className={({ isActive }) => itemClassName(isActive)}>
+        <NavLink to="/admin/disputes" onClick={onNavigate} className={({ isActive }) => itemClassName(isActive)}>
           <ScaleIcon className="h-4 w-4 text-center" />
           <span>النزاعات</span>
         </NavLink>

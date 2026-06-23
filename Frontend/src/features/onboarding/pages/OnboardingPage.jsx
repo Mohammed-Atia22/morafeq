@@ -74,23 +74,23 @@ export function OnboardingPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8">
       <div className="w-full max-w-2xl">
         {/* Logo Section */}
-        <div className="mb-8 flex flex-col items-center justify-center">
+        <div className="mb-6 flex flex-col items-center justify-center sm:mb-8">
           <img src={logo} alt="مرافق" className="h-20 w-auto object-contain" />
         </div>
 
         {/* Main Card */}
-        <div className="rounded-2xl bg-white p-8 shadow-lg">
+        <div className="rounded-2xl bg-white p-5 shadow-lg sm:p-8">
           {/* Header */}
           <div className="mb-8 text-center">
-            <h1 className="mb-2 text-3xl font-bold text-slate-800">أنت...؟</h1>
+            <h1 className="mb-2 text-2xl font-bold text-slate-800 sm:text-3xl">أنت...؟</h1>
             <p className="text-slate-600">اختر نوع حسابك للبحث</p>
           </div>
 
           {/* Role Cards */}
-          <div className="mb-8 grid grid-cols-2 gap-4">
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {roles.map((role) => (
               <RoleCard
                 key={role.id}

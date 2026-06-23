@@ -30,7 +30,7 @@ export default function AdminDisputesPage() {
   } = useAdminDisputes();
 
   return (
-    <div dir="rtl" className="space-y-6">
+    <div dir="rtl" className="min-h-screen space-y-6 bg-slate-50 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">إدارة النزاعات</h1>

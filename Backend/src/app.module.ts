@@ -22,7 +22,7 @@ import { ChatModule } from './chat/chat.module';
 import { ConfigModule } from '@nestjs/config';
 import { VerificationModule } from './verification/verification.module';
 import { DisputeChatModule } from './dispute-chat/dispute-chat.module';
-import { AiModule } from './ai/ai.module';
+// import { AiModule } from './ai/ai.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RoommateProfileModule } from './roommate-profile/roommate-profile.module';
@@ -59,7 +59,7 @@ import { RoommateMatchingModule } from './roommate-matching/roommate-matching.mo
     ChatModule,
     VerificationModule,
     DisputeChatModule,
-    AiModule,
+    // AiModule,
     FavoritesModule,
     NotificationsModule,
     RoommateProfileModule,

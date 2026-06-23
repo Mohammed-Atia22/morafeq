@@ -15,16 +15,16 @@ import { useAuth } from "../../auth/hooks/useAuth";
 // ─── Breadcrumb ───────────────────────────────
 function Breadcrumb({ title }) {
   return (
-    <nav dir="rtl" className="flex items-center gap-1.5 text-xs text-slate-400">
-      <Link to="/expatriate" className="transition hover:text-[#1752F0]">
+    <nav dir="rtl" className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-slate-400">
+      <Link to="/expatriate" className="shrink-0 transition hover:text-[#1752F0]">
         الرئيسية
       </Link>
-      <span>/</span>
-      <Link to="/expatriate/search" className="transition hover:text-[#1752F0]">
+      <span className="shrink-0">/</span>
+      <Link to="/expatriate/search" className="shrink-0 transition hover:text-[#1752F0]">
         البحث
       </Link>
-      <span>/</span>
-      <span className="truncate font-semibold text-slate-600">
+      <span className="shrink-0">/</span>
+      <span className="min-w-0 truncate font-semibold text-slate-600">
         {title ?? "..."}
       </span>
     </nav>
@@ -35,10 +35,10 @@ function Breadcrumb({ title }) {
 function DetailSkeleton() {
   return (
     <div className="space-y-4 animate-pulse">
-      <div className="h-[340px] rounded-2xl bg-slate-200" />
+      <div className="h-56 rounded-2xl bg-slate-200 sm:h-80 lg:h-[340px]" />
       <div className="grid grid-cols-4 gap-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-28 rounded-xl bg-slate-200" />
+          <div key={i} className="h-20 rounded-xl bg-slate-200 sm:h-28" />
         ))}
       </div>
       <div className="h-40 rounded-2xl bg-slate-200" />
@@ -53,7 +53,7 @@ export function ExpatriateListingDetailPage() {
   const { listing, loading, error } = useListingDetail(id);
 
   return (
-    <div dir="rtl" className="max-w-6xl space-y-5">
+    <div dir="rtl" className="mx-auto w-full max-w-6xl space-y-5">
       {/* Breadcrumb */}
       <Breadcrumb title={listing?.title} />
 
@@ -69,9 +69,9 @@ export function ExpatriateListingDetailPage() {
 
       {/* Content */}
       {!loading && listing && (
-        <div className="flex flex-col gap-6 lg:flex-row items-start">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           {/* ── Left column: booking card (sticky) ── */}
-          <aside className="w-full max-w-[260px] shrink-0 lg:w-[260px]">
+          <aside className="w-full shrink-0 lg:w-[260px] lg:max-w-[260px]">
             <BookingCard
               monthlyRent={listing.monthlyRent}
               depositAmount={listing.depositAmount}
