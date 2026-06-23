@@ -1,88 +1,49 @@
-import { lookup } from 'node:dns/promises';
-import net from 'node:net';
-import { createTransport, SendMailOptions } from 'nodemailer';
-import SMTPTransport from 'nodemailer/lib/smtp-transport';
+import { Resend } from 'resend';
 
-const SMTP_HOST = 'smtp.gmail.com';
-const SMTP_PORT = 587;
+type SendEmailData = {
+  to: string | string[];
+  subject: string;
+  html: string;
+  text?: string;
+};
 
-export const sendEmail = async (data: SendMailOptions) => {
-  const emailUser = process.env.EMAIL_USER || process.env.email;
-  const emailPass = process.env.EMAIL_PASS || process.env.password;
-
-  if (!emailUser || !emailPass) {
-    throw new Error('Email credentials are not configured');
-  }
-
-  const transportOptions = {
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: false,
-    requireTLS: true,
-
-    auth: {
-      user: emailUser,
-      pass: emailPass,
-    },
-
-    tls: {
-      servername: SMTP_HOST,
-    },
-
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-
-    async getSocket(_options, callback) {
-      let called = false;
-
-      const done = (err: Error | null, socketOptions?: any) => {
-        if (called) return;
-        called = true;
-        callback(err, socketOptions);
-      };
-
-      try {
-        const { address } = await lookup(SMTP_HOST, { family: 4 });
-
-        console.log(`SMTP IPv4 resolved: ${address}`);
-
-        const socket = net.connect({
-          host: address,
-          port: SMTP_PORT,
-          family: 4,
-          timeout: 10000,
-        });
-
-        socket.once('connect', () => {
-          done(null, {
-            connection: socket,
-          });
-        });
-
-        socket.once('timeout', () => {
-          socket.destroy();
-          done(new Error('SMTP socket timeout'), undefined);
-        });
-
-        socket.once('error', (error) => {
-          done(error, undefined);
-        });
-      } catch (error) {
-        done(error as Error, undefined);
-      }
-    },
-  } as SMTPTransport.Options;
-
-  const transporter = createTransport(transportOptions);
-
-  try {
-    return await transporter.sendMail({
-      from: `"Morafeq" <${emailUser}>`,
-      ...data,
+export const sendEmail = async (data: SendEmailData) => {
+  if (process.env.DISABLE_EMAILS === 'true') {
+    console.log('EMAIL DISABLED. Email data:', {
+      to: data.to,
+      subject: data.subject,
     });
-  } catch (error) {
-    console.error('SEND EMAIL ERROR:', error);
-    throw error;
+
+    return {
+      disabled: true,
+    };
   }
+
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.EMAIL_FROM;
+
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY is not configured');
+  }
+
+  if (!fromEmail) {
+    throw new Error('EMAIL_FROM is not configured');
+  }
+
+  const resend = new Resend(apiKey);
+
+  const result = await resend.emails.send({
+    from: fromEmail,
+    to: data.to,
+    subject: data.subject,
+    html: data.html,
+    text: data.text,
+  });
+
+  if (result.error) {
+    console.error('RESEND EMAIL ERROR:', result.error);
+    throw new Error(JSON.stringify(result.error));
+  }
+
+  return result.data;
 };
