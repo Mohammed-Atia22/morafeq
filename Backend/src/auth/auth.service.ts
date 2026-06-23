@@ -197,16 +197,30 @@ export class AuthService {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    await sendEmail({
-      to: normalizedEmail,
-      subject: 'Confirm your email',
-      html: `
-        <h1>Your verification code: ${code}</h1>
-        <p>This code expires in 10 minutes.</p>
-      `,
-    });
+    // await sendEmail({
+    //   to: normalizedEmail,
+    //   subject: 'Confirm your email',
+    //   html: `
+    //     <h1>Your verification code: ${code}</h1>
+    //     <p>This code expires in 10 minutes.</p>
+    //   `,
+    // });
 
-    this.markOtpSent(normalizedEmail, OTPTypes.EMAIL_CONFIRMATION);
+    // this.markOtpSent(normalizedEmail, OTPTypes.EMAIL_CONFIRMATION);
+
+    console.log(`DEV OTP for ${normalizedEmail}: ${code}`);
+
+// Temporarily disabled email sending on production test
+// await sendEmail({
+//   to: normalizedEmail,
+//   subject: 'Confirm your email',
+//   html: `
+//     <h1>Your verification code: ${code}</h1>
+//     <p>This code expires in 10 minutes.</p>
+//   `,
+// });
+
+this.markOtpSent(normalizedEmail, OTPTypes.EMAIL_CONFIRMATION);
 
     return {
       message: existingUser
