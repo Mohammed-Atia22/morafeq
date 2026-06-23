@@ -304,7 +304,7 @@ function BookingsOverview({ metrics }) {
   return (
     <section className="rounded-[24px] border border-[#E5EBF6] bg-white p-5 shadow-[0_14px_32px_rgba(31,57,104,0.08)]">
       <SectionTitle title="الحجوزات" subtitle="ملخص الطلبات" />
-      <div className="mt-5 grid grid-cols-2 gap-3">
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <MiniStat label="الحالية" value={metrics.activeBookings} />
         <MiniStat label="المعلقة" value={metrics.pendingBookings} />
         <MiniStat label="المقبولة" value={metrics.acceptedBookings} />

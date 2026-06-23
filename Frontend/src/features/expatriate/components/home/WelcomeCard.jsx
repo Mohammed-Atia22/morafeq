@@ -15,7 +15,7 @@ export function WelcomeCard({ firstName, totalListings = 0 }) {
   return (
     <div
       dir="rtl"
-      className="relative overflow-hidden rounded-2xl bg-[#1752F0] px-8 py-8 text-white"
+      className="relative overflow-hidden rounded-2xl bg-[#1752F0] px-5 py-6 text-white sm:px-8 sm:py-8"
       style={{
         background: "linear-gradient(135deg, #1752F0 0%, #1240c4 60%, #0e35a8 100%)",
       }}
@@ -31,12 +31,12 @@ export function WelcomeCard({ firstName, totalListings = 0 }) {
       </div>
 
       {/* Heading */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black leading-snug">
+          <h1 className="text-xl font-black leading-snug sm:text-2xl">
             مرحباً {firstName ?? "بك"} 👋
           </h1>
-          <p className="mt-1 text-lg font-bold text-white/90">
+          <p className="mt-1 text-base font-bold text-white/90 sm:text-lg">
             لنبحث عن سكنك المثالي
           </p>
           {totalListings > 0 && (
@@ -66,7 +66,7 @@ export function WelcomeCard({ firstName, totalListings = 0 }) {
 
 
       {/* Stats row */}
-      <div className="mt-5 grid grid-cols-3 gap-3">
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
           { value: "96%", label: "نسبة رضا المستأجرين", emoji: "⭐" },
           { value: "18", label: "منطقة متاحة", emoji: "📍" },

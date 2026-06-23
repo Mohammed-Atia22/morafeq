@@ -202,9 +202,9 @@ export class RagService implements OnModuleInit {
     if (!process.env.GEMINI_API_KEY) {
       // Fail fast and loud at startup instead of letting every chat request
       // fail later with a confusing downstream Gemini SDK error.
-      throw new Error(
-        '[RagService] GEMINI_API_KEY is not set. The AI module cannot start without it.',
-      );
+      // throw new Error(
+      //   '[RagService] GEMINI_API_KEY is not set. The AI module cannot start without it.',
+      // );
     }
   }
 

@@ -57,7 +57,7 @@ export function DisputeResolutionDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div dir="rtl" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <div dir="rtl" className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-6">
         <h3 className="text-base font-black text-slate-900">
           {resolutionType === "REFUND"
             ? "الموافقة على رد المبالغ المدفوعة"
@@ -84,7 +84,7 @@ export function DisputeResolutionDialog({
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             <button
               type="submit"
               disabled={actionLoading}

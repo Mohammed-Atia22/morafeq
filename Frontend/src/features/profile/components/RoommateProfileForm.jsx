@@ -269,10 +269,10 @@ export function RoommateProfileForm() {
       </div>
 
       {/* Progress Steps */}
-      <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+      <div className="flex items-start justify-between gap-2 overflow-x-auto rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:items-center">
         {STEPS.map((step, index) => (
           <React.Fragment key={step.id}>
-            <div className="flex flex-col items-center">
+            <div className="flex min-w-[86px] flex-col items-center text-center">
               <div
                 className={`flex h-10 w-10 items-center justify-center rounded-full font-black ${
                   currentStep >= step.id
@@ -294,7 +294,7 @@ export function RoommateProfileForm() {
             </div>
             {index < STEPS.length - 1 && (
               <div
-                className={`flex-1 h-1 mx-2 ${
+                className={`h-1 min-w-8 flex-1 mx-2 ${
                   currentStep > step.id ? "bg-[#1752F0]" : "bg-slate-100"
                 }`}
               />
@@ -323,7 +323,7 @@ export function RoommateProfileForm() {
       </div>
 
       {/* Navigation */}
-      <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+      <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:flex-row sm:items-center sm:justify-between">
         <button
           type="button"
           onClick={handleBack}

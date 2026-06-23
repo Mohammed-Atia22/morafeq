@@ -137,7 +137,7 @@ export function OwnerRentalRequestsPage() {
   return (
     <div className="min-h-screen pb-12 pt-4 text-[#172033]" dir="rtl">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
+      <div className="mb-6 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">طلبات الإيجار</h1>
           <p className="mt-1 text-xs font-semibold text-slate-500">
@@ -146,7 +146,7 @@ export function OwnerRentalRequestsPage() {
         </div>
         <button
           onClick={() => fetchRequests()}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 sm:w-auto cursor-pointer"
         >
           تحديث الطلبات
         </button>
@@ -287,7 +287,7 @@ export function OwnerRentalRequestsPage() {
 
                 {/* Actions Footer */}
                 {request.status === "PENDING_HOST_APPROVAL" ? (
-                  <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50 p-4">
+                  <div className="grid grid-cols-1 gap-2 border-t border-slate-100 bg-slate-50 p-4 sm:grid-cols-2">
                     <button
                       onClick={() => openActionModal(request, "ACCEPT")}
                       className="rounded-xl bg-blue-600 py-2.5 text-xs font-black text-white hover:bg-blue-700 shadow-sm transition cursor-pointer text-center"
@@ -324,7 +324,7 @@ export function OwnerRentalRequestsPage() {
       {/* Action modal (Accept/Reject notes) */}
       {selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl text-right">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 text-right shadow-xl sm:p-6">
             <h3 className="text-base font-black text-slate-900 mb-2">
               {actionType === "ACCEPT" ? "قبول طلب الإيجار" : "رفض طلب الإيجار"}
             </h3>
@@ -356,7 +356,7 @@ export function OwnerRentalRequestsPage() {
                 {noteError && <p className="text-[10px] font-bold text-red-500">{noteError}</p>}
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                 <button
                   type="submit"
                   className={`flex-1 rounded-xl py-2.5 text-sm font-black text-white transition cursor-pointer ${
