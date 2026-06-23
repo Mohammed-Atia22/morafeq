@@ -75,7 +75,7 @@ export function AdminDashboardPage() {
 
   if (statsError) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-red-600">
           حدث خطأ أثناء تحميل بيانات الإحصائيات: {statsError}
         </div>
@@ -90,19 +90,22 @@ export function AdminDashboardPage() {
   const approvedListingsCount = stats?.listings?.approved || 0;
   const totalBookings = stats?.bookings?.total || 0;
   const confirmedBookings = stats?.bookings?.confirmed || 0;
+  const totalTenants = stats?.users?.tenants || 0;
+  const totalOwners = stats?.users?.owners || 0;
+  const totalAdmins = stats?.users?.admins || 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-8 py-4">
+      <header className="flex flex-col gap-4 border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">لوحة التحكم</h1>
           <p className="mt-0.5 text-xs font-semibold text-slate-500">صحة المنصة، الإيرادات، والمهام المعلقة</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center lg:w-auto">
+          <div className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
             <CalendarIcon className="h-4 w-4 text-slate-400" />
-            <span>اليوم، {new Date().toLocaleDateString("ar-EG", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <span className="min-w-0 truncate">اليوم، {new Date().toLocaleDateString("ar-EG", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
           </div>
           <button
             onClick={handleRefreshAll}
@@ -121,11 +124,11 @@ export function AdminDashboardPage() {
         </div>
       </header>
 
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         {/* Urgent Attention Banner */}
         {(pendingListingsCount > 0 || pendingVerifications.length > 0) && (
-          <div className="mb-6 flex items-center justify-between rounded-xl border border-red-100 bg-red-50 p-4">
-            <div className="flex items-center gap-3">
+          <div className="mb-6 flex flex-col gap-4 rounded-xl border border-red-100 bg-red-50 p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
                 <ExclamationIcon className="h-5 w-5 text-red-500" />
               </div>
@@ -136,7 +139,7 @@ export function AdminDashboardPage() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               {pendingVerifications.length > 0 && (
                 <Link
                   to="/admin/users"
@@ -263,36 +266,36 @@ export function AdminDashboardPage() {
               <div>
                 <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
                   <span>المستأجرين (طلاب ومغتربين)</span>
-                  <span>{users.filter(u => u.role === "EXPATRIATE").length} مستخدم</span>
+                  <span>{totalTenants} مستخدم</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-blue-500 rounded-full"
-                    style={{ width: `${totalUsers > 0 ? (users.filter(u => u.role === "EXPATRIATE").length / totalUsers) * 100 : 0}%` }}
+                    style={{ width: `${totalUsers > 0 ? (totalTenants / totalUsers) * 100 : 0}%` }}
                   />
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
                   <span>أصحاب العقارات (ملاك)</span>
-                  <span>{users.filter(u => u.role === "HOST").length} مالك</span>
+                  <span>{totalOwners} مالك</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-orange-500 rounded-full"
-                    style={{ width: `${totalUsers > 0 ? (users.filter(u => u.role === "HOST").length / totalUsers) * 100 : 0}%` }}
+                    style={{ width: `${totalUsers > 0 ? (totalOwners / totalUsers) * 100 : 0}%` }}
                   />
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
                   <span>مسؤولو النظام</span>
-                  <span>{users.filter(u => u.role === "ADMIN").length} مسؤول</span>
+                  <span>{totalAdmins} مسؤول</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-slate-800 rounded-full"
-                    style={{ width: `${totalUsers > 0 ? (users.filter(u => u.role === "ADMIN").length / totalUsers) * 100 : 0}%` }}
+                    style={{ width: `${totalUsers > 0 ? (totalAdmins / totalUsers) * 100 : 0}%` }}
                   />
                 </div>
               </div>
@@ -304,7 +307,7 @@ export function AdminDashboardPage() {
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {/* Recent Pending Listings */}
           <div className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-sm font-extrabold text-slate-900">أحدث العقارات المعلقة</h3>
                 <p className="text-xs text-slate-400 font-semibold">تحت المراجعة والتدقيق</p>
@@ -320,13 +323,13 @@ export function AdminDashboardPage() {
             ) : (
               <div className="space-y-4">
                 {pendingListings.slice(0, 3).map((listing) => (
-                  <div key={listing.id} className="flex items-center gap-4">
+                  <div key={listing.id} className="flex items-center gap-3 sm:gap-4">
                     <img
                       src={listing.photos?.[0]?.url || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=80&h=60&fit=crop"}
                       className="h-12 w-16 rounded-lg object-cover"
                       alt={listing.title}
                     />
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       <div className="text-xs font-bold text-slate-900">{listing.title}</div>
                       <div className="text-[10px] text-slate-400 font-semibold">{listing.area?.name || "منطقة غير محددة"}، {listing.city}</div>
                     </div>
@@ -345,7 +348,7 @@ export function AdminDashboardPage() {
 
           {/* Pending Verifications */}
           <div className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-sm font-extrabold text-slate-900">طلبات توثيق هوية المستخدمين</h3>
                 <p className="text-xs text-slate-400 font-semibold">حسابات تحتاج لمراجعة صور البطاقة الشخصية</p>
@@ -361,16 +364,16 @@ export function AdminDashboardPage() {
             ) : (
               <div className="space-y-4">
                 {pendingVerifications.slice(0, 3).map((pUser) => (
-                  <div key={pUser.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                  <div key={pUser.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700 text-xs">
                         {pUser.firstName?.[0] || "م"}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <div className="text-xs font-bold text-slate-900">
                           {pUser.firstName} {pUser.lastName}
                         </div>
-                        <div className="text-[10px] text-slate-400 font-semibold">{pUser.email}</div>
+                        <div className="truncate text-[10px] font-semibold text-slate-400">{pUser.email}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

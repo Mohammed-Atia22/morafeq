@@ -79,7 +79,7 @@ export function AdminComplaintsPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-[#172033]" dir="rtl">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-8 py-4">
+      <header className="flex flex-col gap-4 border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">الشكاوى والنزاعات المعلقة</h1>
           <p className="mt-0.5 text-xs font-semibold text-slate-500">
@@ -88,14 +88,14 @@ export function AdminComplaintsPage() {
         </div>
         <button
           onClick={fetchComplaints}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 sm:w-auto cursor-pointer"
         >
           تحديث النزاعات
         </button>
       </header>
 
       {/* Main Content */}
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         {loading && complaints.length === 0 ? (
           <div className="flex h-64 items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
@@ -122,11 +122,11 @@ export function AdminComplaintsPage() {
               return (
                 <div
                   key={complaint.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition flex flex-col justify-between"
+                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md sm:p-6 flex flex-col justify-between"
                 >
                   <div>
                     {/* ID & Date */}
-                    <div className="flex justify-between items-center mb-4 text-xs font-semibold text-slate-400">
+                    <div className="mb-4 flex flex-col gap-1 text-xs font-semibold text-slate-400 sm:flex-row sm:items-center sm:justify-between">
                       <span>رقم الحجز: #{complaint.id}</span>
                       <span>
                         تاريخ النزاع: {complaint.disputedAt ? new Date(complaint.disputedAt).toLocaleString("ar-EG") : "غير محدد"}
@@ -145,7 +145,7 @@ export function AdminComplaintsPage() {
                     </div>
 
                     {/* People details */}
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                       {/* Guest info */}
                       <div className="rounded-xl bg-slate-50 p-3 text-right">
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">المستأجر (الشاكي)</span>
@@ -173,17 +173,17 @@ export function AdminComplaintsPage() {
 
                     {/* Listing & Payment details */}
                     <div className="rounded-xl border border-slate-100 p-4 text-xs font-semibold text-slate-600 mb-4 space-y-2">
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
                         <span>العقار:</span>
                         <span className="font-extrabold text-slate-800">{complaint.listing?.title}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
                         <span>موقع العقار:</span>
                         <span className="font-extrabold text-slate-800">
                           {complaint.listing?.city}، {complaint.listing?.governorate}
                         </span>
                       </div>
-                      <div className="flex justify-between border-t border-slate-100 pt-2 text-sm">
+                      <div className="flex flex-col gap-1 border-t border-slate-100 pt-2 text-sm sm:flex-row sm:justify-between">
                         <span>إجمالي القيمة المعلقة بالدفع:</span>
                         <span className="font-black text-blue-600">{amount.toLocaleString("ar-EG")} ج.م</span>
                       </div>
@@ -191,7 +191,7 @@ export function AdminComplaintsPage() {
                   </div>
 
                   {/* Actions buttons */}
-                  <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-4 mt-2">
+                  <div className="mt-2 grid grid-cols-1 gap-2 border-t border-slate-100 pt-4 sm:grid-cols-2">
                     <button
                       onClick={() => openResolutionModal(complaint, "REFUND")}
                       className="rounded-xl bg-red-600 py-2.5 text-xs font-black text-white hover:bg-red-700 shadow-sm transition cursor-pointer text-center"
@@ -215,7 +215,7 @@ export function AdminComplaintsPage() {
       {/* Resolution decision dialog modal */}
       {selectedComplaint && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl text-right">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 text-right shadow-xl sm:p-6">
             <h3 className="text-base font-black text-slate-900 mb-1">
               {resolutionType === "REFUND" ? "الموافقة على رد المبالغ المدفوعة" : "رفض الشكوى وتحرير المبالغ للطرف المالك"}
             </h3>
@@ -237,7 +237,7 @@ export function AdminComplaintsPage() {
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                 <button
                   type="submit"
                   disabled={actionLoading}

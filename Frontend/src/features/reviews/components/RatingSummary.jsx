@@ -4,7 +4,7 @@ import { formatReviewCount } from "../utils/reviewHelpers";
 export function RatingSummary({
   averageRating = 0,
   reviewCount = 0,
-  size = "sm",
+  size = "xs",
   showCount = true,
   showNumeric = true,
   className = "",

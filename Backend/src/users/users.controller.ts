@@ -13,6 +13,7 @@ import {
   HttpCode,
   HttpStatus,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -56,6 +57,18 @@ export class UsersController {
     FileInterceptor('avatar', {
       storage: memoryStorage(), // keep file in memory, not disk
       limits:  { fileSize: 5 * 1024 * 1024 }, // 5MB
+      fileFilter: (_req, file, callback) => {
+        if (!['image/jpeg', 'image/png'].includes(file.mimetype)) {
+          return callback(
+            new BadRequestException(
+              'Invalid file type. Only JPEG and PNG allowed',
+            ),
+            false,
+          );
+        }
+
+        callback(null, true);
+      },
     }),
   )
   uploadAvatar(

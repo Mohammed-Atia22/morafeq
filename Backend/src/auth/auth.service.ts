@@ -25,6 +25,7 @@ import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import * as bcrypt from 'bcryptjs';
 import * as CryptoJS from 'crypto-js';
+import * as crypto from 'crypto';
 import { sendEmail } from 'src/common/emails/sendEmail';
 import { OtpRepository } from 'src/repository/otp.repository';
 import { OTPTypes, UserRole, VerificationStatus } from '@prisma/client';
@@ -197,16 +198,21 @@ export class AuthService {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    await sendEmail({
-      to: normalizedEmail,
-      subject: 'Confirm your email',
-      html: `
-        <h1>Your verification code: ${code}</h1>
-        <p>This code expires in 10 minutes.</p>
-      `,
-    });
+    if (process.env.DISABLE_EMAILS === 'true') {
+  console.log(`DEV OTP for ${normalizedEmail}: ${code}`);
+} else {
+  await sendEmail({
+    to: normalizedEmail,
+    subject: 'Confirm your email',
+    html: `
+      <h1>Your verification code: ${code}</h1>
+      <p>This code expires in 10 minutes.</p>
+    `,
+  });
+}
 
-    this.markOtpSent(normalizedEmail, OTPTypes.EMAIL_CONFIRMATION);
+this.markOtpSent(normalizedEmail, OTPTypes.EMAIL_CONFIRMATION);
+
 
     return {
       message: existingUser
@@ -215,14 +221,16 @@ export class AuthService {
       user,
     };
   } catch (error) {
-    if (error instanceof HttpException) {
-      throw error;
-    }
+  console.error('REGISTER ERROR:', error);
 
-    throw new InternalServerErrorException(
-      'فشل إنشاء الحساب. حاول مرة أخرى.',
-    );
+  if (error instanceof HttpException) {
+    throw error;
   }
+
+  throw new InternalServerErrorException(
+    'فشل إنشاء الحساب. حاول مرة أخرى.',
+  );
+}
 }
 
   // ─── Confirm OTP ───────────────────────────
@@ -752,7 +760,16 @@ export class AuthService {
   // ─── Private: generate tokens ──────────────
 
   private async generateTokens(userId: number, email: string, role: string) {
-    const payload: JwtPayload = { sub: userId, email, role };
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordHash: true },
+    });
+    const payload: JwtPayload = {
+      sub: userId,
+      email,
+      role,
+      pwdv: this.passwordFingerprint(user?.passwordHash ?? null),
+    };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(payload, {
@@ -768,6 +785,16 @@ export class AuthService {
     ]);
 
     return { accessToken, refreshToken };
+  }
+
+  private passwordFingerprint(passwordHash?: string | null) {
+    const secret = this.config.get<string>('JWT_SECRET') ?? 'dev_jwt_secret';
+
+    return crypto
+      .createHmac('sha256', secret)
+      .update(passwordHash ?? 'NO_PASSWORD')
+      .digest('hex')
+      .slice(0, 32);
   }
 
   private getOtpAttemptKey(email: string, otpType: OTPTypes) {

@@ -1,30 +1,30 @@
-import { useEffect } from "react";
-import { createChatSocket } from "../features/chat/services/chatSocket";
+// import { useEffect } from "react";
+// import { createChatSocket } from "../features/chat/services/chatSocket";
 
-export function OwnerPages() {
-  useEffect(() => {
-    const socket = createChatSocket();
+// export function OwnerPages() {
+//   useEffect(() => {
+//     const socket = createChatSocket();
 
-    socket.on("connect", () => {
-      console.log("Socket connected:", socket.id);
-    });
+//     socket.on("connect", () => {
+//       console.log("Socket connected:", socket.id);
+//     });
 
-    socket.on("socketError", (error) => {
-      console.log("Socket error:", error);
-    });
+//     socket.on("socketError", (error) => {
+//       console.log("Socket error:", error);
+//     });
 
-    socket.on("connect_error", (error) => {
-      console.log("Connection error:", error.message);
-    });
+//     socket.on("connect_error", (error) => {
+//       console.log("Connection error:", error.message);
+//     });
 
-    socket.on("disconnect", (reason) => {
-      console.log("Socket disconnected:", reason);
-    });
+//     socket.on("disconnect", (reason) => {
+//       console.log("Socket disconnected:", reason);
+//     });
 
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
+//     return () => {
+//       socket.disconnect();
+//     };
+//   }, []);
 
-  return <div>Owner Page</div>;
-}
+//   return <div>Owner Page</div>;
+// }

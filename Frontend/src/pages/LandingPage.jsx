@@ -8,7 +8,7 @@ import studentImage from "../../images/std.png";
 import personOne from "../../images/person 1.jpg";
 import personTwo from "../../images/person 2.jpg";
 import personThree from "../../images/person 3.jpg";
-import logo from "../../images/logo.png";
+import logo from "../../images/w_logo.png";
 
 const heroFeatures = [
   { label: "شقق موثقة", icon: ShieldIcon },
@@ -107,10 +107,8 @@ export function LandingPage() {
 
         <div className="relative z-10 mx-auto flex min-h-[405px] max-w-6xl flex-col items-center justify-center px-4 pb-14 pt-10 text-center">
           <h1 className="text-[34px] font-black leading-tight sm:text-[48px]">
-            مرافق موثوق للطلاب
-            <span className="block">
-              بدون نصب، <span className="text-[#67a7ff]">بالقرب من جامعتك</span>
-            </span>
+            اعثر على سكنك المثالي
+            <span className="block text-[#67a7ff]">بالقرب من جامعتك</span>
           </h1>
           <p className="mt-4 text-lg font-semibold leading-8 text-blue-50">
             ابحث عن شقق موثقة وآمنة تناسب ميزانيتك
@@ -177,7 +175,7 @@ export function LandingPage() {
               title="أنا صاحب عقار"
               text="أضف عقارك ووصل لآلاف الطلاب الباحثين عن سكن"
               button="أضف عقارك الآن"
-              to="/owner"
+              to="/"
               color="green"
               image={ownerImage}
             />
@@ -185,7 +183,7 @@ export function LandingPage() {
               title="أنا مغترب (طالب)"
               text="أبحث عن سكن مناسب بالقرب من جامعتي"
               button="ابحث عن سكن"
-              to="/expatriate"
+              to="/"
               color="blue"
               image={studentImage}
             />
@@ -228,7 +226,7 @@ export function LandingPage() {
               عرض كل الشقق
             </a>
             <h2 className="text-2xl font-black text-[#0f2744]">
-              شقق مميزة بالقرب منك
+              الشقق المتاحه 
             </h2>
           </div>
 
@@ -255,7 +253,7 @@ export function LandingPage() {
       <section className="px-4 py-8">
         <div className="mx-auto max-w-5xl">
           <h2 className="mb-5 text-center text-2xl font-black text-[#0f2744]">
-            ماذا يقول طلابنا؟
+            ماذا يقول عملاؤنا 
           </h2>
           <div className="grid gap-5 md:grid-cols-3">
             {testimonials.map((item) => (
@@ -324,13 +322,6 @@ export function LandingPage() {
       </section>
 
       <section className="relative overflow-hidden bg-gradient-to-l from-[#159B72] via-[#0F7F5E] to-[#0A5C46] px-4 py-14 text-white">
-        {/* Illustration */}
-        <img
-          src={ownerImage}
-          alt=""
-          className="absolute bottom-0 left-0 hidden h-56 w-80 object-contain object-left-bottom opacity-95 lg:block"
-        />
-
         {/* Content */}
         <div className="relative mx-auto max-w-5xl text-center">
           <p className="mb-2 text-sm font-bold text-green-100">صاحب عقار؟</p>
@@ -518,11 +509,7 @@ function PropertyCard({ listing }) {
           >
             عرض التفاصيل
           </Link>
-          <RatingSummary
-            averageRating={listing.averageRating ?? 0}
-            reviewCount={reviewCount}
-            size="sm"
-          />
+
         </div>
       </div>
     </article>

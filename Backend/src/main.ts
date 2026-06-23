@@ -6,10 +6,19 @@ import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+  logger:
+    process.env.NODE_ENV === 'production'
+      ? ['error', 'warn']
+      : ['log', 'error', 'warn', 'debug', 'verbose'],
+});
 
   // Parse cookies
   app.use(cookieParser());
+
+ // Trust proxy for rate limiting behind reverse proxy/load balancer
+ // Uncomment and configure for production when behind a proxy
+ // app.set('trust proxy', 1); // or the number of proxy hops
 
   // Auto validate all incoming requests
   app.useGlobalPipes(
@@ -51,7 +60,7 @@ app.enableCors({
   SwaggerModule.setup('api/v1/docs', app, document);
 
   const port = process.env.PORT || 3001;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   console.log(`API running at http://localhost:${port}/api/v1`);
   console.log(`Docs available at http://localhost:${port}/api/v1/docs`);

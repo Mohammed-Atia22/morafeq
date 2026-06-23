@@ -12,6 +12,7 @@ import {
   HttpStatus,
   Patch,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import {
@@ -36,6 +37,7 @@ export class AuthController {
   // ─── Register ────────────────────────────
 
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async register(@Body() body: RegisterDto) {
     return this.authService.register(body);
   }
@@ -43,6 +45,7 @@ export class AuthController {
   // ─── Confirm OTP ─────────────────────────
 
   @Patch('confirm')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async confirm(
     @Body() body: confirmrDto,
@@ -61,6 +64,7 @@ export class AuthController {
   // ─── Login ───────────────────────────────
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginDto,
@@ -78,6 +82,7 @@ export class AuthController {
   // ─── Forget password ──────────────────────
 
   @Patch('forgetPassword')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async forgetPassword(@Body() body: forgetDto) {
     return this.authService.forgetPassword(body);
@@ -86,12 +91,14 @@ export class AuthController {
   // ─── Reset password ───────────────────────
 
   @Patch('resetPassword')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() body: resetDto) {
     return this.authService.resetPassword(body);
   }
 
   @Patch('verify-reset-otp')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async verifyResetOtp(@Body() body: ResetOtpDto) {
     return this.authService.verifyResetOtp(body);
@@ -100,6 +107,7 @@ export class AuthController {
   // ─── Resend OTP ───────────────────────────
 
   @Post('resend-otp')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   resendOtp(@Body() body: ResendOtpDto) {
     return this.authService.resendOtp(body);
@@ -147,6 +155,12 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   async googleCallback(@Req() req: Request, @Res() res: Response) {
+    if (!req.user) {
+      return res.redirect(
+        `${process.env.FRONTEND_URL || 'http://localhost:5173'}/register?googleAuth=cancelled`,
+      );
+    }
+
     const result = await this.authService.googleLogin(req.user as any);
     this.setRefreshCookie(res, result.refreshToken);
 

@@ -10,6 +10,7 @@ import { OwnerWelcomeCard } from "../components/dashboard/OwnerWelcomeCard";
 import { StatusTabs } from "../components/dashboard/StatusTabs";
 import { DeleteListingDialog } from "../components/listing-card/DeleteListingDialog";
 import { ListingCard } from "../components/listing-card/ListingCard";
+import { useHostReviews } from "../../reviews/hooks/useHostReviews";
 import { fallbackImages } from "../constants/ownerDashboard";
 import { useOwnerListings } from "../hooks/useOwnerListings";
 import { useOwnerRequests } from "../hooks/useOwnerRequests";
@@ -46,8 +47,16 @@ export function OwnerPage() {
     loading: requestsLoading,
     fetchRequests,
   } = useOwnerRequests();
+  const {
+    meta: hostReviewMeta,
+    loading: reviewsLoading,
+  } = useHostReviews(user?.id);
 
-  const dashboardMetrics = buildDashboardMetrics(listings, requests);
+  const dashboardMetrics = buildDashboardMetrics(
+    listings,
+    requests,
+    hostReviewMeta,
+  );
 
   useEffect(() => {
     if (activeSection === "dashboard") {
@@ -118,7 +127,10 @@ export function OwnerPage() {
               </section>
 
               <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-                <ReviewsSection metrics={dashboardMetrics} />
+                <ReviewsSection
+                  metrics={dashboardMetrics}
+                  loading={reviewsLoading}
+                />
                 <BookingSection
                   metrics={dashboardMetrics}
                   loading={requestsLoading}
@@ -204,7 +216,7 @@ export function OwnerPage() {
   );
 }
 
-function buildDashboardMetrics(listings, requests) {
+function buildDashboardMetrics(listings, requests, hostReviewMeta = {}) {
   const approvedStatuses = ["ACTIVE", "APPROVED"];
   const pendingStatuses = ["DRAFT", "PENDING_APPROVAL"];
   const rejectedStatuses = ["REJECTED", "SUSPENDED"];
@@ -235,19 +247,8 @@ function buildDashboardMetrics(listings, requests) {
       )
     );
   }, 0);
-  const views = listings.reduce(
-    (sum, listing) => sum + Number(listing.viewsCount || 0),
-    0,
-  );
-  const reviewCount = listings.reduce(
-    (sum, listing) => sum + Number(listing._count?.reviews || 0),
-    0,
-  );
-  const weightedRating = listings.reduce((sum, listing) => {
-    const count = Number(listing._count?.reviews || 0);
-    return sum + Number(listing.averageRating || 0) * count;
-  }, 0);
-  const averageRating = reviewCount ? weightedRating / reviewCount : 0;
+  const reviewCount = Number(hostReviewMeta.total || 0);
+  const averageRating = Number(hostReviewMeta.averageRating || 0);
   const rooms = listings
     .flatMap((listing) =>
       (listing.rooms || []).map((room) => ({
@@ -277,7 +278,6 @@ function buildDashboardMetrics(listings, requests) {
     occupancyPercent: totalCapacity
       ? Math.round((reservedPlaces / totalCapacity) * 100)
       : 0,
-    views,
     reviewCount,
     averageRating,
     rooms,
@@ -323,7 +323,7 @@ function DashboardTop({ user, metrics, requestsLoading }) {
 
 function SummaryCards({ metrics }) {
   return (
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <KpiCard
         label="عدد العقارات"
         value={metrics.listingsTotal.toLocaleString("ar-EG")}
@@ -341,12 +341,6 @@ function SummaryCards({ metrics }) {
         value={metrics.reservedPlaces.toLocaleString("ar-EG")}
         hint={`من أصل ${metrics.totalCapacity.toLocaleString("ar-EG")} مكان`}
         tone="violet"
-      />
-      <KpiCard
-        label="المشاهدات"
-        value={metrics.views.toLocaleString("ar-EG")}
-        hint="إجمالي مشاهدات العقارات"
-        tone="orange"
       />
     </section>
   );
@@ -508,10 +502,15 @@ function RoomOverview({ rooms }) {
   );
 }
 
-function ReviewsSection({ metrics }) {
+function ReviewsSection({ metrics, loading }) {
   return (
     <section className="rounded-[24px] border border-[#E5EBF6] bg-white p-5 shadow-[0_14px_32px_rgba(31,57,104,0.08)]">
-      <SectionTitle title="التقييمات" subtitle="آراء المستأجرين" />
+      <SectionTitle
+        title="التقييمات"
+        subtitle={
+          loading ? "جاري تحميل التقييمات" : "آراء المستأجرين"
+        }
+      />
       <div className="mt-6 flex items-center justify-between rounded-2xl bg-[#F7F9FE] px-5 py-5">
         <div>
           <p className="text-4xl font-black text-[#111D35]">

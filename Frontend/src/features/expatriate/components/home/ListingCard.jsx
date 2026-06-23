@@ -142,7 +142,7 @@ export function ListingCard({
         )}
 
         {/* Footer */}
-        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+        <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 sm:grid-cols-2">
           <span>الأماكن المتبقية: {availablePlaces.toLocaleString("ar-EG")}</span>
           <span className="text-left">السعة الكاملة: {Number(listing.maxTenants ?? 0).toLocaleString("ar-EG")}</span>
         </div>

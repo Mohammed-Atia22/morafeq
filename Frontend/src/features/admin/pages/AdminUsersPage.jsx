@@ -24,6 +24,10 @@ export function AdminUsersPage() {
     loading,
     page,
     setPage,
+    role,
+    setRole,
+    verificationStatus,
+    setVerificationStatus,
     changeUserRole,
     toggleUserActive,
     approveVerification,
@@ -122,12 +126,12 @@ export function AdminUsersPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-8 py-4">
+      <header className="flex flex-col gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div>
           <h1 className="text-xl font-bold text-slate-900">دليل المستخدمين</h1>
           <p className="mt-0.5 text-xs text-slate-500">إدارة حسابات الطلاب وأصحاب العقارات وتدقيق التوثيق</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto">
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600">
             <CalendarIcon className="h-4 w-4 text-slate-400" />
             <span>اليوم، {new Date().toLocaleDateString("ar-EG", { month: "long", day: "numeric" })}</span>
@@ -138,11 +142,35 @@ export function AdminUsersPage() {
         </div>
       </header>
 
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         {/* Search bar & statistics counts */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-slate-500 font-bold text-xs">
             إجمالي الأعضاء في الصفحة: {filteredUsers.length} مستخدم
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">كل الأدوار</option>
+              <option value="GUEST">مغترب / طالب</option>
+              <option value="HOST">مالك عقار</option>
+              <option value="ADMIN">مسؤول نظام</option>
+            </select>
+            <select
+              value={verificationStatus}
+              onChange={(e) => setVerificationStatus(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">كل حالات التوثيق</option>
+              <option value="NOT_STARTED">غير موثق</option>
+              <option value="PENDING">بانتظار المراجعة</option>
+              <option value="APPROVED">موثق</option>
+              <option value="REJECTED">مرفوض التوثيق</option>
+            </select>
           </div>
 
           <div className="relative">
@@ -176,7 +204,7 @@ export function AdminUsersPage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-            <table className="w-full text-right text-xs">
+            <table className="min-w-[860px] w-full text-right text-xs">
               <thead>
                 <tr className="border-b border-slate-100 font-extrabold text-slate-400">
                   <th className="py-3.5 px-6">الحالة ونشاط الحساب</th>
@@ -281,7 +309,7 @@ export function AdminUsersPage() {
         {selectedVerification && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
             <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl text-right max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+              <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-base font-extrabold text-slate-900">
                   مراجعة مستندات الهوية للعميل: {selectedVerification.user.firstName} {selectedVerification.user.lastName}
                 </h3>
@@ -290,7 +318,7 @@ export function AdminUsersPage() {
 
               {/* ID Images layout */}
               <div className="space-y-4 mb-6">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <span className="text-xs font-bold text-slate-400">وجه بطاقة الهوية (ID Front):</span>
                     <a href={selectedVerification.verification.idFrontUrl} target="_blank" rel="noreferrer" className="block mt-1">
@@ -327,7 +355,7 @@ export function AdminUsersPage() {
 
               {/* Rejection input and Actions */}
               {!isRejecting ? (
-                <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                <div className="flex flex-col justify-end gap-3 border-t border-slate-100 pt-4 sm:flex-row">
                   <button
                     onClick={handleApproveVerify}
                     className="rounded-xl bg-green-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-green-700 shadow"
@@ -354,7 +382,7 @@ export function AdminUsersPage() {
                       className="w-full rounded-xl border border-slate-200 p-3 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
-                  <div className="flex justify-end gap-3">
+                  <div className="flex flex-col justify-end gap-3 sm:flex-row">
                     <button
                       type="button"
                       onClick={() => setIsRejecting(false)}

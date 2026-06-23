@@ -317,14 +317,6 @@ return this.sanitizeBookingForUser(created, guestId);
           booking.listingId,
         );
 
-        await this.createBookingMessage(
-          tx,
-          booking.guestId,
-          booking.listing.hostId,
-          booking.listingId,
-          'تمت الموافقة على طلب الحجز الخاص بك. يرجى إكمال الدفع خلال ساعة واحدة، وإلا سيتم إلغاء الحجز تلقائيا.',
-        );
-
         return acceptedBooking;
       });
 
@@ -558,23 +550,6 @@ return this.sanitizeBookingForUser(created, guestId);
 
         await this.releaseRoomPlaceIfNeeded(tx, booking.roomId);
         await this.recalculateListingVisibility(tx, booking.listingId);
-
-        await this.createBookingMessage(
-          tx,
-          booking.guestId,
-          booking.listing.hostId,
-          booking.listingId,
-          'انتهت مهلة الدفع الخاصة بالحجز.',
-        );
-
-        await this.createBookingMessage(
-          tx,
-          booking.guestId,
-          booking.listing.hostId,
-          booking.listingId,
-          'انتهت مهلة الدفع الخاصة بالحجز.',
-          booking.guestId,
-        );
       });
     }
 
