@@ -220,14 +220,16 @@ this.markOtpSent(normalizedEmail, OTPTypes.EMAIL_CONFIRMATION);
       user,
     };
   } catch (error) {
-    if (error instanceof HttpException) {
-      throw error;
-    }
+  console.error('REGISTER ERROR:', error);
 
-    throw new InternalServerErrorException(
-      'فشل إنشاء الحساب. حاول مرة أخرى.',
-    );
+  if (error instanceof HttpException) {
+    throw error;
   }
+
+  throw new InternalServerErrorException(
+    'فشل إنشاء الحساب. حاول مرة أخرى.',
+  );
+}
 }
 
   // ─── Confirm OTP ───────────────────────────
