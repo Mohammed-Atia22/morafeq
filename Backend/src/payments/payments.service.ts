@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
-import { BookingStatus, ListingStatus, PaymentStatus } from '@prisma/client';
+import { BookingStatus, ListingStatus, PaymentStatus, Prisma } from '@prisma/client';
 import axios from 'axios';
 import * as crypto from 'crypto';
 import { ReleasePaymentDto } from './dto/release-payment.dto';
@@ -388,6 +388,27 @@ const hostPayout =
       return { received: true };
     }
 
+    if (payment.paymobTransactionId === transactionId) {
+      return {
+        received: true,
+        status: 'duplicate_ignored',
+      };
+    }
+
+    if (transactionId) {
+      const existingTransaction = await this.prisma.payment.findUnique({
+        where: { paymobTransactionId: transactionId },
+        select: { id: true },
+      });
+
+      if (existingTransaction) {
+        return {
+          received: true,
+          status: 'duplicate_ignored',
+        };
+      }
+    }
+
     if (
   payment.status === PaymentStatus.HELD ||
   payment.status === PaymentStatus.RELEASED ||
@@ -457,27 +478,57 @@ const paymentSucceeded = transaction.success === true;
       }
 
       // 3. payment succeeded — confirm booking
-      await this.prisma.$transaction([
-        // update payment record
-        this.prisma.payment.update({
-          where: { paymobOrderId },
-          data: {
-            status: PaymentStatus.HELD,
-            heldAt: new Date(),
-            paymobTransactionId: transactionId,
-            paymentMethod,
-            paidAt: new Date(),
-          },
-        }),
-        // confirm the booking
-        this.prisma.booking.update({
-          where: { id: payment.bookingId },
-          data: {
-            status: BookingStatus.CHECK_IN_PENDING,
-            confirmedAt: new Date(),
-          },
-        }),
-      ]);
+      try {
+        const claimResult = await this.prisma.$transaction(async (tx) => {
+          const paymentUpdate = await tx.payment.updateMany({
+            where: {
+              id: payment.id,
+              status: PaymentStatus.PENDING,
+              paymobTransactionId: null,
+            },
+            data: {
+              status: PaymentStatus.HELD,
+              heldAt: new Date(),
+              paymobTransactionId: transactionId,
+              paymentMethod,
+              paidAt: new Date(),
+            },
+          });
+
+          if (paymentUpdate.count === 0) {
+            return { claimed: false };
+          }
+
+          await tx.booking.update({
+            where: { id: payment.bookingId },
+            data: {
+              status: BookingStatus.CHECK_IN_PENDING,
+              confirmedAt: new Date(),
+            },
+          });
+
+          return { claimed: true };
+        });
+
+        if (!claimResult.claimed) {
+          return {
+            received: true,
+            status: 'duplicate_ignored',
+          };
+        }
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          return {
+            received: true,
+            status: 'duplicate_ignored',
+          };
+        }
+
+        throw error;
+      }
 
       return {
   received: true,
@@ -487,13 +538,38 @@ const paymentSucceeded = transaction.success === true;
 };
     } else {
       // 4. payment failed
-      await this.prisma.payment.update({
-        where: { paymobOrderId },
-        data: {
-          status: PaymentStatus.FAILED,
-          paymobTransactionId: transactionId,
-        },
-      });
+      try {
+        const paymentUpdate = await this.prisma.payment.updateMany({
+          where: {
+            id: payment.id,
+            status: PaymentStatus.PENDING,
+            paymobTransactionId: null,
+          },
+          data: {
+            status: PaymentStatus.FAILED,
+            paymobTransactionId: transactionId,
+          },
+        });
+
+        if (paymentUpdate.count === 0) {
+          return {
+            received: true,
+            status: 'duplicate_ignored',
+          };
+        }
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          return {
+            received: true,
+            status: 'duplicate_ignored',
+          };
+        }
+
+        throw error;
+      }
 
       return { received: true, status: 'failed' };
     }

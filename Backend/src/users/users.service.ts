@@ -128,6 +128,12 @@ export class UsersService {
   // ─── Update profile ────────────────────────
 
   async updateProfile(userId: number, dto: UpdateProfileDto) {
+    if (Object.prototype.hasOwnProperty.call(dto, 'role')) {
+      throw new BadRequestException(
+        'Role cannot be changed from the profile endpoint',
+      );
+    }
+
     const phoneUpdate = dto.phone
       ? await this.buildPhoneUpdate(userId, dto.phone, dto.phoneCountry)
       : {};
@@ -265,7 +271,7 @@ export class UsersService {
       );
     }
 
-    const isCurrentValid = bcrypt.compare(
+    const isCurrentValid = await bcrypt.compare(
       dto.currentPassword!,
       user!.passwordHash,
     );
