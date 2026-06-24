@@ -128,7 +128,7 @@ export function ExpatriateBookingsPage() {
     try {
       await reportProblem(selectedBookingId, problemReason, problemDescription);
       setShowProblemModal(false);
-      setSelectedBookingId(null);
+      setSelectedBookingId(null); 
       setProblemReason("");
       setProblemDescription("");
       fetchBookings();

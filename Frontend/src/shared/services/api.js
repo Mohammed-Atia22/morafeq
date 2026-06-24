@@ -194,5 +194,7 @@ export async function apiRequest(path, options = {}, retry = true) {
     return null;
   }
 
+  console.log(response);
   return response.json();
+  
 }
