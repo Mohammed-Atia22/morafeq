@@ -35,6 +35,23 @@ export default function BookingDetailPage() {
 
   const { listing } = booking;
 
+  const formatPhoneForDisplay = (phone, countryCode) => {
+    if (!phone) return "---";
+
+    const cleanCountryCode = String(countryCode ?? "").replace(/\D/g, "");
+    let cleanPhone = String(phone).replace(/\D/g, "");
+
+    if (cleanCountryCode && cleanPhone.startsWith(cleanCountryCode)) {
+      cleanPhone = cleanPhone.slice(cleanCountryCode.length);
+    }
+
+    if (cleanCountryCode === "20" && cleanPhone.startsWith("1")) {
+      return `0${cleanPhone}`;
+    }
+
+    return cleanPhone || "---";
+  };
+
   return (
     <main className="min-h-screen p-6" dir="rtl">
       <div className="max-w-3xl mx-auto space-y-6">
@@ -114,8 +131,12 @@ export default function BookingDetailPage() {
                 </p>
                 <p>
                   <strong>الهاتف:</strong>{" "}
-                  {listing.host?.phoneCountryCode ?? ""}{" "}
-                  {listing.host?.phone ?? "---"}
+                  <span dir="ltr">
+                    {formatPhoneForDisplay(
+                      listing.host?.phone,
+                      listing.host?.phoneCountryCode,
+                    )}
+                  </span>
                 </p>
               </>
             ) : (

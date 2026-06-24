@@ -32,8 +32,34 @@ import {
   areAllRoomsFull,
 } from './booking-capacity';
 
+import * as CryptoJS from 'crypto-js';
+
 @Injectable()
 export class BookingsService implements OnModuleInit, OnModuleDestroy {
+
+  private decryptPhone(
+  phone: string | null | undefined,
+): string | null {
+  if (!phone) {
+    return null;
+  }
+
+  try {
+    const phoneCryptoSecret =
+      process.env.PHONE_CRYPTO_SECRET ??
+      'dev_phone_crypto_secret';
+
+    const bytes = CryptoJS.AES.decrypt(
+      phone,
+      phoneCryptoSecret,
+    );
+
+    return bytes.toString(CryptoJS.enc.Utf8) || null;
+  } catch {
+    return null;
+  }
+}
+
   private readonly logger = new Logger(BookingsService.name);
   private expirationTimer?: NodeJS.Timeout;
   private readonly expirationCheckMs = 5 * 60 * 1000;
@@ -871,58 +897,88 @@ return this.sanitizeBookingForUser(created, guestId);
     };
   }
 
-  private sanitizeBookingForUser(booking: any, userId: number) {
-    if (!booking) return booking;
-    const currentUserId = Number(userId);
-    const isHost = Number((booking.listing as any).host?.id) === currentUserId;
-    const isGuest = booking.guestId === currentUserId;
+  private sanitizeBookingForUser(
+  booking: any,
+  userId: number,
+) {
+  if (!booking) return booking;
 
-    if (isHost) return booking;
+  const currentUserId = Number(userId);
 
-    if (isGuest) {
-      // robust check: coerce enums/strings to uppercase strings to avoid mismatches
-      const paymentStatus = String(booking.payment?.status ?? '').toUpperCase();
-      const bookingStatus = String(booking.status ?? '').toUpperCase();
+  const isHost =
+    Number((booking.listing as any).host?.id) ===
+    currentUserId;
 
-      const hasAccess =
-        paymentStatus === 'HELD' && bookingStatus === 'CHECK_IN_PENDING';
+  const isGuest = booking.guestId === currentUserId;
 
-      this.logger.debug(
-        `sanitizeBookingForUser: booking=${booking.id} user=${currentUserId} isGuest=${isGuest} paymentStatus=${paymentStatus} bookingStatus=${bookingStatus} hasAccess=${hasAccess}`,
-      );
+  const bookingWithDecryptedHostPhone = {
+    ...booking,
+    listing: {
+      ...booking.listing,
+      host: {
+        ...booking.listing.host,
+        phone: this.decryptPhone(
+          booking.listing.host?.phone,
+        ),
+      },
+    },
+  };
 
-      if (hasAccess) return booking;
+  if (isHost) {
+    return bookingWithDecryptedHostPhone;
+  }
 
-      // mask sensitive listing and host contact info
-      const maskedListing = {
-        ...booking.listing,
-        streetName: null,
-        buildingNumber: null,
-        floorNumber: null,
-        apartmentNumber: null,
-        nearbyLandmark: null,
-        googleFormattedAddress: null,
-        googlePlaceId: null,
-        lat: null,
-        lng: null,
-        arrivalInstructions: null,
-        host: {
-          id: booking.listing.host.id,
-          firstName: booking.listing.host.firstName,
-          lastName: booking.listing.host.lastName,
-          avatarUrl: booking.listing.host.avatarUrl,
-          verificationStatus: booking.listing.host.verificationStatus,
-        },
-      };
+  if (isGuest) {
+    const paymentStatus = String(
+      booking.payment?.status ?? '',
+    ).toUpperCase();
 
-      return {
-        ...booking,
-        listing: maskedListing,
-      };
+    const bookingStatus = String(
+      booking.status ?? '',
+    ).toUpperCase();
+
+    const hasAccess =
+      paymentStatus === 'HELD' &&
+      bookingStatus === 'CHECK_IN_PENDING';
+
+    this.logger.debug(
+      `sanitizeBookingForUser: booking=${booking.id} user=${currentUserId} isGuest=${isGuest} paymentStatus=${paymentStatus} bookingStatus=${bookingStatus} hasAccess=${hasAccess}`,
+    );
+
+    if (hasAccess) {
+      return bookingWithDecryptedHostPhone;
     }
 
-    return booking;
+    const maskedListing = {
+      ...booking.listing,
+      streetName: null,
+      buildingNumber: null,
+      floorNumber: null,
+      apartmentNumber: null,
+      nearbyLandmark: null,
+      googleFormattedAddress: null,
+      googlePlaceId: null,
+      lat: null,
+      lng: null,
+      arrivalInstructions: null,
+      host: {
+        id: booking.listing.host.id,
+        firstName: booking.listing.host.firstName,
+        lastName: booking.listing.host.lastName,
+        avatarUrl: booking.listing.host.avatarUrl,
+        verificationStatus:
+          booking.listing.host.verificationStatus,
+      },
+    };
+
+    return {
+      ...booking,
+      listing: maskedListing,
+    };
   }
+
+  return booking;
+}
 
   private async countReservedPlaces(listingId: number) {
     return this.prisma.booking.count({
