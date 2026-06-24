@@ -175,7 +175,7 @@ export function LandingPage() {
               title="أنا صاحب عقار"
               text="أضف عقارك ووصل لآلاف الطلاب الباحثين عن سكن"
               button="أضف عقارك الآن"
-              to="/"
+              to="/owner"
               color="green"
               image={ownerImage}
             />
@@ -183,7 +183,7 @@ export function LandingPage() {
               title="أنا مغترب (طالب)"
               text="أبحث عن سكن مناسب بالقرب من جامعتي"
               button="ابحث عن سكن"
-              to="/"
+              to="/expatriate"
               color="blue"
               image={studentImage}
             />
@@ -226,7 +226,7 @@ export function LandingPage() {
               عرض كل الشقق
             </a>
             <h2 className="text-2xl font-black text-[#0f2744]">
-              الشقق المتاحه 
+              الشقق المتاحه
             </h2>
           </div>
 
@@ -253,7 +253,7 @@ export function LandingPage() {
       <section className="px-4 py-8">
         <div className="mx-auto max-w-5xl">
           <h2 className="mb-5 text-center text-2xl font-black text-[#0f2744]">
-            ماذا يقول عملاؤنا 
+            ماذا يقول عملاؤنا
           </h2>
           <div className="grid gap-5 md:grid-cols-3">
             {testimonials.map((item) => (
@@ -509,7 +509,6 @@ function PropertyCard({ listing }) {
           >
             عرض التفاصيل
           </Link>
-
         </div>
       </div>
     </article>
