@@ -29,7 +29,7 @@ async function bootstrap() {
     }),
   );
 
-   Allow frontend to talk to backend
+   //Allow frontend to talk to backend
    app.enableCors(
      {
      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
