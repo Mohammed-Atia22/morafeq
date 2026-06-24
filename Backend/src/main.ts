@@ -45,7 +45,7 @@ app.enableCors({
 });
 
   // All routes start with /api/v1
-  app.setGlobalPrefix('api/v1');
+//   app.setGlobalPrefix('api/v1');
 
   
 
