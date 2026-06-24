@@ -29,13 +29,11 @@ async function bootstrap() {
     }),
   );
 
-  // Allow frontend to talk to backend
-//   app.enableCors(
-//     {
-//     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-//     credentials: true,
-//   }
-// );
+   //Allow frontend to talk to backend
+   app.enableCors({
+  origin: true,
+  credentials: true,
+});
 
 app.enableCors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -45,7 +43,7 @@ app.enableCors({
 });
 
   // All routes start with /api/v1
-  app.setGlobalPrefix('api/v1');
+//   app.setGlobalPrefix('api/v1');
 
   
 
@@ -57,8 +55,7 @@ app.enableCors({
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/v1/docs', app, document);
-
+  SwaggerModule.setup('docs', app, document);
   const port = process.env.PORT || 3001;
   await app.listen(port, '0.0.0.0');
 
